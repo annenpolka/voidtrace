@@ -16,6 +16,86 @@ export type ArtifactRef = {
   readonly "gameBuild": string;
 };
 
+/** Normalized immutable weapon, target, and modifier data for reproducible evaluation. */
+export type CatalogSnapshot = {
+  /** Schema identifier used to validate this Artifact. */
+  readonly "$schema": "urn:voidtrace:schema:catalog-snapshot:0.1.0";
+  /** Stable discriminator for this Artifact kind. */
+  readonly "kind": "catalog-snapshot";
+  /** Version of this Artifact contract. */
+  readonly "schemaVersion": "0.1.0";
+  /** Stable identity of this Artifact. */
+  readonly "id": string;
+  /** Non-negative immutable revision of this Artifact. */
+  readonly "revision": number;
+  /** Optional Artifact revision from which this Artifact was derived. */
+  readonly "createdFrom"?: ArtifactRef & { readonly "kind": "catalog-snapshot" };
+  /** SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. */
+  readonly "contentHash": string;
+  /** Game build against which this Artifact is defined. */
+  readonly "gameBuild": string;
+  /** Explicit provenance of the normalized data. */
+  readonly "source": {
+    /** Origin classification for this normalized CatalogSnapshot. */
+    readonly "kind": "fixture" | "public-export" | "community" | "manual";
+    /** Human-readable provenance note; not a mechanics claim. */
+    readonly "description": string;
+  };
+  /** Normalized weapon definitions. */
+  readonly "weapons": ReadonlyArray<{
+    /** Stable Catalog identity of this weapon. */
+    readonly "id": string;
+    /** Human-readable weapon label. */
+    readonly "label": string;
+    /** One or more normalized attack modes owned by this weapon. */
+    readonly "attackModes": ReadonlyArray<{
+      /** Stable Catalog identity of this attack mode. */
+      readonly "id": string;
+      /** Human-readable attack-mode label. */
+      readonly "label": string;
+      /** Normalized delivery category; geometry remains resolved input. */
+      readonly "delivery": "hitscan" | "projectile" | "beam" | "radial" | "melee";
+      /** Non-negative base Damage Vector keyed by stable damage-type identity. */
+      readonly "baseDamage": Readonly<Record<string, number>>;
+      /** Normalized non-negative critical chance where 1.0 is 100 percent. */
+      readonly "criticalChance": number;
+      /** Critical damage multiplier before build modifiers. */
+      readonly "criticalMultiplier": number;
+    }>;
+  }>;
+  /** Normalized target definitions. */
+  readonly "targets": ReadonlyArray<{
+    /** Stable Catalog identity of this target. */
+    readonly "id": string;
+    /** Human-readable target label. */
+    readonly "label": string;
+    /** Non-negative normalized base Health. */
+    readonly "baseHealth": number;
+    /** Non-negative normalized base Shield. */
+    readonly "baseShield": number;
+    /** Non-negative normalized base Armor. */
+    readonly "baseArmor": number;
+    /** Non-negative normalized base Overguard. */
+    readonly "baseOverguard": number;
+  }>;
+  /** Normalized modifier definitions, whether supported or not. */
+  readonly "mods": ReadonlyArray<{
+    /** Stable Catalog identity of this mod. */
+    readonly "id": string;
+    /** Human-readable mod label. */
+    readonly "label": string;
+    /** One or more normalized effects; Catalog presence does not imply Kernel support. */
+    readonly "effects": ReadonlyArray<{
+      /** Stable normalized stat identity affected by this Catalog entry. */
+      readonly "stat": string;
+      /** Finite normalized modifier operation; execution semantics belong to Rules. */
+      readonly "operation": "add" | "multiply";
+      /** Finite normalized modifier value. */
+      readonly "value": number;
+    }>;
+  }>;
+};
+
 /** Complete immutable input fingerprint for a reproducible execution. */
 export type Fingerprint = {
   /** Version of the product that requested the evaluation. */
@@ -341,10 +421,11 @@ export type Trace = {
     readonly "matched": true;
   }>;
 };
-export type ContractId = "artifact-ref" | "fingerprint" | "result" | "scenario" | "trace";
+export type ContractId = "artifact-ref" | "catalog-snapshot" | "fingerprint" | "result" | "scenario" | "trace";
 
 export type ContractById = {
   readonly "artifact-ref": ArtifactRef;
+  readonly "catalog-snapshot": CatalogSnapshot;
   readonly "fingerprint": Fingerprint;
   readonly "result": Result;
   readonly "scenario": Scenario;

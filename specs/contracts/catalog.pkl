@@ -1,0 +1,268 @@
+/// Normalized, content-addressed catalog input consumed by the Kernel.
+module voidtrace.contracts.catalog
+
+import "artifact.pkl"
+import "model.pkl"
+
+local schemaIdentifier = "urn:voidtrace:schema:catalog-snapshot:0.1.0"
+local contractVersion = "0.1.0"
+
+function nonEmptyString(): model.StringNode = new model.StringNode {
+  minLength = 1
+}
+
+function stringValues(allowedValues: Listing<String>): model.StringNode = new model.StringNode {
+  values = allowedValues
+}
+
+function nonNegativeNumber(): model.NumberNode = new model.NumberNode {
+  minimum = 0
+}
+
+function source(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description = "Origin classification for this normalized CatalogSnapshot."
+      required = true
+      schema =
+        stringValues(new Listing<String> {
+          "fixture"
+          "public-export"
+          "community"
+          "manual"
+        })
+    }
+    new model.Field {
+      name = "description"
+      description = "Human-readable provenance note; not a mechanics claim."
+      required = true
+      schema = nonEmptyString()
+    }
+  }
+}
+
+function attackMode(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Stable Catalog identity of this attack mode."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "label"
+      description = "Human-readable attack-mode label."
+      required = true
+      schema = nonEmptyString()
+    }
+    new model.Field {
+      name = "delivery"
+      description = "Normalized delivery category; geometry remains resolved input."
+      required = true
+      schema =
+        stringValues(new Listing<String> {
+          "hitscan"
+          "projectile"
+          "beam"
+          "radial"
+          "melee"
+        })
+    }
+    new model.Field {
+      name = "baseDamage"
+      description = "Non-negative base Damage Vector keyed by stable damage-type identity."
+      required = true
+      schema = new model.RecordNode {
+        values = nonNegativeNumber()
+        keySchema = artifact.stableId()
+      }
+    }
+    new model.Field {
+      name = "criticalChance"
+      description = "Normalized non-negative critical chance where 1.0 is 100 percent."
+      required = true
+      schema = nonNegativeNumber()
+    }
+    new model.Field {
+      name = "criticalMultiplier"
+      description = "Critical damage multiplier before build modifiers."
+      required = true
+      schema = new model.NumberNode {
+        minimum = 1
+      }
+    }
+  }
+}
+
+function weapon(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Stable Catalog identity of this weapon."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "label"
+      description = "Human-readable weapon label."
+      required = true
+      schema = nonEmptyString()
+    }
+    new model.Field {
+      name = "attackModes"
+      description = "One or more normalized attack modes owned by this weapon."
+      required = true
+      schema = new model.ArrayNode {
+        items = attackMode()
+        minItems = 1
+      }
+    }
+  }
+}
+
+function target(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Stable Catalog identity of this target."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "label"
+      description = "Human-readable target label."
+      required = true
+      schema = nonEmptyString()
+    }
+    new model.Field {
+      name = "baseHealth"
+      description = "Non-negative normalized base Health."
+      required = true
+      schema = nonNegativeNumber()
+    }
+    new model.Field {
+      name = "baseShield"
+      description = "Non-negative normalized base Shield."
+      required = true
+      schema = nonNegativeNumber()
+    }
+    new model.Field {
+      name = "baseArmor"
+      description = "Non-negative normalized base Armor."
+      required = true
+      schema = nonNegativeNumber()
+    }
+    new model.Field {
+      name = "baseOverguard"
+      description = "Non-negative normalized base Overguard."
+      required = true
+      schema = nonNegativeNumber()
+    }
+  }
+}
+
+function modEffect(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "stat"
+      description = "Stable normalized stat identity affected by this Catalog entry."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "operation"
+      description = "Finite normalized modifier operation; execution semantics belong to Rules."
+      required = true
+      schema =
+        stringValues(new Listing<String> {
+          "add"
+          "multiply"
+        })
+    }
+    new model.Field {
+      name = "value"
+      description = "Finite normalized modifier value."
+      required = true
+      schema = new model.NumberNode {}
+    }
+  }
+}
+
+function mod(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Stable Catalog identity of this mod."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "label"
+      description = "Human-readable mod label."
+      required = true
+      schema = nonEmptyString()
+    }
+    new model.Field {
+      name = "effects"
+      description =
+        "One or more normalized effects; Catalog presence does not imply Kernel support."
+      required = true
+      schema = new model.ArrayNode {
+        items = modEffect()
+        minItems = 1
+      }
+    }
+  }
+}
+
+catalogSnapshot: model.Contract = new {
+  id = "catalog-snapshot"
+  typeName = "CatalogSnapshot"
+  schemaId = schemaIdentifier
+  version = contractVersion
+  description =
+    "Normalized immutable weapon, target, and modifier data for reproducible evaluation."
+  root = new model.ObjectNode {
+    fields = (
+      artifact.envelopeFields(
+        schemaIdentifier,
+        "catalog-snapshot",
+        contractVersion,
+      )
+    ) {
+      new model.Field {
+        name = "source"
+        description = "Explicit provenance of the normalized data."
+        required = true
+        schema = source()
+      }
+      new model.Field {
+        name = "weapons"
+        description = "Normalized weapon definitions."
+        required = true
+        schema = new model.ArrayNode {
+          items = weapon()
+          minItems = 1
+        }
+      }
+      new model.Field {
+        name = "targets"
+        description = "Normalized target definitions."
+        required = true
+        schema = new model.ArrayNode {
+          items = target()
+          minItems = 1
+        }
+      }
+      new model.Field {
+        name = "mods"
+        description = "Normalized modifier definitions, whether supported or not."
+        required = true
+        schema = new model.ArrayNode {
+          items = mod()
+        }
+      }
+    }
+  }
+}

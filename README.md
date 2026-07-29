@@ -5,11 +5,13 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The current repository state is **Commit 3: Kernel skeleton**. It establishes the normative
-Pkl specification, deterministic generated artifacts, five versioned Artifact contracts, and
+The current repository state is **Commit 4: Mini Catalog**. It establishes the normative
+Pkl specification, deterministic generated artifacts, six versioned Artifact contracts, and
 the mechanics-free Kernel foundation: an ordered Event Queue, logical-coordinate RNG, explicit
-World State transitions, and an immutable empty Ruleset. It does not yet contain a catalog,
-combat formulas, CLI, Lab, or verified Warframe mechanics.
+World State transitions, and an immutable empty Ruleset. A generated `CatalogSnapshot` contract
+and a strictly validated synthetic mini catalog now provide one hitscan weapon, one target, and
+three data-only mods. It does not yet contain combat formulas, CLI, Lab, or verified Warframe
+mechanics.
 
 `VoidTrace計画.md` is design input and discussion history. Normative behavior lives only under `specs/`.
 

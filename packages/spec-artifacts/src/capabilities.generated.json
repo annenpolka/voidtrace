@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:f6daed2fb742d3506580962616385fb0de4e8dbce442cc344e4b6d7b6b09e412",
+  "sourceFingerprint": "sha256:e896fa0c37181aed6da06909aa195a178a8260ebf92ad35be6c883bdcd478051",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -13,6 +13,7 @@
       "status": "supported",
       "contractRefs": [
         "artifact-ref",
+        "catalog-snapshot",
         "fingerprint",
         "result",
         "scenario",

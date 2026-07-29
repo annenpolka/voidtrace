@@ -23,6 +23,29 @@ Immutable reference to one revision of a content-addressed Artifact.
 | `contentHash` | required | SHA-256 fingerprint of the referenced Artifact content. |
 | `gameBuild` | required | Game build of the referenced Artifact. |
 
+## CatalogSnapshot
+
+- Contract ID: `catalog-snapshot`
+- Schema ID: `urn:voidtrace:schema:catalog-snapshot:0.1.0`
+- Schema version: `0.1.0`
+
+Normalized immutable weapon, target, and modifier data for reproducible evaluation.
+
+| Field | Presence | Meaning |
+| --- | --- | --- |
+| `$schema` | required | Schema identifier used to validate this Artifact. |
+| `kind` | required | Stable discriminator for this Artifact kind. |
+| `schemaVersion` | required | Version of this Artifact contract. |
+| `id` | required | Stable identity of this Artifact. |
+| `revision` | required | Non-negative immutable revision of this Artifact. |
+| `createdFrom` | optional | Optional Artifact revision from which this Artifact was derived. |
+| `contentHash` | required | SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. |
+| `gameBuild` | required | Game build against which this Artifact is defined. |
+| `source` | required | Explicit provenance of the normalized data. |
+| `weapons` | required | Normalized weapon definitions. |
+| `targets` | required | Normalized target definitions. |
+| `mods` | required | Normalized modifier definitions, whether supported or not. |
+
 ## Fingerprint
 
 - Contract ID: `fingerprint`

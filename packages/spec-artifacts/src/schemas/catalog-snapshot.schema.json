@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:catalog-snapshot:0.1.0",
+  "title": "CatalogSnapshot",
+  "description": "Normalized immutable weapon, target, and modifier data for reproducible evaluation.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Schema identifier used to validate this Artifact.",
+      "type": "string",
+      "const": "urn:voidtrace:schema:catalog-snapshot:0.1.0"
+    },
+    "kind": {
+      "description": "Stable discriminator for this Artifact kind.",
+      "type": "string",
+      "const": "catalog-snapshot"
+    },
+    "schemaVersion": {
+      "description": "Version of this Artifact contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "id": {
+      "description": "Stable identity of this Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative immutable revision of this Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdFrom": {
+      "description": "Optional Artifact revision from which this Artifact was derived.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "catalog-snapshot"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build against which this Artifact is defined.",
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "description": "Explicit provenance of the normalized data.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "Origin classification for this normalized CatalogSnapshot.",
+          "type": "string",
+          "enum": [
+            "fixture",
+            "public-export",
+            "community",
+            "manual"
+          ]
+        },
+        "description": {
+          "description": "Human-readable provenance note; not a mechanics claim.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "description"
+      ],
+      "additionalProperties": false
+    },
+    "weapons": {
+      "description": "Normalized weapon definitions.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Stable Catalog identity of this weapon.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "label": {
+            "description": "Human-readable weapon label.",
+            "type": "string",
+            "minLength": 1
+          },
+          "attackModes": {
+            "description": "One or more normalized attack modes owned by this weapon.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "description": "Stable Catalog identity of this attack mode.",
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                },
+                "label": {
+                  "description": "Human-readable attack-mode label.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "delivery": {
+                  "description": "Normalized delivery category; geometry remains resolved input.",
+                  "type": "string",
+                  "enum": [
+                    "hitscan",
+                    "projectile",
+                    "beam",
+                    "radial",
+                    "melee"
+                  ]
+                },
+                "baseDamage": {
+                  "description": "Non-negative base Damage Vector keyed by stable damage-type identity.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  }
+                },
+                "criticalChance": {
+                  "description": "Normalized non-negative critical chance where 1.0 is 100 percent.",
+                  "type": "number",
+                  "minimum": 0
+                },
+                "criticalMultiplier": {
+                  "description": "Critical damage multiplier before build modifiers.",
+                  "type": "number",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "delivery",
+                "baseDamage",
+                "criticalChance",
+                "criticalMultiplier"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "attackModes"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "targets": {
+      "description": "Normalized target definitions.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Stable Catalog identity of this target.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "label": {
+            "description": "Human-readable target label.",
+            "type": "string",
+            "minLength": 1
+          },
+          "baseHealth": {
+            "description": "Non-negative normalized base Health.",
+            "type": "number",
+            "minimum": 0
+          },
+          "baseShield": {
+            "description": "Non-negative normalized base Shield.",
+            "type": "number",
+            "minimum": 0
+          },
+          "baseArmor": {
+            "description": "Non-negative normalized base Armor.",
+            "type": "number",
+            "minimum": 0
+          },
+          "baseOverguard": {
+            "description": "Non-negative normalized base Overguard.",
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "baseHealth",
+          "baseShield",
+          "baseArmor",
+          "baseOverguard"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "mods": {
+      "description": "Normalized modifier definitions, whether supported or not.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Stable Catalog identity of this mod.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "label": {
+            "description": "Human-readable mod label.",
+            "type": "string",
+            "minLength": 1
+          },
+          "effects": {
+            "description": "One or more normalized effects; Catalog presence does not imply Kernel support.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stat": {
+                  "description": "Stable normalized stat identity affected by this Catalog entry.",
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                },
+                "operation": {
+                  "description": "Finite normalized modifier operation; execution semantics belong to Rules.",
+                  "type": "string",
+                  "enum": [
+                    "add",
+                    "multiply"
+                  ]
+                },
+                "value": {
+                  "description": "Finite normalized modifier value.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "stat",
+                "operation",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "effects"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild",
+    "source",
+    "weapons",
+    "targets",
+    "mods"
+  ],
+  "additionalProperties": false
+}

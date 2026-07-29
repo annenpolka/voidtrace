@@ -12,7 +12,7 @@
 2 Clauses have an independent oracle exercised by `just check`.
 A planned property-test is a declared obligation, not a passing runtime guarantee.
 
-The 5 generated Contract schemas are independently compiled and
+The 6 generated Contract schemas are independently compiled and
 validated by `@voidtrace/contracts`; this does not activate any Kernel behavior Clause.
 
 ## Intended verification methods

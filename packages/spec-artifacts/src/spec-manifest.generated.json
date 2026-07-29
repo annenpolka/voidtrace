@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:f6daed2fb742d3506580962616385fb0de4e8dbce442cc344e4b6d7b6b09e412",
+  "sourceFingerprint": "sha256:e896fa0c37181aed6da06909aa195a178a8260ebf92ad35be6c883bdcd478051",
   "clauses": [
     {
       "id": "ENG-001",
@@ -50,6 +50,12 @@
       "id": "artifact-ref",
       "typeName": "ArtifactRef",
       "schemaId": "urn:voidtrace:schema:artifact-ref:0.1.0",
+      "version": "0.1.0"
+    },
+    {
+      "id": "catalog-snapshot",
+      "typeName": "CatalogSnapshot",
+      "schemaId": "urn:voidtrace:schema:catalog-snapshot:0.1.0",
       "version": "0.1.0"
     },
     {

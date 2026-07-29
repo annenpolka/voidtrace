@@ -21,6 +21,16 @@ const rules: BoundaryRule[] = [
     ],
   },
   {
+    root: "packages/catalog",
+    forbiddenImports: [
+      "node:",
+      "@voidtrace/rules",
+      "@voidtrace/kernel",
+      "@voidtrace/agent",
+      "react",
+    ],
+  },
+  {
     root: "packages/kernel",
     forbiddenImports: [
       "node:",

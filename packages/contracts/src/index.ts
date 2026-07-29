@@ -1,5 +1,6 @@
 export type {
   ArtifactRef,
+  CatalogSnapshot,
   ContractById,
   ContractId,
   Fingerprint,

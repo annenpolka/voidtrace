@@ -2,6 +2,7 @@
 module voidtrace
 
 import "contracts/artifact.pkl"
+import "contracts/catalog.pkl"
 import "contracts/model.pkl"
 import "contracts/result.pkl"
 import "contracts/scenario.pkl"
@@ -26,6 +27,7 @@ clauses: Listing<base.Clause> = new {
 contracts: Listing<model.Contract> = new {
   artifact.artifactRef
   artifact.fingerprint
+  catalog.catalogSnapshot
   scenario.scenario
   result.result
   `trace`.`trace`

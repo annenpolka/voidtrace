@@ -4,8 +4,8 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:f6daed2fb742d3506580962616385fb0de4e8dbce442cc344e4b6d7b6b09e412`
-- Generated contracts: 5 (see [CONTRACTS.md](./CONTRACTS.md))
+- Source fingerprint: `sha256:e896fa0c37181aed6da06909aa195a178a8260ebf92ad35be6c883bdcd478051`
+- Generated contracts: 6 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
 
