@@ -1,0 +1,8 @@
+module voidtrace.kernel.rng
+
+import "../patterns/base.pkl"
+
+logicalCoordinateIsStable: base.SameLogicalRandom = new {
+  id = "RNG-001"
+  desc = "同一seed、論理Event ID、roll purposeは同一乱数を返す"
+}

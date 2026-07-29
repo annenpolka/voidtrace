@@ -1,0 +1,69 @@
+/// Narrow, language-neutral vocabulary for VoidTrace verification clauses.
+module voidtrace.patterns.base
+
+typealias VerificationLevel =
+  "property-tested"
+  | "example-tested"
+  | "manual"
+
+typealias ClauseMaturity =
+  "planned"
+  | "active"
+  | "retired"
+
+typealias SpecArea =
+  "scope"
+  | "kernel"
+  | "mechanics"
+  | "catalog"
+  | "lab"
+
+abstract class Clause {
+  /// Permanent identifier such as ENG-001.
+  id: String(matches(Regex(#"[A-Z][A-Z0-9]{2}-\d{3}"#)))
+
+  /// Generator dispatch key fixed by each concrete pattern.
+  pattern: String
+
+  /// Human-readable normative statement.
+  desc: String(length > 0)
+
+  /// Intended independent verification method.
+  guarantee: VerificationLevel
+
+  /// Whether the corresponding independent oracle exists.
+  maturity: ClauseMaturity = "planned"
+
+  /// Architectural area governed by this clause.
+  area: SpecArea
+}
+
+class ScopeBoundary extends Clause {
+  pattern = "scope_boundary"
+  guarantee = "manual"
+  area = "scope"
+}
+
+class UnsupportedMechanicRejected extends Clause {
+  pattern = "unsupported_mechanic_rejected"
+  guarantee = "property-tested"
+  area = "scope"
+}
+
+class DeterministicReplay extends Clause {
+  pattern = "deterministic_replay"
+  guarantee = "property-tested"
+  area = "kernel"
+}
+
+class EventTimeMonotonic extends Clause {
+  pattern = "event_time_monotonic"
+  guarantee = "property-tested"
+  area = "kernel"
+}
+
+class SameLogicalRandom extends Clause {
+  pattern = "same_logical_random"
+  guarantee = "property-tested"
+  area = "kernel"
+}

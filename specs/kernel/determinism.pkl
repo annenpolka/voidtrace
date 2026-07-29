@@ -1,0 +1,8 @@
+module voidtrace.kernel.determinism
+
+import "../patterns/base.pkl"
+
+sameInputsReplay: base.DeterministicReplay = new {
+  id = "ENG-001"
+  desc = "同一Catalog、Ruleset、Scenario、seedは同一のcanonical Resultを返す"
+}

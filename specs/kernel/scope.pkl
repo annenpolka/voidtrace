@@ -1,0 +1,13 @@
+module voidtrace.kernel.scope
+
+import "../patterns/base.pkl"
+
+geometryIsResolvedInput: base.ScopeBoundary = new {
+  id = "SCP-001"
+  desc = "物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない"
+}
+
+unsupportedIsExplicit: base.UnsupportedMechanicRejected = new {
+  id = "SCP-002"
+  desc = "非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す"
+}

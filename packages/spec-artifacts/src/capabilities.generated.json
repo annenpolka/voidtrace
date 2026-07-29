@@ -1,0 +1,24 @@
+{
+  "kind": "voidtrace.capability-manifest",
+  "schemaVersion": "0.1.0",
+  "sourceFingerprint": "sha256:665871338ae7087403e063e7827966aff5a3492134cf285c29fa624483ade1de",
+  "capabilities": [
+    {
+      "id": "specification.pipeline",
+      "status": "supported",
+      "clauseRefs": []
+    },
+    {
+      "id": "kernel.foundation",
+      "status": "unsupported",
+      "planned": true,
+      "clauseRefs": [
+        "ENG-001",
+        "ENG-002",
+        "RNG-001",
+        "SCP-001",
+        "SCP-002"
+      ]
+    }
+  ]
+}

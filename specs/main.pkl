@@ -1,0 +1,19 @@
+/// Sole generator entrypoint for the normative VoidTrace specification.
+module voidtrace
+
+import "patterns/base.pkl"
+import "kernel/scope.pkl"
+import "kernel/determinism.pkl"
+import "kernel/event-ordering.pkl"
+import "kernel/rng.pkl"
+
+title = "VoidTrace Normative Specification"
+schemaVersion = "0.1.0"
+
+clauses: Listing<base.Clause> = new {
+  scope.geometryIsResolvedInput
+  scope.unsupportedIsExplicit
+  determinism.sameInputsReplay
+  `event-ordering`.eventTimeNeverRegresses
+  rng.logicalCoordinateIsStable
+}

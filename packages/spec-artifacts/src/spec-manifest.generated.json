@@ -1,0 +1,48 @@
+{
+  "kind": "voidtrace.spec-manifest",
+  "schemaVersion": "0.1.0",
+  "source": "specs/main.pkl",
+  "sourceFingerprint": "sha256:665871338ae7087403e063e7827966aff5a3492134cf285c29fa624483ade1de",
+  "clauses": [
+    {
+      "id": "ENG-001",
+      "pattern": "deterministic_replay",
+      "desc": "同一Catalog、Ruleset、Scenario、seedは同一のcanonical Resultを返す",
+      "guarantee": "property-tested",
+      "maturity": "planned",
+      "area": "kernel"
+    },
+    {
+      "id": "ENG-002",
+      "pattern": "event_time_monotonic",
+      "desc": "Event Queueから処理されるイベント時刻は後退しない",
+      "guarantee": "property-tested",
+      "maturity": "planned",
+      "area": "kernel"
+    },
+    {
+      "id": "RNG-001",
+      "pattern": "same_logical_random",
+      "desc": "同一seed、論理Event ID、roll purposeは同一乱数を返す",
+      "guarantee": "property-tested",
+      "maturity": "planned",
+      "area": "kernel"
+    },
+    {
+      "id": "SCP-001",
+      "pattern": "scope_boundary",
+      "desc": "物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない",
+      "guarantee": "manual",
+      "maturity": "planned",
+      "area": "scope"
+    },
+    {
+      "id": "SCP-002",
+      "pattern": "unsupported_mechanic_rejected",
+      "desc": "非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す",
+      "guarantee": "property-tested",
+      "maturity": "planned",
+      "area": "scope"
+    }
+  ]
+}
