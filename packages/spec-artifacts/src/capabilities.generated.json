@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:e896fa0c37181aed6da06909aa195a178a8260ebf92ad35be6c883bdcd478051",
+  "sourceFingerprint": "sha256:38ff0383cec87830c6227a29a780273930470d1e0bfb27126f8873c3a7af0496",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -16,6 +16,7 @@
         "catalog-snapshot",
         "fingerprint",
         "result",
+        "ruleset",
         "scenario",
         "trace"
       ],
@@ -23,15 +24,31 @@
     },
     {
       "id": "kernel.foundation",
+      "status": "supported",
+      "activeClauseRefs": [
+        "ENG-001",
+        "ENG-002",
+        "RNG-001",
+        "SCP-001",
+        "SCP-002",
+        "TRC-001",
+        "TRC-002"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.direct-critical-armor",
       "status": "partial",
       "activeClauseRefs": [
-        "ENG-002",
-        "RNG-001"
+        "CRT-002",
+        "DEF-001",
+        "DEF-002",
+        "DMG-001",
+        "DMG-002",
+        "GOL-001"
       ],
       "plannedClauseRefs": [
-        "ENG-001",
-        "SCP-001",
-        "SCP-002"
+        "CRT-001"
       ]
     }
   ]

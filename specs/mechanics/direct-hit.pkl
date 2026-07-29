@@ -1,0 +1,39 @@
+/// Modifier-free construction of a resolved Direct Hit Damage Vector.
+module voidtrace.mechanics.directHit
+
+import "../rules/model.pkl"
+
+rule: model.Rule = new {
+  id = "rule.damage.direct-hit"
+  description =
+    "For a resolved Direct Hit without modifiers, copy the Catalog attack mode base Damage Vector unchanged into event damage."
+  phase = "damage.construct"
+  eventKind = "damage.direct"
+  reads {
+    "attack.base-damage"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.CopyDamageVector {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+commitRule: model.Rule = new {
+  id = "rule.damage.commit-health"
+  description =
+    "Commit the final Direct Hit Damage Vector to the resolved Health layer and record the remaining Health."
+  phase = "damage.commit"
+  eventKind = "damage.direct"
+  reads {
+    "event.damage"
+    "target.health"
+  }
+  writes {
+    "target.health"
+  }
+  operation = new model.CommitHealthDamage {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

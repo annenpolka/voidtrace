@@ -5,6 +5,7 @@ export type {
   ContractId,
   Fingerprint,
   Result,
+  Ruleset,
   Scenario,
   Trace,
 } from "@voidtrace/spec-artifacts/contracts";

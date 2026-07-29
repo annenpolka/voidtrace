@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { canonicalizeJson } from "../../../packages/contracts/src/canonical-json.ts";
 import { renderContractFiles } from "./contract-render.ts";
 import type { Clause, ClauseMaturity, SpecArea, SpecDocument, VerificationLevel } from "./model.ts";
 
@@ -16,6 +17,10 @@ function json(value: unknown): string {
 
 function fingerprint(spec: SpecDocument): string {
   return `sha256:${createHash("sha256").update(json(spec)).digest("hex")}`;
+}
+
+function contentHash(value: unknown): string {
+  return `sha256:${createHash("sha256").update(canonicalizeJson(value)).digest("hex")}`;
 }
 
 function countBy<T extends string>(
@@ -71,9 +76,10 @@ function renderSpec(spec: SpecDocument, sourceFingerprint: string): string {
 
 ## Maturity semantics
 
-\`guarantee\` names the intended independent verification method. \`maturity\` records
-whether that oracle currently exists. Foundational Kernel clauses remain \`planned\`;
-generated Contract validation does not claim that a combat Kernel has verified them.
+\`guarantee\` names the intended verification method. \`maturity\` records whether
+that obligation is currently satisfied. Machine-verified active Clauses have an
+independent oracle; active manual Clauses remain explicit review obligations.
+Contract validation alone never activates a Kernel or mechanics Clause.
 
 ## Clauses
 
@@ -102,7 +108,7 @@ function renderCoverage(spec: SpecDocument): string {
 - Planned clauses: ${plannedCount}
 - Retired clauses: ${maturityCounts.retired ?? 0}
 
-${activeCount === 0 ? "No engine oracle is active yet." : `${activeCount} Clause${activeCount === 1 ? " has" : "s have"} an independent oracle exercised by \`just check\`.`}
+${activeCount === 0 ? "No verification obligation is active yet." : `${activeCount} Clause${activeCount === 1 ? " is" : "s are"} active. Machine-verified Clauses have independent oracles exercised by \`just check\`; manual Clauses remain review obligations.`}
 A planned property-test is a declared obligation, not a passing runtime guarantee.
 
 The ${spec.contracts.length} generated Contract schemas are independently compiled and
@@ -120,23 +126,53 @@ ${markdownTable(["Area", "Clauses"], areaRows)}
 `;
 }
 
-function renderRules(): string {
+function renderRules(spec: SpecDocument): string {
+  const rows = spec.ruleset.rules.map((rule) => [
+    `\`${rule.id}\``,
+    `\`${rule.phase}\``,
+    `\`${rule.operation.kind}\``,
+    `\`${rule.evidenceStatus}\``,
+    rule.description,
+  ]);
+
   return `${GENERATED_NOTICE}
 
 # Runtime rules
 
-No runtime Rule IR is defined yet. Rule contracts and the Rule compiler begin in later
-commits; Pkl is not evaluated by the future runtime.
+- Ruleset: \`${spec.ruleset.id}\`
+- Version: \`${spec.ruleset.version}\`
+- Game build: \`${spec.ruleset.gameBuild}\`
+- Generated IR: \`packages/spec-artifacts/src/rulesets/core.generated.json\`
+
+## Rules
+
+${markdownTable(["ID", "Phase", "Operation", "Evidence", "Normative semantics"], rows)}
 `;
 }
 
-function renderEvidence(): string {
+function renderEvidence(spec: SpecDocument): string {
+  const statusRows = Object.entries(
+    spec.ruleset.rules.reduce<Record<string, number>>((counts, rule) => {
+      counts[rule.evidenceStatus] = (counts[rule.evidenceStatus] ?? 0) + 1;
+      return counts;
+    }, {}),
+  )
+    .toSorted(([left], [right]) => compareText(left, right))
+    .map(([status, count]) => [`\`${status}\``, String(count)]);
+  const evidenceCount = new Set(spec.ruleset.rules.flatMap((rule) => rule.evidenceIds)).size;
+
   return `${GENERATED_NOTICE}
 
 # Mechanics evidence
 
-No Warframe mechanics rule is asserted yet, so there are no Evidence references.
 Implementation verification and game-mechanics evidence will remain separate axes.
+
+- Rules: ${spec.ruleset.rules.length}
+- Referenced evidence records: ${evidenceCount}
+
+${markdownTable(["Evidence status", "Rules"], statusRows)}
+
+The synthetic first-slice Ruleset is not presented as verified current Warframe behavior.
 `;
 }
 
@@ -153,13 +189,55 @@ contracts complete a real Kernel round trip.
 export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
   const sourceFingerprint = fingerprint(spec);
   const clauseIds = spec.clauses.map((clause) => clause.id);
-  const activeClauseIds = spec.clauses
-    .filter((clause) => clause.maturity === "active")
-    .map((clause) => clause.id);
-  const plannedClauseIds = spec.clauses
-    .filter((clause) => clause.maturity === "planned")
-    .map((clause) => clause.id);
   const contractIds = spec.contracts.map((contract) => contract.id);
+  const capability = (id: string, clauses: Clause[]) => {
+    const active = clauses
+      .filter((clause) => clause.maturity === "active")
+      .map((clause) => clause.id);
+    const planned = clauses
+      .filter((clause) => clause.maturity === "planned")
+      .map((clause) => clause.id);
+    return {
+      id,
+      status:
+        clauses.length === 0
+          ? "unsupported"
+          : active.length === clauses.length
+            ? "supported"
+            : active.length > 0
+              ? "partial"
+              : "unsupported",
+      activeClauseRefs: active,
+      plannedClauseRefs: planned,
+    };
+  };
+  const kernelClauses = spec.clauses.filter(
+    (clause) => clause.area === "kernel" || clause.area === "scope",
+  );
+  const mechanicsClauses = spec.clauses.filter((clause) => clause.area === "mechanics");
+  const rulesetContract = spec.contracts.find((contract) => contract.id === "ruleset");
+  if (!rulesetContract) {
+    throw new Error("Ruleset Contract is required when rendering Rule IR");
+  }
+  const rulesetWithoutHash = {
+    $schema: rulesetContract.schemaId,
+    kind: "ruleset",
+    schemaVersion: rulesetContract.version,
+    id: spec.ruleset.id,
+    revision: 0,
+    gameBuild: spec.ruleset.gameBuild,
+    rules: spec.ruleset.rules,
+  };
+  const generatedRuleset = {
+    $schema: rulesetWithoutHash.$schema,
+    kind: rulesetWithoutHash.kind,
+    schemaVersion: rulesetWithoutHash.schemaVersion,
+    id: rulesetWithoutHash.id,
+    revision: rulesetWithoutHash.revision,
+    contentHash: contentHash(rulesetWithoutHash),
+    gameBuild: rulesetWithoutHash.gameBuild,
+    rules: rulesetWithoutHash.rules,
+  };
   const manifest = {
     kind: "voidtrace.spec-manifest",
     schemaVersion: spec.schemaVersion,
@@ -172,6 +250,13 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       schemaId: contract.schemaId,
       version: contract.version,
     })),
+    ruleset: {
+      id: generatedRuleset.id,
+      version: spec.ruleset.version,
+      contentHash: generatedRuleset.contentHash,
+      gameBuild: generatedRuleset.gameBuild,
+      ruleIds: generatedRuleset.rules.map((rule) => rule.id),
+    },
   };
   const capabilities = {
     kind: "voidtrace.capability-manifest",
@@ -189,17 +274,8 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
         contractRefs: contractIds,
         clauseRefs: [],
       },
-      {
-        id: "kernel.foundation",
-        status:
-          activeClauseIds.length === clauseIds.length
-            ? "supported"
-            : activeClauseIds.length > 0
-              ? "partial"
-              : "unsupported",
-        activeClauseRefs: activeClauseIds,
-        plannedClauseRefs: plannedClauseIds,
-      },
+      capability("kernel.foundation", kernelClauses),
+      capability("mechanics.direct-critical-armor", mechanicsClauses),
     ],
   };
   const conformance = {
@@ -232,6 +308,7 @@ export type ClauseId = (typeof CLAUSE_IDS)[number];
           "./manifest": "./src/spec-manifest.generated.json",
           "./capabilities": "./src/capabilities.generated.json",
           "./conformance/engine": "./src/conformance/engine.generated.json",
+          "./rulesets/core": "./src/rulesets/core.generated.json",
         },
       }),
     },
@@ -241,7 +318,7 @@ export type ClauseId = (typeof CLAUSE_IDS)[number];
     },
     {
       path: "packages/spec-artifacts/GENERATED.md",
-      contents: `# Generated specification artifacts\n\nSource: \`specs/main.pkl\`\n\nThis package contains generated Contract types, JSON Schemas, manifests, and conformance metadata. Regenerate with \`just spec-gen\`. Freshness is enforced by \`just spec-check\`.\n`,
+      contents: `# Generated specification artifacts\n\nSource: \`specs/main.pkl\`\n\nThis package contains generated Contract types, JSON Schemas, Rule IR, manifests, and conformance metadata. Regenerate with \`just spec-gen\`. Freshness is enforced by \`just spec-check\`.\n`,
     },
     {
       path: "packages/spec-artifacts/src/ids.generated.ts",
@@ -250,6 +327,10 @@ export type ClauseId = (typeof CLAUSE_IDS)[number];
     {
       path: "packages/spec-artifacts/src/spec-manifest.generated.json",
       contents: json(manifest),
+    },
+    {
+      path: "packages/spec-artifacts/src/rulesets/core.generated.json",
+      contents: json(generatedRuleset),
     },
     {
       path: "packages/spec-artifacts/src/capabilities.generated.json",
@@ -269,11 +350,11 @@ export type ClauseId = (typeof CLAUSE_IDS)[number];
     },
     {
       path: "docs/generated/RULES.md",
-      contents: renderRules(),
+      contents: renderRules(spec),
     },
     {
       path: "docs/generated/EVIDENCE.md",
-      contents: renderEvidence(),
+      contents: renderEvidence(spec),
     },
     {
       path: "docs/generated/AI_UX.md",

@@ -1,0 +1,51 @@
+/// Verification obligations for the first Direct Hit combat slice.
+module voidtrace.mechanics.clauses
+
+import "../patterns/base.pkl"
+
+directDamageIdentity: base.DamageVectorIdentity = new {
+  id = "DMG-001"
+  desc = "ModifierなしのDirect Hitでは、damage.construct直後のDamage VectorがCatalog入力と一致する"
+  maturity = "active"
+}
+
+damageTotalIsComponentSum: base.DamageTotalEqualsComponents = new {
+  id = "DMG-002"
+  desc = "各Damage Vectorのtotalは有限な非負成分の総和と一致する"
+  maturity = "active"
+}
+
+criticalProbabilityIsNormalized: base.CriticalTierProbabilitySum = new {
+  id = "CRT-001"
+  desc = "Critical tier確率分布を実装するとき、その確率総和は1となる"
+}
+
+fixedCriticalTierIsBinary: base.FixedCriticalTier = new {
+  id = "CRT-002"
+  desc = "deterministic固定tierは0または1だけを受理し、tier 0は倍率1、tier 1はCatalogのcriticalMultiplierを適用する"
+  maturity = "active"
+}
+
+armorDoesNotIncreaseDamage: base.ArmorMonotonic = new {
+  id = "DEF-001"
+  desc = "標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない"
+  maturity = "active"
+}
+
+armorThreeHundredHalvesDamage: base.ArmorFormulaExample = new {
+  id = "DEF-002"
+  desc = "golden.direct-critical-armorにおいて、標準Armor 300では許容誤差0.000001以内でHealth Damage倍率が0.5となる"
+  maturity = "active"
+}
+
+traceReconstructsDamage: base.TraceReconstructsResult = new {
+  id = "TRC-001"
+  desc = "Traceの順序付きDamage Vector操作を再生するとResultの最終Damage Vectorと一致する"
+  maturity = "active"
+}
+
+rejectedRuleHasReason: base.RejectedRuleHasReason = new {
+  id = "TRC-002"
+  desc = "不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する"
+  maturity = "active"
+}

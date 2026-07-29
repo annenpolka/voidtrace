@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { rollAtCoordinate, type RandomCoordinate } from "./rng.ts";
+import { type RandomCoordinate, rollAtCoordinate } from "./rng.ts";
 
 const coordinateArbitrary: fc.Arbitrary<RandomCoordinate> = fc.record({
   seed: fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER }),

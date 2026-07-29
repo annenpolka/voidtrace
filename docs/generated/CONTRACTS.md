@@ -94,6 +94,26 @@ Versioned evaluation output with explicit provenance, coverage, and limitations.
 | `warnings` | required | Structured warnings emitted without silently changing mechanics. |
 | `traceRef` | optional | Optional reference to the causal Trace produced with this Result. |
 
+## Ruleset
+
+- Contract ID: `ruleset`
+- Schema ID: `urn:voidtrace:schema:ruleset:0.1.0`
+- Schema version: `0.1.0`
+
+Generated finite Rule IR interpreted by the Kernel-facing Rules package.
+
+| Field | Presence | Meaning |
+| --- | --- | --- |
+| `$schema` | required | Schema identifier used to validate this Artifact. |
+| `kind` | required | Stable discriminator for this Artifact kind. |
+| `schemaVersion` | required | Version of this Artifact contract. |
+| `id` | required | Stable identity of this Artifact. |
+| `revision` | required | Non-negative immutable revision of this Artifact. |
+| `createdFrom` | optional | Optional Artifact revision from which this Artifact was derived. |
+| `contentHash` | required | SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. |
+| `gameBuild` | required | Game build against which this Artifact is defined. |
+| `rules` | required | Ordered finite Rule IR. |
+
 ## Scenario
 
 - Contract ID: `scenario`

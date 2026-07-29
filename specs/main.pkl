@@ -5,13 +5,20 @@ import "contracts/artifact.pkl"
 import "contracts/catalog.pkl"
 import "contracts/model.pkl"
 import "contracts/result.pkl"
+import "contracts/ruleset.pkl" as rulesetContract
 import "contracts/scenario.pkl"
 import "contracts/trace.pkl"
+import "golden/direct-critical-armor.pkl"
 import "kernel/determinism.pkl"
 import "kernel/event-ordering.pkl"
 import "kernel/rng.pkl"
 import "kernel/scope.pkl"
+import "mechanics/clauses.pkl" as mechanicsClauses
+import "mechanics/critical.pkl"
+import "mechanics/defense.pkl"
+import "mechanics/direct-hit.pkl"
 import "patterns/base.pkl"
+import "rules/model.pkl" as ruleModel
 
 title = "VoidTrace Normative Specification"
 schemaVersion = "0.1.0"
@@ -22,13 +29,36 @@ clauses: Listing<base.Clause> = new {
   determinism.sameInputsReplay
   `event-ordering`.eventTimeNeverRegresses
   rng.logicalCoordinateIsStable
+  mechanicsClauses.directDamageIdentity
+  mechanicsClauses.damageTotalIsComponentSum
+  mechanicsClauses.criticalProbabilityIsNormalized
+  mechanicsClauses.fixedCriticalTierIsBinary
+  mechanicsClauses.armorDoesNotIncreaseDamage
+  mechanicsClauses.armorThreeHundredHalvesDamage
+  mechanicsClauses.traceReconstructsDamage
+  mechanicsClauses.rejectedRuleHasReason
+  `direct-critical-armor`.roundTrip
 }
 
 contracts: Listing<model.Contract> = new {
   artifact.artifactRef
   artifact.fingerprint
   catalog.catalogSnapshot
+  rulesetContract.ruleset
   scenario.scenario
   result.result
   `trace`.`trace`
+}
+
+ruleset: ruleModel.Ruleset = new {
+  id = "ruleset.synthetic-core"
+  version = "0.1.0"
+  gameBuild = "synthetic-fixture-0"
+  rules {
+    `direct-hit`.rule
+    critical.nonCriticalRule
+    critical.criticalRule
+    defense.rule
+    `direct-hit`.commitRule
+  }
 }

@@ -10,6 +10,7 @@
     "./schemas/*": "./src/schemas/*.schema.json",
     "./manifest": "./src/spec-manifest.generated.json",
     "./capabilities": "./src/capabilities.generated.json",
-    "./conformance/engine": "./src/conformance/engine.generated.json"
+    "./conformance/engine": "./src/conformance/engine.generated.json",
+    "./rulesets/core": "./src/rulesets/core.generated.json"
   }
 }

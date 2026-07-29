@@ -1,0 +1,194 @@
+/// Generated executable Rule IR and its immutable Artifact envelope.
+module voidtrace.contracts.ruleset
+
+import "artifact.pkl"
+import "model.pkl"
+
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.1.0"
+local contractVersion = "0.1.0"
+
+function nonEmptyString(): model.StringNode = new model.StringNode {
+  minLength = 1
+}
+
+function stableIdArray(): model.ArrayNode = new model.ArrayNode {
+  items = artifact.stableId()
+}
+
+function evidenceStatus(): model.StringNode = new model.StringNode {
+  values = new Listing<String> {
+    "verified"
+    "experimental"
+    "disputed"
+    "unsupported"
+    "approximated"
+  }
+}
+
+function copyDamageVector(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description = "Copy the input base Damage Vector into event damage."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.copy"
+      }
+    }
+  }
+}
+
+function scaleFixedCritical(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description = "Scale by the finite deterministic fixed-tier Critical rule."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.scale-fixed-critical"
+      }
+    }
+    new model.Field {
+      name = "requiredTier"
+      description = "Fixed Critical tier matched by this Rule."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 0
+        maximum = 1
+      }
+    }
+  }
+}
+
+function scaleStandardArmor(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description = "Scale by constant divided by resolved Armor plus constant."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.scale-standard-armor"
+      }
+    }
+    new model.Field {
+      name = "constant"
+      description = "Positive denominator constant in the standard Armor formula."
+      required = true
+      schema = new model.NumberNode {
+        minimum = 0.000000000001
+      }
+    }
+  }
+}
+
+function commitHealthDamage(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description = "Commit final event damage to the resolved Health layer."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage.commit-health"
+      }
+    }
+  }
+}
+
+function rule(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Stable normative Rule identity."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "description"
+      description = "Human-readable normative operation semantics."
+      required = true
+      schema = nonEmptyString()
+    }
+    new model.Field {
+      name = "phase"
+      description = "Finite execution phase."
+      required = true
+      schema = new model.StringNode {
+        values = new Listing<String> {
+          "damage.construct"
+          "critical.resolve"
+          "target.mitigate"
+          "damage.commit"
+        }
+      }
+    }
+    new model.Field {
+      name = "eventKind"
+      description = "Stable event discriminator matched by this Rule."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "reads"
+      description = "Declared scalar or vector paths read by this Rule."
+      required = true
+      schema = stableIdArray()
+    }
+    new model.Field {
+      name = "writes"
+      description = "Declared scalar or vector paths written by this Rule."
+      required = true
+      schema = stableIdArray()
+    }
+    new model.Field {
+      name = "operation"
+      description = "Finite executable operation selected by this Rule."
+      required = true
+      schema = new model.UnionNode {
+        variants = new {
+          copyDamageVector()
+          scaleFixedCritical()
+          scaleStandardArmor()
+          commitHealthDamage()
+        }
+      }
+    }
+    new model.Field {
+      name = "evidenceStatus"
+      description = "Game-mechanics evidence status, independent of implementation maturity."
+      required = true
+      schema = evidenceStatus()
+    }
+    new model.Field {
+      name = "evidenceIds"
+      description = "Evidence identities supporting or qualifying this Rule."
+      required = true
+      schema = stableIdArray()
+    }
+  }
+}
+
+ruleset: model.Contract = new {
+  id = "ruleset"
+  typeName = "Ruleset"
+  schemaId = schemaIdentifier
+  version = contractVersion
+  description = "Generated finite Rule IR interpreted by the Kernel-facing Rules package."
+  root = new model.ObjectNode {
+    fields = (
+      artifact.envelopeFields(
+        schemaIdentifier,
+        "ruleset",
+        contractVersion,
+      )
+    ) {
+      new model.Field {
+        name = "rules"
+        description = "Ordered finite Rule IR."
+        required = true
+        schema = new model.ArrayNode {
+          items = rule()
+        }
+      }
+    }
+  }
+}

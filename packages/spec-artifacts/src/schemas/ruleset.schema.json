@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:ruleset:0.1.0",
+  "title": "Ruleset",
+  "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Schema identifier used to validate this Artifact.",
+      "type": "string",
+      "const": "urn:voidtrace:schema:ruleset:0.1.0"
+    },
+    "kind": {
+      "description": "Stable discriminator for this Artifact kind.",
+      "type": "string",
+      "const": "ruleset"
+    },
+    "schemaVersion": {
+      "description": "Version of this Artifact contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "id": {
+      "description": "Stable identity of this Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative immutable revision of this Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdFrom": {
+      "description": "Optional Artifact revision from which this Artifact was derived.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "ruleset"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build against which this Artifact is defined.",
+      "type": "string",
+      "minLength": 1
+    },
+    "rules": {
+      "description": "Ordered finite Rule IR.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Stable normative Rule identity.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "description": {
+            "description": "Human-readable normative operation semantics.",
+            "type": "string",
+            "minLength": 1
+          },
+          "phase": {
+            "description": "Finite execution phase.",
+            "type": "string",
+            "enum": [
+              "damage.construct",
+              "critical.resolve",
+              "target.mitigate",
+              "damage.commit"
+            ]
+          },
+          "eventKind": {
+            "description": "Stable event discriminator matched by this Rule.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "reads": {
+            "description": "Declared scalar or vector paths read by this Rule.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+            }
+          },
+          "writes": {
+            "description": "Declared scalar or vector paths written by this Rule.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+            }
+          },
+          "operation": {
+            "description": "Finite executable operation selected by this Rule.",
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Copy the input base Damage Vector into event damage.",
+                    "type": "string",
+                    "const": "damage-vector.copy"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Scale by the finite deterministic fixed-tier Critical rule.",
+                    "type": "string",
+                    "const": "damage-vector.scale-fixed-critical"
+                  },
+                  "requiredTier": {
+                    "description": "Fixed Critical tier matched by this Rule.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "requiredTier"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Scale by constant divided by resolved Armor plus constant.",
+                    "type": "string",
+                    "const": "damage-vector.scale-standard-armor"
+                  },
+                  "constant": {
+                    "description": "Positive denominator constant in the standard Armor formula.",
+                    "type": "number",
+                    "minimum": 1e-12
+                  }
+                },
+                "required": [
+                  "kind",
+                  "constant"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Commit final event damage to the resolved Health layer.",
+                    "type": "string",
+                    "const": "damage.commit-health"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "evidenceStatus": {
+            "description": "Game-mechanics evidence status, independent of implementation maturity.",
+            "type": "string",
+            "enum": [
+              "verified",
+              "experimental",
+              "disputed",
+              "unsupported",
+              "approximated"
+            ]
+          },
+          "evidenceIds": {
+            "description": "Evidence identities supporting or qualifying this Rule.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "phase",
+          "eventKind",
+          "reads",
+          "writes",
+          "operation",
+          "evidenceStatus",
+          "evidenceIds"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild",
+    "rules"
+  ],
+  "additionalProperties": false
+}

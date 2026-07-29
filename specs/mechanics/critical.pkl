@@ -1,0 +1,46 @@
+/// Conservative deterministic Critical rule; probability semantics remain unsupported.
+module voidtrace.mechanics.critical
+
+import "../rules/model.pkl"
+
+nonCriticalRule: model.Rule = new {
+  id = "rule.critical.fixed-tier-0"
+  description =
+    "When deterministic fixed Critical tier is 0, preserve event damage with multiplier 1."
+  phase = "critical.resolve"
+  eventKind = "damage.direct"
+  reads {
+    "event.damage"
+    "event.critical-tier"
+    "attack.critical-multiplier"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.ScaleFixedCritical {
+    requiredTier = 0
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+criticalRule: model.Rule = new {
+  id = "rule.critical.fixed-tier-1"
+  description =
+    "When deterministic fixed Critical tier is 1, multiply event damage by the Catalog attack critical multiplier."
+  phase = "critical.resolve"
+  eventKind = "damage.direct"
+  reads {
+    "event.damage"
+    "event.critical-tier"
+    "attack.critical-multiplier"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.ScaleFixedCritical {
+    requiredTier = 1
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

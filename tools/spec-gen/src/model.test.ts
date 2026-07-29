@@ -38,6 +38,26 @@ const validSpec = {
       },
     },
   ],
+  ruleset: {
+    id: "ruleset.test",
+    version: "0.1.0",
+    gameBuild: "test-build",
+    rules: [
+      {
+        id: "rule.damage.copy",
+        description: "copy test damage",
+        phase: "damage.construct",
+        eventKind: "damage.direct",
+        reads: ["attack.base-damage"],
+        writes: ["event.damage"],
+        operation: {
+          kind: "damage-vector.copy",
+        },
+        evidenceStatus: "experimental",
+        evidenceIds: [],
+      },
+    ],
+  },
 };
 
 describe("validateSpecDocument", () => {
@@ -96,7 +116,7 @@ describe("validateSpecDocument", () => {
         clauses: [
           {
             ...validClause,
-            pattern: "unsupported_mechanic_rejected",
+            pattern: "critical_tier_probability_sum",
             maturity: "active",
           },
         ],
@@ -133,5 +153,41 @@ describe("validateSpecDocument", () => {
         expect(actual).toEqual([...actual].toSorted());
       }),
     );
+  });
+
+  it("rejects unknown Rule operations and out-of-order phases", () => {
+    expect(() =>
+      validateSpecDocument({
+        ...validSpec,
+        ruleset: {
+          ...validSpec.ruleset,
+          rules: [
+            {
+              ...validSpec.ruleset.rules[0],
+              operation: {
+                kind: "run-javascript",
+              },
+            },
+          ],
+        },
+      }),
+    ).toThrow("Unknown Rule operation");
+
+    expect(() =>
+      validateSpecDocument({
+        ...validSpec,
+        ruleset: {
+          ...validSpec.ruleset,
+          rules: [
+            {
+              ...validSpec.ruleset.rules[0],
+              id: "rule.armor",
+              phase: "target.mitigate",
+            },
+            validSpec.ruleset.rules[0],
+          ],
+        },
+      }),
+    ).toThrow("ordered by execution phase");
   });
 });

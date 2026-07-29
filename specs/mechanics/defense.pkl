@@ -1,0 +1,24 @@
+/// Synthetic standard-Armor rule based on the representative formula in the design history.
+module voidtrace.mechanics.defense
+
+import "../rules/model.pkl"
+
+rule: model.Rule = new {
+  id = "rule.defense.standard-armor"
+  description =
+    "For non-negative resolved Armor on the Health layer, multiply event damage by constant / (Armor + constant), where constant is 300."
+  phase = "target.mitigate"
+  eventKind = "damage.direct"
+  reads {
+    "event.damage"
+    "target.armor"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.ScaleStandardArmor {
+    constant = 300
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

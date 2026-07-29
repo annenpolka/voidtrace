@@ -1,0 +1,33 @@
+{
+  "id": "golden.direct-critical-armor",
+  "scenarioId": "scenario.golden-direct-critical-armor",
+  "metrics": {
+    "damage.direct-hit.total": 100,
+    "critical.tier": 1,
+    "critical.multiplier": 2,
+    "damage.post-critical.total": 200,
+    "armor.remaining-multiplier": 0.5,
+    "damage.health.total": 100,
+    "target.health.remaining": 900
+  },
+  "damageBySource": {
+    "action.direct-hit-1": 100
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 100
+  },
+  "appliedRuleIds": [
+    "rule.damage.direct-hit",
+    "rule.critical.fixed-tier-1",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health"
+  ],
+  "rejectedRules": [
+    {
+      "ruleId": "rule.critical.fixed-tier-0",
+      "stage": "predicate",
+      "code": "predicate.critical-tier-mismatch"
+    }
+  ],
+  "tolerance": 0.000001
+}

@@ -2,5 +2,13 @@
 
 # Mechanics evidence
 
-No Warframe mechanics rule is asserted yet, so there are no Evidence references.
 Implementation verification and game-mechanics evidence will remain separate axes.
+
+- Rules: 5
+- Referenced evidence records: 0
+
+| Evidence status | Rules |
+| --- | --- |
+| `experimental` | 5 |
+
+The synthetic first-slice Ruleset is not presented as verified current Warframe behavior.

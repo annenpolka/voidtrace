@@ -56,3 +56,57 @@ class SameLogicalRandom extends Clause {
   guarantee = "property-tested"
   area = "kernel"
 }
+
+class DamageVectorIdentity extends Clause {
+  pattern = "damage_vector_identity"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
+class DamageTotalEqualsComponents extends Clause {
+  pattern = "damage_total_equals_components"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
+class CriticalTierProbabilitySum extends Clause {
+  pattern = "critical_tier_probability_sum"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
+class FixedCriticalTier extends Clause {
+  pattern = "fixed_critical_tier"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
+class ArmorMonotonic extends Clause {
+  pattern = "armor_monotonic"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
+class ArmorFormulaExample extends Clause {
+  pattern = "armor_formula_example"
+  guarantee = "example-tested"
+  area = "mechanics"
+}
+
+class TraceReconstructsResult extends Clause {
+  pattern = "trace_reconstructs_result"
+  guarantee = "property-tested"
+  area = "kernel"
+}
+
+class RejectedRuleHasReason extends Clause {
+  pattern = "rejected_rule_has_reason"
+  guarantee = "property-tested"
+  area = "kernel"
+}
+
+class GoldenScenario extends Clause {
+  pattern = "golden_scenario"
+  guarantee = "example-tested"
+  area = "mechanics"
+}

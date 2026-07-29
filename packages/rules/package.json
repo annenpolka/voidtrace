@@ -5,5 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@voidtrace/contracts": "workspace:*",
+    "@voidtrace/spec-artifacts": "workspace:*"
   }
 }

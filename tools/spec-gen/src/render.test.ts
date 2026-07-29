@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { computeArtifactContentHash } from "../../../packages/contracts/src/fingerprint.ts";
 import type { ContractDefinition } from "./contract-model.ts";
 import type { Clause, SpecDocument } from "./model.ts";
 import { renderGeneratedFiles } from "./render.ts";
@@ -34,11 +35,43 @@ const contract: ContractDefinition = {
   },
 };
 
+const rulesetContract: ContractDefinition = {
+  id: "ruleset",
+  typeName: "Ruleset",
+  schemaId: "urn:voidtrace:schema:ruleset:0.1.0",
+  version: "0.1.0",
+  description: "test ruleset contract",
+  root: {
+    kind: "object",
+    fields: [],
+  },
+};
+
 const spec: SpecDocument = {
   title: "VoidTrace test specification",
   schemaVersion: "0.1.0",
   clauses: [clause],
-  contracts: [contract],
+  contracts: [contract, rulesetContract],
+  ruleset: {
+    id: "ruleset.test",
+    version: "0.1.0",
+    gameBuild: "test-build",
+    rules: [
+      {
+        id: "rule.damage.copy",
+        description: "copy test damage",
+        phase: "damage.construct",
+        eventKind: "damage.direct",
+        reads: ["attack.base-damage"],
+        writes: ["event.damage"],
+        operation: {
+          kind: "damage-vector.copy",
+        },
+        evidenceStatus: "experimental",
+        evidenceIds: [],
+      },
+    ],
+  },
 };
 
 describe("renderGeneratedFiles", () => {
@@ -77,18 +110,17 @@ describe("renderGeneratedFiles", () => {
       (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
     );
 
-    expect(JSON.parse(capabilities?.contents ?? "{}")).toMatchObject({
-      capabilities: [
-        {},
-        {},
-        {
-          id: "kernel.foundation",
-          status: "partial",
-          activeClauseRefs: ["ENG-001"],
-          plannedClauseRefs: ["ENG-002"],
-        },
-      ],
-    });
+    const parsed = JSON.parse(capabilities?.contents ?? "{}") as {
+      capabilities: unknown[];
+    };
+    expect(parsed.capabilities).toContainEqual(
+      expect.objectContaining({
+        id: "kernel.foundation",
+        status: "partial",
+        activeClauseRefs: ["ENG-001"],
+        plannedClauseRefs: ["ENG-002"],
+      }),
+    );
   });
 
   it("escapes table delimiters and line breaks in human-readable clauses", () => {
@@ -129,5 +161,26 @@ describe("renderGeneratedFiles", () => {
     });
     expect(types?.contents).toContain('readonly "kind": "example";');
     expect(new Set(generated.map((file) => file.path)).size).toBe(generated.length);
+  });
+
+  it("emits content-addressed Rule IR from the normative Ruleset", async () => {
+    const generated = renderGeneratedFiles(spec);
+    const rulesetFile = generated.find(
+      (file) => file.path === "packages/spec-artifacts/src/rulesets/core.generated.json",
+    );
+    const ruleset = JSON.parse(rulesetFile?.contents ?? "{}") as {
+      contentHash: string;
+      rules: Array<{ id: string; operation: { kind: string } }>;
+    };
+
+    expect(ruleset.rules).toEqual([
+      expect.objectContaining({
+        id: "rule.damage.copy",
+        operation: {
+          kind: "damage-vector.copy",
+        },
+      }),
+    ]);
+    expect(await computeArtifactContentHash(ruleset)).toBe(ruleset.contentHash);
   });
 });

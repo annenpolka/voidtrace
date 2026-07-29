@@ -183,6 +183,63 @@ export type Result = {
   readonly "traceRef"?: ArtifactRef & { readonly "kind": "voidtrace.trace" };
 };
 
+/** Generated finite Rule IR interpreted by the Kernel-facing Rules package. */
+export type Ruleset = {
+  /** Schema identifier used to validate this Artifact. */
+  readonly "$schema": "urn:voidtrace:schema:ruleset:0.1.0";
+  /** Stable discriminator for this Artifact kind. */
+  readonly "kind": "ruleset";
+  /** Version of this Artifact contract. */
+  readonly "schemaVersion": "0.1.0";
+  /** Stable identity of this Artifact. */
+  readonly "id": string;
+  /** Non-negative immutable revision of this Artifact. */
+  readonly "revision": number;
+  /** Optional Artifact revision from which this Artifact was derived. */
+  readonly "createdFrom"?: ArtifactRef & { readonly "kind": "ruleset" };
+  /** SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. */
+  readonly "contentHash": string;
+  /** Game build against which this Artifact is defined. */
+  readonly "gameBuild": string;
+  /** Ordered finite Rule IR. */
+  readonly "rules": ReadonlyArray<{
+    /** Stable normative Rule identity. */
+    readonly "id": string;
+    /** Human-readable normative operation semantics. */
+    readonly "description": string;
+    /** Finite execution phase. */
+    readonly "phase": "damage.construct" | "critical.resolve" | "target.mitigate" | "damage.commit";
+    /** Stable event discriminator matched by this Rule. */
+    readonly "eventKind": string;
+    /** Declared scalar or vector paths read by this Rule. */
+    readonly "reads": ReadonlyArray<string>;
+    /** Declared scalar or vector paths written by this Rule. */
+    readonly "writes": ReadonlyArray<string>;
+    /** Finite executable operation selected by this Rule. */
+    readonly "operation": {
+      /** Copy the input base Damage Vector into event damage. */
+      readonly "kind": "damage-vector.copy";
+    } | {
+      /** Scale by the finite deterministic fixed-tier Critical rule. */
+      readonly "kind": "damage-vector.scale-fixed-critical";
+      /** Fixed Critical tier matched by this Rule. */
+      readonly "requiredTier": number;
+    } | {
+      /** Scale by constant divided by resolved Armor plus constant. */
+      readonly "kind": "damage-vector.scale-standard-armor";
+      /** Positive denominator constant in the standard Armor formula. */
+      readonly "constant": number;
+    } | {
+      /** Commit final event damage to the resolved Health layer. */
+      readonly "kind": "damage.commit-health";
+    };
+    /** Game-mechanics evidence status, independent of implementation maturity. */
+    readonly "evidenceStatus": "verified" | "experimental" | "disputed" | "unsupported" | "approximated";
+    /** Evidence identities supporting or qualifying this Rule. */
+    readonly "evidenceIds": ReadonlyArray<string>;
+  }>;
+};
+
 /** Immutable, reproducible evaluation input with explicit structured extension points. */
 export type Scenario = {
   /** Schema identifier used to validate this Artifact. */
@@ -421,13 +478,14 @@ export type Trace = {
     readonly "matched": true;
   }>;
 };
-export type ContractId = "artifact-ref" | "catalog-snapshot" | "fingerprint" | "result" | "scenario" | "trace";
+export type ContractId = "artifact-ref" | "catalog-snapshot" | "fingerprint" | "result" | "ruleset" | "scenario" | "trace";
 
 export type ContractById = {
   readonly "artifact-ref": ArtifactRef;
   readonly "catalog-snapshot": CatalogSnapshot;
   readonly "fingerprint": Fingerprint;
   readonly "result": Result;
+  readonly "ruleset": Ruleset;
   readonly "scenario": Scenario;
   readonly "trace": Trace;
 };

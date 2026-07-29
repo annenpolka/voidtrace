@@ -1,0 +1,105 @@
+{
+  "$schema": "urn:voidtrace:schema:ruleset:0.1.0",
+  "kind": "ruleset",
+  "schemaVersion": "0.1.0",
+  "id": "ruleset.synthetic-core",
+  "revision": 0,
+  "contentHash": "sha256:c7a164e9e8310496d2bea51f1d41777ba7bf5448ed7e653c5e482cea5835176e",
+  "gameBuild": "synthetic-fixture-0",
+  "rules": [
+    {
+      "id": "rule.damage.direct-hit",
+      "description": "For a resolved Direct Hit without modifiers, copy the Catalog attack mode base Damage Vector unchanged into event damage.",
+      "phase": "damage.construct",
+      "eventKind": "damage.direct",
+      "reads": [
+        "attack.base-damage"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.copy"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.critical.fixed-tier-0",
+      "description": "When deterministic fixed Critical tier is 0, preserve event damage with multiplier 1.",
+      "phase": "critical.resolve",
+      "eventKind": "damage.direct",
+      "reads": [
+        "event.damage",
+        "event.critical-tier",
+        "attack.critical-multiplier"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.scale-fixed-critical",
+        "requiredTier": 0
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.critical.fixed-tier-1",
+      "description": "When deterministic fixed Critical tier is 1, multiply event damage by the Catalog attack critical multiplier.",
+      "phase": "critical.resolve",
+      "eventKind": "damage.direct",
+      "reads": [
+        "event.damage",
+        "event.critical-tier",
+        "attack.critical-multiplier"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.scale-fixed-critical",
+        "requiredTier": 1
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.defense.standard-armor",
+      "description": "For non-negative resolved Armor on the Health layer, multiply event damage by constant / (Armor + constant), where constant is 300.",
+      "phase": "target.mitigate",
+      "eventKind": "damage.direct",
+      "reads": [
+        "event.damage",
+        "target.armor"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.scale-standard-armor",
+        "constant": 300
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.damage.commit-health",
+      "description": "Commit the final Direct Hit Damage Vector to the resolved Health layer and record the remaining Health.",
+      "phase": "damage.commit",
+      "eventKind": "damage.direct",
+      "reads": [
+        "event.damage",
+        "target.health"
+      ],
+      "writes": [
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage.commit-health"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    }
+  ]
+}

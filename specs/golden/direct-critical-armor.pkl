@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for the first synthetic combat slice.
+module voidtrace.golden.directCriticalArmor
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-001"
+  desc =
+    "data/fixtures/golden/direct-critical-armor.scenario.jsonは独立literal expected vectorと一致するResultおよびTraceを生成する"
+  maturity = "active"
+}

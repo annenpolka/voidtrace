@@ -1,0 +1,80 @@
+{
+  "$schema": "urn:voidtrace:schema:scenario:0.1.0",
+  "kind": "voidtrace.scenario",
+  "schemaVersion": "0.1.0",
+  "id": "scenario.golden-direct-critical-armor",
+  "revision": 0,
+  "contentHash": "sha256:75c3ce6d1ee1953055c30a6a30ea1e0af4f35abae3b8549a38ab3610fef4b2a0",
+  "gameBuild": "synthetic-fixture-0",
+  "catalogRef": {
+    "kind": "catalog-snapshot",
+    "schemaVersion": "0.1.0",
+    "id": "catalog.synthetic-mini",
+    "revision": 0,
+    "contentHash": "sha256:d8136a7f9a2f20899fb89001409dc3f71a1010dd1a7002b67f9917f2d3d61224",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "rulesetRef": {
+    "kind": "ruleset",
+    "schemaVersion": "0.1.0",
+    "id": "ruleset.synthetic-core",
+    "revision": 0,
+    "contentHash": "sha256:c7a164e9e8310496d2bea51f1d41777ba7bf5448ed7e653c5e482cea5835176e",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "attacker": {
+    "id": "actor.attacker",
+    "configuration": {
+      "weaponId": "weapon.synthetic-aperture",
+      "attackModeId": "attack-mode.synthetic-aperture.primary"
+    }
+  },
+  "targets": [
+    {
+      "id": "actor.target",
+      "configuration": {
+        "catalogTargetId": "target.synthetic-calibration",
+        "resolvedHealth": 1000,
+        "resolvedShield": 0,
+        "resolvedArmor": 300,
+        "resolvedOverguard": 0
+      }
+    }
+  ],
+  "initialState": {},
+  "actionPlan": [
+    {
+      "id": "action.direct-hit-1",
+      "kind": "action.direct-hit",
+      "parameters": {
+        "targetId": "actor.target",
+        "hitLocation": "hit-location.neutral-body",
+        "damageLayer": "health",
+        "criticalTier": 1
+      }
+    }
+  ],
+  "simulation": {
+    "mode": "deterministic",
+    "timeLimitMs": 1
+  },
+  "metrics": [
+    "damage.direct-hit.total",
+    "critical.tier",
+    "critical.multiplier",
+    "damage.post-critical.total",
+    "armor.remaining-multiplier",
+    "damage.health.total",
+    "target.health.remaining"
+  ],
+  "assumptions": [
+    {
+      "id": "assumption.synthetic-mechanics",
+      "description": "The fixture and Ruleset are synthetic and do not claim verified current Warframe behavior."
+    },
+    {
+      "id": "assumption.fixed-critical-tier",
+      "description": "Critical tier is supplied explicitly; probability and random roll semantics are unsupported."
+    }
+  ]
+}

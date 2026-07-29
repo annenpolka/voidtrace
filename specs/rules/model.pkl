@@ -1,0 +1,48 @@
+/// Finite runtime Rule IR emitted by the normative specification.
+module voidtrace.rules.model
+
+typealias RulePhase = "damage.construct" | "critical.resolve" | "target.mitigate" | "damage.commit"
+
+typealias RuleEvidenceStatus =
+  "verified" | "experimental" | "disputed" | "unsupported" | "approximated"
+
+abstract class RuleOperation {
+  kind: String
+}
+
+class CopyDamageVector extends RuleOperation {
+  kind = "damage-vector.copy"
+}
+
+class ScaleFixedCritical extends RuleOperation {
+  kind = "damage-vector.scale-fixed-critical"
+  requiredTier: Int
+}
+
+class ScaleStandardArmor extends RuleOperation {
+  kind = "damage-vector.scale-standard-armor"
+  constant: Number(isPositive)
+}
+
+class CommitHealthDamage extends RuleOperation {
+  kind = "damage.commit-health"
+}
+
+class Rule {
+  id: String(matches(Regex(#"[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*"#)))
+  description: String(length > 0)
+  phase: RulePhase
+  eventKind: String(matches(Regex(#"[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*"#)))
+  reads: Listing<String>
+  writes: Listing<String>
+  operation: RuleOperation
+  evidenceStatus: RuleEvidenceStatus
+  evidenceIds: Listing<String>
+}
+
+class Ruleset {
+  id: String(matches(Regex(#"[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*"#)))
+  version: String(matches(Regex(#"\d+\.\d+\.\d+"#)))
+  gameBuild: String(length > 0)
+  rules: Listing<Rule>
+}

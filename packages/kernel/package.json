@@ -7,6 +7,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@voidtrace/catalog": "workspace:*",
+    "@voidtrace/contracts": "workspace:*",
     "@voidtrace/rules": "workspace:*"
   }
 }

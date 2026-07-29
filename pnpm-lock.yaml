@@ -41,11 +41,24 @@ importers:
 
   packages/kernel:
     dependencies:
+      '@voidtrace/catalog':
+        specifier: workspace:*
+        version: link:../catalog
+      '@voidtrace/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@voidtrace/rules':
         specifier: workspace:*
         version: link:../rules
 
-  packages/rules: {}
+  packages/rules:
+    dependencies:
+      '@voidtrace/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@voidtrace/spec-artifacts':
+        specifier: workspace:*
+        version: link:../spec-artifacts
 
   packages/spec-artifacts: {}
 

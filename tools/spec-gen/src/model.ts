@@ -1,4 +1,4 @@
-import { parseContracts, type ContractDefinition } from "./contract-model.ts";
+import { type ContractDefinition, parseContracts } from "./contract-model.ts";
 
 export const KNOWN_PATTERNS = [
   "scope_boundary",
@@ -6,6 +6,15 @@ export const KNOWN_PATTERNS = [
   "deterministic_replay",
   "event_time_monotonic",
   "same_logical_random",
+  "damage_vector_identity",
+  "damage_total_equals_components",
+  "critical_tier_probability_sum",
+  "fixed_critical_tier",
+  "armor_monotonic",
+  "armor_formula_example",
+  "trace_reconstructs_result",
+  "rejected_rule_has_reason",
+  "golden_scenario",
 ] as const;
 
 export const VERIFICATION_LEVELS = ["property-tested", "example-tested", "manual"] as const;
@@ -28,22 +37,87 @@ export type Clause = {
   area: SpecArea;
 };
 
+export const RULE_PHASES = [
+  "damage.construct",
+  "critical.resolve",
+  "target.mitigate",
+  "damage.commit",
+] as const;
+
+export const RULE_EVIDENCE_STATUSES = [
+  "verified",
+  "experimental",
+  "disputed",
+  "unsupported",
+  "approximated",
+] as const;
+
+export type RulePhase = (typeof RULE_PHASES)[number];
+export type RuleEvidenceStatus = (typeof RULE_EVIDENCE_STATUSES)[number];
+
+export type RuleOperation =
+  | {
+      kind: "damage-vector.copy";
+    }
+  | {
+      kind: "damage-vector.scale-fixed-critical";
+      requiredTier: 0 | 1;
+    }
+  | {
+      kind: "damage-vector.scale-standard-armor";
+      constant: number;
+    }
+  | {
+      kind: "damage.commit-health";
+    };
+
+export type RuleDefinition = {
+  id: string;
+  description: string;
+  phase: RulePhase;
+  eventKind: string;
+  reads: string[];
+  writes: string[];
+  operation: RuleOperation;
+  evidenceStatus: RuleEvidenceStatus;
+  evidenceIds: string[];
+};
+
+export type RulesetDefinition = {
+  id: string;
+  version: string;
+  gameBuild: string;
+  rules: RuleDefinition[];
+};
+
 export type SpecDocument = {
   title: string;
   schemaVersion: string;
   clauses: Clause[];
   contracts: ContractDefinition[];
+  ruleset: RulesetDefinition;
 };
 
 // Contract validation is not a Kernel behavior oracle. Add a pattern here only when
 // its independent runner exists and is exercised by `just check`.
 export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
+  "unsupported_mechanic_rejected",
+  "deterministic_replay",
   "event_time_monotonic",
   "same_logical_random",
+  "damage_vector_identity",
+  "damage_total_equals_components",
+  "fixed_critical_tier",
+  "armor_monotonic",
+  "armor_formula_example",
+  "trace_reconstructs_result",
+  "rejected_rule_has_reason",
+  "golden_scenario",
 ];
 
 const CLAUSE_ID = /^[A-Z][A-Z0-9]{2}-\d{3}$/;
 const SCHEMA_VERSION = /^\d+\.\d+\.\d+$/;
+const STABLE_ID = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -72,6 +146,35 @@ function requireString(
     throw new Error(`Invalid specification value at ${path}`);
   }
   return value;
+}
+
+function requireFiniteNumber(
+  value: unknown,
+  path: string,
+  predicate: (candidate: number) => boolean = () => true,
+): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    (Number.isInteger(value) && !Number.isSafeInteger(value)) ||
+    !predicate(value)
+  ) {
+    throw new Error(`Invalid specification value at ${path}`);
+  }
+  return value;
+}
+
+function requireStringArray(value: unknown, path: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`Invalid specification value at ${path}`);
+  }
+  const items = value.map((item, index) =>
+    requireString(item, `${path}[${index}]`, (candidate) => STABLE_ID.test(candidate)),
+  );
+  if (new Set(items).size !== items.length) {
+    throw new Error(`Duplicate specification value at ${path}`);
+  }
+  return items;
 }
 
 function requireVocabularyValue<const T extends readonly string[]>(
@@ -105,11 +208,125 @@ function parseClause(value: unknown, index: number): Clause {
   };
 }
 
+function parseRuleOperation(value: unknown, path: string): RuleOperation {
+  if (!isRecord(value)) {
+    throw new Error(`Invalid specification value at ${path}`);
+  }
+  const kind = requireString(value.kind, `${path}.kind`);
+  switch (kind) {
+    case "damage-vector.copy":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
+    case "damage-vector.scale-fixed-critical": {
+      assertExactKeys(value, ["kind", "requiredTier"], path);
+      const requiredTier = requireFiniteNumber(
+        value.requiredTier,
+        `${path}.requiredTier`,
+        (candidate) => candidate === 0 || candidate === 1,
+      );
+      return {
+        kind,
+        requiredTier: requiredTier as 0 | 1,
+      };
+    }
+    case "damage-vector.scale-standard-armor":
+      assertExactKeys(value, ["kind", "constant"], path);
+      return {
+        kind,
+        constant: requireFiniteNumber(
+          value.constant,
+          `${path}.constant`,
+          (candidate) => candidate > 0,
+        ),
+      };
+    case "damage.commit-health":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
+    default:
+      throw new Error(`Unknown Rule operation at ${path}: ${kind}`);
+  }
+}
+
+function parseRuleset(value: unknown): RulesetDefinition {
+  const path = "ruleset";
+  if (!isRecord(value)) {
+    throw new Error(`Invalid specification value at ${path}`);
+  }
+  assertExactKeys(value, ["id", "version", "gameBuild", "rules"], path);
+  if (!Array.isArray(value.rules) || value.rules.length === 0) {
+    throw new Error("Ruleset must contain at least one Rule");
+  }
+  const rules = value.rules.map((item, index): RuleDefinition => {
+    const rulePath = `${path}.rules[${index}]`;
+    if (!isRecord(item)) {
+      throw new Error(`Invalid specification value at ${rulePath}`);
+    }
+    assertExactKeys(
+      item,
+      [
+        "id",
+        "description",
+        "phase",
+        "eventKind",
+        "reads",
+        "writes",
+        "operation",
+        "evidenceStatus",
+        "evidenceIds",
+      ],
+      rulePath,
+    );
+    return {
+      id: requireString(item.id, `${rulePath}.id`, (candidate) => STABLE_ID.test(candidate)),
+      description: requireString(
+        item.description,
+        `${rulePath}.description`,
+        (candidate) => candidate.length > 0,
+      ),
+      phase: requireVocabularyValue(item.phase, `${rulePath}.phase`, RULE_PHASES),
+      eventKind: requireString(item.eventKind, `${rulePath}.eventKind`, (candidate) =>
+        STABLE_ID.test(candidate),
+      ),
+      reads: requireStringArray(item.reads, `${rulePath}.reads`),
+      writes: requireStringArray(item.writes, `${rulePath}.writes`),
+      operation: parseRuleOperation(item.operation, `${rulePath}.operation`),
+      evidenceStatus: requireVocabularyValue(
+        item.evidenceStatus,
+        `${rulePath}.evidenceStatus`,
+        RULE_EVIDENCE_STATUSES,
+      ),
+      evidenceIds: requireStringArray(item.evidenceIds, `${rulePath}.evidenceIds`),
+    };
+  });
+
+  const ids = rules.map((rule) => rule.id);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Ruleset contains duplicate Rule IDs");
+  }
+  const phaseIndexes = rules.map((rule) => RULE_PHASES.indexOf(rule.phase));
+  if (phaseIndexes.some((phase, index) => index > 0 && phase < (phaseIndexes[index - 1] ?? -1))) {
+    throw new Error("Ruleset Rules must be ordered by execution phase");
+  }
+
+  return {
+    id: requireString(value.id, `${path}.id`, (candidate) => STABLE_ID.test(candidate)),
+    version: requireString(value.version, `${path}.version`, (candidate) =>
+      SCHEMA_VERSION.test(candidate),
+    ),
+    gameBuild: requireString(
+      value.gameBuild,
+      `${path}.gameBuild`,
+      (candidate) => candidate.length > 0,
+    ),
+    rules,
+  };
+}
+
 export function validateSpecDocument(value: unknown): SpecDocument {
   if (!isRecord(value)) {
     throw new Error("Pkl entrypoint did not evaluate to an object");
   }
-  assertExactKeys(value, ["title", "schemaVersion", "clauses", "contracts"], "root");
+  assertExactKeys(value, ["title", "schemaVersion", "clauses", "contracts", "ruleset"], "root");
   if (!Array.isArray(value.clauses) || value.clauses.length === 0) {
     throw new Error("Specification must contain at least one Clause");
   }
@@ -141,5 +358,6 @@ export function validateSpecDocument(value: unknown): SpecDocument {
       left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
     ),
     contracts: parseContracts(value.contracts),
+    ruleset: parseRuleset(value.ruleset),
   };
 }
