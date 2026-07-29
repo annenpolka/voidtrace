@@ -1,0 +1,12 @@
+{
+  "name": "@voidtrace/kernel",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@voidtrace/rules": "workspace:*"
+  }
+}

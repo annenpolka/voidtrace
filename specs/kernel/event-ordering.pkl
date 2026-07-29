@@ -5,4 +5,5 @@ import "../patterns/base.pkl"
 eventTimeNeverRegresses: base.EventTimeMonotonic = new {
   id = "ENG-002"
   desc = "Event Queueから処理されるイベント時刻は後退しない"
+  maturity = "active"
 }

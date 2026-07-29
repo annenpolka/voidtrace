@@ -1,29 +1,30 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:17526c7ef661accd62cfb9a1c395d7853ae91626152e13ff93791befef66d3d3",
-  "activeClauses": [],
-  "plannedClauses": [
-    {
-      "id": "ENG-001",
-      "pattern": "deterministic_replay",
-      "desc": "同一Catalog、Ruleset、Scenario、seedは同一のcanonical Resultを返す",
-      "guarantee": "property-tested",
-      "maturity": "planned",
-      "area": "kernel"
-    },
+  "sourceFingerprint": "sha256:f6daed2fb742d3506580962616385fb0de4e8dbce442cc344e4b6d7b6b09e412",
+  "activeClauses": [
     {
       "id": "ENG-002",
       "pattern": "event_time_monotonic",
       "desc": "Event Queueから処理されるイベント時刻は後退しない",
       "guarantee": "property-tested",
-      "maturity": "planned",
+      "maturity": "active",
       "area": "kernel"
     },
     {
       "id": "RNG-001",
       "pattern": "same_logical_random",
       "desc": "同一seed、論理Event ID、roll purposeは同一乱数を返す",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "kernel"
+    }
+  ],
+  "plannedClauses": [
+    {
+      "id": "ENG-001",
+      "pattern": "deterministic_replay",
+      "desc": "同一Catalog、Ruleset、Scenario、seedは同一のcanonical Resultを返す",
       "guarantee": "property-tested",
       "maturity": "planned",
       "area": "kernel"

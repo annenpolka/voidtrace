@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:17526c7ef661accd62cfb9a1c395d7853ae91626152e13ff93791befef66d3d3",
+  "sourceFingerprint": "sha256:f6daed2fb742d3506580962616385fb0de4e8dbce442cc344e4b6d7b6b09e412",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -22,12 +22,13 @@
     },
     {
       "id": "kernel.foundation",
-      "status": "unsupported",
-      "planned": true,
-      "clauseRefs": [
-        "ENG-001",
+      "status": "partial",
+      "activeClauseRefs": [
         "ENG-002",
-        "RNG-001",
+        "RNG-001"
+      ],
+      "plannedClauseRefs": [
+        "ENG-001",
         "SCP-001",
         "SCP-002"
       ]

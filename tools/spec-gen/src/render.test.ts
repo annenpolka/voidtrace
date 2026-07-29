@@ -59,6 +59,38 @@ describe("renderGeneratedFiles", () => {
     });
   });
 
+  it("publishes active and planned Kernel capability coverage separately", () => {
+    const generated = renderGeneratedFiles({
+      ...spec,
+      clauses: [
+        {
+          ...clause,
+          maturity: "active",
+        },
+        {
+          ...clause,
+          id: "ENG-002",
+        },
+      ],
+    });
+    const capabilities = generated.find(
+      (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
+    );
+
+    expect(JSON.parse(capabilities?.contents ?? "{}")).toMatchObject({
+      capabilities: [
+        {},
+        {},
+        {
+          id: "kernel.foundation",
+          status: "partial",
+          activeClauseRefs: ["ENG-001"],
+          plannedClauseRefs: ["ENG-002"],
+        },
+      ],
+    });
+  });
+
   it("escapes table delimiters and line breaks in human-readable clauses", () => {
     const generated = renderGeneratedFiles({
       ...spec,

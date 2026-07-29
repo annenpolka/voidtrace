@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:17526c7ef661accd62cfb9a1c395d7853ae91626152e13ff93791befef66d3d3",
+  "sourceFingerprint": "sha256:f6daed2fb742d3506580962616385fb0de4e8dbce442cc344e4b6d7b6b09e412",
   "clauses": [
     {
       "id": "ENG-001",
@@ -17,7 +17,7 @@
       "pattern": "event_time_monotonic",
       "desc": "Event Queueから処理されるイベント時刻は後退しない",
       "guarantee": "property-tested",
-      "maturity": "planned",
+      "maturity": "active",
       "area": "kernel"
     },
     {
@@ -25,7 +25,7 @@
       "pattern": "same_logical_random",
       "desc": "同一seed、論理Event ID、roll purposeは同一乱数を返す",
       "guarantee": "property-tested",
-      "maturity": "planned",
+      "maturity": "active",
       "area": "kernel"
     },
     {

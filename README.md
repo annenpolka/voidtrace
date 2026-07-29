@@ -5,7 +5,11 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The current repository state is **Commit 2: Contracts**. It establishes the normative Pkl specification, deterministic generated artifacts, and five versioned Artifact contracts: `Scenario`, `Result`, `Trace`, `ArtifactRef`, and `Fingerprint`. It does not yet contain a combat kernel, catalog, CLI, Lab, or verified Warframe mechanics.
+The current repository state is **Commit 3: Kernel skeleton**. It establishes the normative
+Pkl specification, deterministic generated artifacts, five versioned Artifact contracts, and
+the mechanics-free Kernel foundation: an ordered Event Queue, logical-coordinate RNG, explicit
+World State transitions, and an immutable empty Ruleset. It does not yet contain a catalog,
+combat formulas, CLI, Lab, or verified Warframe mechanics.
 
 `VoidTrace計画.md` is design input and discussion history. Normative behavior lives only under `specs/`.
 
@@ -44,4 +48,6 @@ behavior clauses begin in later vertical slices; they are not reported as suppor
 
 ## Specification maturity
 
-The initial clauses describe foundational obligations such as deterministic replay and explicit rejection of unsupported mechanics. They remain `planned`: the contract pipeline validates wire shapes, but the future Kernel must provide the independent behavior oracles before any Kernel Clause may become `active`.
+The Event Queue and logical-coordinate RNG clauses are `active` because independent property
+tests exercise them through `just check`. Deterministic combat replay and explicit rejection of
+unsupported mechanics remain `planned` until the first complete Kernel vertical slice exists.

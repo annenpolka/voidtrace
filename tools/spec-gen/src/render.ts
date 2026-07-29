@@ -85,6 +85,8 @@ function renderCoverage(spec: SpecDocument): string {
   const maturityCounts = countBy<ClauseMaturity>(spec.clauses, (clause) => clause.maturity);
   const guaranteeCounts = countBy<VerificationLevel>(spec.clauses, (clause) => clause.guarantee);
   const areaCounts = countBy<SpecArea>(spec.clauses, (clause) => clause.area);
+  const activeCount = maturityCounts.active ?? 0;
+  const plannedCount = maturityCounts.planned ?? 0;
   const areaRows = Object.entries(areaCounts)
     .toSorted(([left], [right]) => compareText(left, right))
     .map(([area, count]) => [`\`${area}\``, String(count)]);
@@ -96,12 +98,12 @@ function renderCoverage(spec: SpecDocument): string {
 ## Current state
 
 - Total clauses: ${spec.clauses.length}
-- Active clauses: ${maturityCounts.active ?? 0}
-- Planned clauses: ${maturityCounts.planned ?? 0}
+- Active clauses: ${activeCount}
+- Planned clauses: ${plannedCount}
 - Retired clauses: ${maturityCounts.retired ?? 0}
 
-No engine oracle is active yet. A planned property-test is a declared obligation, not a
-passing runtime guarantee.
+${activeCount === 0 ? "No engine oracle is active yet." : `${activeCount} Clause${activeCount === 1 ? " has" : "s have"} an independent oracle exercised by \`just check\`.`}
+A planned property-test is a declared obligation, not a passing runtime guarantee.
 
 The ${spec.contracts.length} generated Contract schemas are independently compiled and
 validated by \`@voidtrace/contracts\`; this does not activate any Kernel behavior Clause.
@@ -151,6 +153,12 @@ contracts complete a real Kernel round trip.
 export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
   const sourceFingerprint = fingerprint(spec);
   const clauseIds = spec.clauses.map((clause) => clause.id);
+  const activeClauseIds = spec.clauses
+    .filter((clause) => clause.maturity === "active")
+    .map((clause) => clause.id);
+  const plannedClauseIds = spec.clauses
+    .filter((clause) => clause.maturity === "planned")
+    .map((clause) => clause.id);
   const contractIds = spec.contracts.map((contract) => contract.id);
   const manifest = {
     kind: "voidtrace.spec-manifest",
@@ -183,9 +191,14 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       },
       {
         id: "kernel.foundation",
-        status: "unsupported",
-        planned: true,
-        clauseRefs: clauseIds,
+        status:
+          activeClauseIds.length === clauseIds.length
+            ? "supported"
+            : activeClauseIds.length > 0
+              ? "partial"
+              : "unsupported",
+        activeClauseRefs: activeClauseIds,
+        plannedClauseRefs: plannedClauseIds,
       },
     ],
   };

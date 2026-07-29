@@ -5,12 +5,12 @@
 ## Current state
 
 - Total clauses: 5
-- Active clauses: 0
-- Planned clauses: 5
+- Active clauses: 2
+- Planned clauses: 3
 - Retired clauses: 0
 
-No engine oracle is active yet. A planned property-test is a declared obligation, not a
-passing runtime guarantee.
+2 Clauses have an independent oracle exercised by `just check`.
+A planned property-test is a declared obligation, not a passing runtime guarantee.
 
 The 5 generated Contract schemas are independently compiled and
 validated by `@voidtrace/contracts`; this does not activate any Kernel behavior Clause.

@@ -96,11 +96,27 @@ describe("validateSpecDocument", () => {
         clauses: [
           {
             ...validClause,
+            pattern: "unsupported_mechanic_rejected",
             maturity: "active",
           },
         ],
       }),
     ).toThrow("Clause ENG-001 cannot be active");
+  });
+
+  it("accepts active machine-verified Clauses with registered independent oracles", () => {
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            pattern: "event_time_monotonic",
+            maturity: "active",
+          },
+        ],
+      }).clauses[0]?.maturity,
+    ).toBe("active");
   });
 
   it("canonicalizes arbitrary unique Clause order", () => {

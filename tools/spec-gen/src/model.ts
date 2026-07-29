@@ -37,7 +37,10 @@ export type SpecDocument = {
 
 // Contract validation is not a Kernel behavior oracle. Add a pattern here only when
 // its independent runner exists and is exercised by `just check`.
-export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [];
+export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
+  "event_time_monotonic",
+  "same_logical_random",
+];
 
 const CLAUSE_ID = /^[A-Z][A-Z0-9]{2}-\d{3}$/;
 const SCHEMA_VERSION = /^\d+\.\d+\.\d+$/;
