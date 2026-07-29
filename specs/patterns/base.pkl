@@ -5,7 +5,7 @@ typealias VerificationLevel = "property-tested" | "example-tested" | "manual"
 
 typealias ClauseMaturity = "planned" | "active" | "retired"
 
-typealias SpecArea = "scope" | "kernel" | "mechanics" | "catalog" | "lab"
+typealias SpecArea = "scope" | "kernel" | "mechanics" | "catalog" | "cli" | "lab"
 
 abstract class Clause {
   /// Permanent identifier such as ENG-001.
@@ -109,4 +109,40 @@ class GoldenScenario extends Clause {
   pattern = "golden_scenario"
   guarantee = "example-tested"
   area = "mechanics"
+}
+
+class CliCommandOutputSelection extends Clause {
+  pattern = "cli_command_output_selection"
+  guarantee = "example-tested"
+  area = "cli"
+}
+
+class CliDeterministicJson extends Clause {
+  pattern = "cli_deterministic_json"
+  guarantee = "example-tested"
+  area = "cli"
+}
+
+class CliStreamExitDiscipline extends Clause {
+  pattern = "cli_stream_exit_discipline"
+  guarantee = "example-tested"
+  area = "cli"
+}
+
+class CliAliasEquivalence extends Clause {
+  pattern = "cli_alias_equivalence"
+  guarantee = "example-tested"
+  area = "cli"
+}
+
+class CliApplicationBoundary extends Clause {
+  pattern = "cli_application_boundary"
+  guarantee = "example-tested"
+  area = "cli"
+}
+
+class CliInputSurface extends Clause {
+  pattern = "cli_input_surface"
+  guarantee = "example-tested"
+  area = "cli"
 }

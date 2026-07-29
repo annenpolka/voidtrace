@@ -1,15 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadCatalogSnapshot } from "../../../../packages/catalog/src/index.ts";
 import {
   attachArtifactContentHash,
   canonicalizeJson,
   type Result,
   type Trace,
 } from "../../../../packages/contracts/src/index.ts";
-import { evaluateScenario } from "../../../../packages/kernel/src/index.ts";
-import { loadCoreRuleset } from "../../../../packages/rules/src/index.ts";
+import { evaluateScenario } from "../../../../packages/sdk/src/index.ts";
 
 type Options = {
   scenarioPath: string;
@@ -35,7 +33,7 @@ const expectedPath = resolve(
   "data/fixtures/golden/direct-critical-armor.expected.json",
 );
 
-const HELP = `VoidTrace temporary synthetic-slice adapter
+const HELP = `VoidTrace repository-local synthetic-slice helper
 
 Usage:
   node .agents/skills/voidtrace/scripts/evaluate-slice.ts [options]
@@ -341,12 +339,10 @@ async function main(): Promise<void> {
   }
 
   const scenario = await applyOverrides(await readJson(options.scenarioPath), options);
-  const catalog = await loadCatalogSnapshot(await readJson(options.catalogPath));
-  const ruleset = await loadCoreRuleset();
+  const catalog = await readJson(options.catalogPath);
   const outcome = await evaluateScenario({
     scenario,
     catalog,
-    ruleset,
   });
   if (!outcome.ok) {
     emit(outcome, options.pretty);

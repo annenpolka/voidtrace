@@ -1,0 +1,43 @@
+/// Public command-surface obligations for the first VoidTrace CLI slice.
+module voidtrace.cli.surface
+
+import "../patterns/base.pkl"
+
+commandOutputSelection: base.CliCommandOutputSelection = new {
+  id = "CLI-001"
+  desc =
+    "helpメタデータ要求を除き、describe実行成功時はCapability Manifest、run実行成功時はResult、trace実行成功時はTraceだけをstdoutへ出力する"
+  maturity = "active"
+}
+
+deterministicJson: base.CliDeterministicJson = new {
+  id = "CLI-002"
+  desc = "同一のコマンド引数とArtifact入力は同一のcanonical単一行JSONを生成し、pretty表示はJSON値を変更しない"
+  maturity = "active"
+}
+
+streamExitDiscipline: base.CliStreamExitDiscipline = new {
+  id = "CLI-003"
+  desc =
+    "describe、run、traceのdomain実行成功はexit 0と選択されたJSONだけをstdoutへ出し、domain実行失敗はstdoutを空にしてProblemだけをstderrへ出し、input=2、unsupported=3、limit=4、internal=5へ分類する。helpメタデータ要求はexit 0の人間可読stdoutとする"
+  maturity = "active"
+}
+
+aliasEquivalence: base.CliAliasEquivalence = new {
+  id = "CLI-004"
+  desc = "voidtraceとvtは同一引数に対してstdout、stderr、exit codeがbyte単位で一致する"
+  maturity = "active"
+}
+
+applicationBoundary: base.CliApplicationBoundary = new {
+  id = "CLI-005"
+  desc = "CLIは引数解析、Artifact入出力、表示選択だけを担当し、評価意味論と能力記述をApplication APIへ委譲する"
+  maturity = "active"
+}
+
+inputSurface: base.CliInputSurface = new {
+  id = "CLI-006"
+  desc =
+    "describeはArtifact入力を取らず、runとtraceは<scenario-source>と必須--catalog <catalog-source>を取り、各sourceはJSONファイルpathまたはstdinを表す「-」とする。両sourceを同時に「-」にはできず、評価はApplication APIが生成core Rulesetを選択し、暗黙fixtureを使わない"
+  maturity = "active"
+}

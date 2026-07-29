@@ -1,0 +1,15 @@
+{
+  "name": "@voidtrace/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "voidtrace": "./src/main.ts",
+    "vt": "./src/main.ts"
+  },
+  "dependencies": {
+    "@voidtrace/contracts": "workspace:*",
+    "@voidtrace/runtime-node": "workspace:*",
+    "commander": "15.0.0"
+  }
+}

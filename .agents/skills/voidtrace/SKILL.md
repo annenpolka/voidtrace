@@ -1,13 +1,13 @@
 ---
 name: voidtrace
-description: Use this temporary repository-local interface to run or inspect VoidTrace's synthetic Direct Hit, fixed Critical tier 0/1, and Armor vertical slice; vary resolved Armor, Health, or fixed tier; and inspect deterministic Result/Trace JSON. Do not use it for current Warframe claims, build advice, unsupported mechanics, or as the future public voidtrace/vt CLI.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, fixed Critical tier 0/1, and Armor vertical slice; vary resolved Armor, Health, or fixed tier; and inspect deterministic Result/Trace JSON. Do not use it for current Warframe claims, build advice, or unsupported mechanics.
 ---
 
-# VoidTrace temporary skill interface
+# VoidTrace repository-local skill interface
 
 This skill operates only the first synthetic, experimental Kernel slice in this repository. It is
-an agent-facing bridge until the planned public CLI exists. Never present its values as verified
-current Warframe mechanics.
+an agent-facing fixture-variation helper alongside the formal `voidtrace` / `vt` CLI. Never
+present its values as verified current Warframe mechanics.
 
 ## Before running
 
@@ -33,7 +33,17 @@ zero effect and do not silently adapt it to the supported slice.
 
 ## Commands
 
-Run the checked-in golden scenario:
+For immutable Scenario and Catalog Artifacts, use the formal CLI:
+
+```bash
+pnpm exec vt run data/fixtures/golden/direct-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/direct-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+```
+
+Use the repository-local helper to run the checked-in golden scenario with a combined
+Result/Trace envelope:
 
 ```bash
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts
@@ -68,7 +78,7 @@ for another agent or script. `--help` lists the finite adapter options.
 - Exit `2` with `ok: false` is a structured domain rejection. Report `error.code`,
   `error.mechanicId` when present, and `error.message`.
 - Exit `1` with `ok: false` and an `adapter.*` code means input, file, or golden-check failure in
-  this temporary interface.
+  the repository-local helper.
 - Applied and rejected candidates are both in `trace.decisions`. A rejected rule is not an error
   when its predicate simply did not match.
 - Always preserve the warning and coverage classification that mark this slice experimental.

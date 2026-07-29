@@ -1,0 +1,13 @@
+{
+  "name": "@voidtrace/runtime-node",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@voidtrace/contracts": "workspace:*",
+    "@voidtrace/sdk": "workspace:*"
+  }
+}

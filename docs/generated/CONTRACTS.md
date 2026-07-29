@@ -65,6 +65,26 @@ Complete immutable input fingerprint for a reproducible execution.
 | `seed` | required | Non-negative deterministic random seed used for evaluation. |
 | `resultHash` | required | SHA-256 of the canonical Fingerprint object excluding this resultHash field. |
 
+## Problem
+
+- Contract ID: `problem`
+- Schema ID: `urn:voidtrace:schema:problem:0.1.0`
+- Schema version: `0.1.0`
+
+Structured application failure whose stable classification determines the process exit status.
+
+| Field | Presence | Meaning |
+| --- | --- | --- |
+| `kind` | required | Stable discriminator for a VoidTrace application failure. |
+| `schemaVersion` | required | Version of this Problem contract. |
+| `code` | required | Stable machine-readable failure code. |
+| `message` | required | Non-empty diagnostic suitable for a human or agent. |
+| `classification` | required | Stable failure class that determines the process exit status. |
+| `pointer` | optional | Optional JSON Pointer locating the rejected input. |
+| `mechanicId` | optional | Optional stable identifier of the unsupported or failed mechanic. |
+| `causeCode` | optional | Optional stable code from the delegated application failure. |
+| `source` | optional | Optional non-empty source identifier associated with input loading. |
+
 ## Result
 
 - Contract ID: `result`

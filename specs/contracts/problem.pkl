@@ -1,0 +1,90 @@
+/// Structured public failure returned by the CLI and future application surfaces.
+module voidtrace.contracts.problem
+
+import "artifact.pkl"
+import "model.pkl"
+
+local schemaIdentifier = "urn:voidtrace:schema:problem:0.1.0"
+local contractVersion = "0.1.0"
+
+function nonEmptyString(): model.StringNode = new model.StringNode {
+  minLength = 1
+}
+
+function literalString(literalValue: String): model.LiteralNode = new model.LiteralNode {
+  value = literalValue
+}
+
+problem: model.Contract = new {
+  id = "problem"
+  typeName = "Problem"
+  schemaId = schemaIdentifier
+  version = contractVersion
+  description =
+    "Structured application failure whose stable classification determines the process exit status."
+  root = new model.ObjectNode {
+    fields = new {
+      new model.Field {
+        name = "kind"
+        description = "Stable discriminator for a VoidTrace application failure."
+        required = true
+        schema = literalString("voidtrace.problem")
+      }
+      new model.Field {
+        name = "schemaVersion"
+        description = "Version of this Problem contract."
+        required = true
+        schema = literalString(contractVersion)
+      }
+      new model.Field {
+        name = "code"
+        description = "Stable machine-readable failure code."
+        required = true
+        schema = artifact.stableId()
+      }
+      new model.Field {
+        name = "message"
+        description = "Non-empty diagnostic suitable for a human or agent."
+        required = true
+        schema = nonEmptyString()
+      }
+      new model.Field {
+        name = "classification"
+        description = "Stable failure class that determines the process exit status."
+        required = true
+        schema = new model.StringNode {
+          values = new Listing<String> {
+            "input"
+            "unsupported"
+            "limit"
+            "internal"
+          }
+        }
+      }
+      new model.Field {
+        name = "pointer"
+        description = "Optional JSON Pointer locating the rejected input."
+        required = false
+        schema = new model.StringNode {}
+      }
+      new model.Field {
+        name = "mechanicId"
+        description = "Optional stable identifier of the unsupported or failed mechanic."
+        required = false
+        schema = artifact.stableId()
+      }
+      new model.Field {
+        name = "causeCode"
+        description = "Optional stable code from the delegated application failure."
+        required = false
+        schema = artifact.stableId()
+      }
+      new model.Field {
+        name = "source"
+        description = "Optional non-empty source identifier associated with input loading."
+        required = false
+        schema = nonEmptyString()
+      }
+    }
+  }
+}

@@ -123,6 +123,43 @@ describe("renderGeneratedFiles", () => {
     );
   });
 
+  it("publishes the CLI surface as an independently derived capability", () => {
+    const generated = renderGeneratedFiles({
+      ...spec,
+      clauses: [
+        {
+          id: "CLI-001",
+          pattern: "cli_command_output_selection",
+          desc: "select one contract per command",
+          guarantee: "example-tested",
+          maturity: "active",
+          area: "cli",
+        },
+        {
+          id: "CLI-002",
+          pattern: "cli_deterministic_json",
+          desc: "emit deterministic JSON",
+          guarantee: "example-tested",
+          maturity: "planned",
+          area: "cli",
+        },
+      ],
+    });
+    const capabilities = generated.find(
+      (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
+    );
+
+    const parsed = JSON.parse(capabilities?.contents ?? "{}") as {
+      capabilities: unknown[];
+    };
+    expect(parsed.capabilities).toContainEqual({
+      id: "cli.core",
+      status: "partial",
+      activeClauseRefs: ["CLI-001"],
+      plannedClauseRefs: ["CLI-002"],
+    });
+  });
+
   it("escapes table delimiters and line breaks in human-readable clauses", () => {
     const generated = renderGeneratedFiles({
       ...spec,

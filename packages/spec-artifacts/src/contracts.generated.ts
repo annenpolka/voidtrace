@@ -116,6 +116,28 @@ export type Fingerprint = {
   readonly "resultHash": string;
 };
 
+/** Structured application failure whose stable classification determines the process exit status. */
+export type Problem = {
+  /** Stable discriminator for a VoidTrace application failure. */
+  readonly "kind": "voidtrace.problem";
+  /** Version of this Problem contract. */
+  readonly "schemaVersion": "0.1.0";
+  /** Stable machine-readable failure code. */
+  readonly "code": string;
+  /** Non-empty diagnostic suitable for a human or agent. */
+  readonly "message": string;
+  /** Stable failure class that determines the process exit status. */
+  readonly "classification": "input" | "unsupported" | "limit" | "internal";
+  /** Optional JSON Pointer locating the rejected input. */
+  readonly "pointer"?: string;
+  /** Optional stable identifier of the unsupported or failed mechanic. */
+  readonly "mechanicId"?: string;
+  /** Optional stable code from the delegated application failure. */
+  readonly "causeCode"?: string;
+  /** Optional non-empty source identifier associated with input loading. */
+  readonly "source"?: string;
+};
+
 /** Versioned evaluation output with explicit provenance, coverage, and limitations. */
 export type Result = {
   /** Schema identifier used to validate this Artifact. */
@@ -478,12 +500,13 @@ export type Trace = {
     readonly "matched": true;
   }>;
 };
-export type ContractId = "artifact-ref" | "catalog-snapshot" | "fingerprint" | "result" | "ruleset" | "scenario" | "trace";
+export type ContractId = "artifact-ref" | "catalog-snapshot" | "fingerprint" | "problem" | "result" | "ruleset" | "scenario" | "trace";
 
 export type ContractById = {
   readonly "artifact-ref": ArtifactRef;
   readonly "catalog-snapshot": CatalogSnapshot;
   readonly "fingerprint": Fingerprint;
+  readonly "problem": Problem;
   readonly "result": Result;
   readonly "ruleset": Ruleset;
   readonly "scenario": Scenario;

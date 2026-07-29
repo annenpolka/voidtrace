@@ -4,8 +4,8 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:38ff0383cec87830c6227a29a780273930470d1e0bfb27126f8873c3a7af0496`
-- Generated contracts: 7 (see [CONTRACTS.md](./CONTRACTS.md))
+- Source fingerprint: `sha256:87422d3a3c0c701eaea653935340d5ca365863afd65797255365442d5c510d43`
+- Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
 
@@ -18,6 +18,12 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 
 | ID | Area | Pattern | Guarantee | Maturity | Normative statement |
 | --- | --- | --- | --- | --- | --- |
+| `CLI-001` | `cli` | `cli_command_output_selection` | `example-tested` | `active` | helpメタデータ要求を除き、describe実行成功時はCapability Manifest、run実行成功時はResult、trace実行成功時はTraceだけをstdoutへ出力する |
+| `CLI-002` | `cli` | `cli_deterministic_json` | `example-tested` | `active` | 同一のコマンド引数とArtifact入力は同一のcanonical単一行JSONを生成し、pretty表示はJSON値を変更しない |
+| `CLI-003` | `cli` | `cli_stream_exit_discipline` | `example-tested` | `active` | describe、run、traceのdomain実行成功はexit 0と選択されたJSONだけをstdoutへ出し、domain実行失敗はstdoutを空にしてProblemだけをstderrへ出し、input=2、unsupported=3、limit=4、internal=5へ分類する。helpメタデータ要求はexit 0の人間可読stdoutとする |
+| `CLI-004` | `cli` | `cli_alias_equivalence` | `example-tested` | `active` | voidtraceとvtは同一引数に対してstdout、stderr、exit codeがbyte単位で一致する |
+| `CLI-005` | `cli` | `cli_application_boundary` | `example-tested` | `active` | CLIは引数解析、Artifact入出力、表示選択だけを担当し、評価意味論と能力記述をApplication APIへ委譲する |
+| `CLI-006` | `cli` | `cli_input_surface` | `example-tested` | `active` | describeはArtifact入力を取らず、runとtraceは<scenario-source>と必須--catalog <catalog-source>を取り、各sourceはJSONファイルpathまたはstdinを表す「-」とする。両sourceを同時に「-」にはできず、評価はApplication APIが生成core Rulesetを選択し、暗黙fixtureを使わない |
 | `CRT-001` | `mechanics` | `critical_tier_probability_sum` | `property-tested` | `planned` | Critical tier確率分布を実装するとき、その確率総和は1となる |
 | `CRT-002` | `mechanics` | `fixed_critical_tier` | `property-tested` | `active` | deterministic固定tierは0または1だけを受理し、tier 0は倍率1、tier 1はCatalogのcriticalMultiplierを適用する |
 | `DEF-001` | `mechanics` | `armor_monotonic` | `property-tested` | `active` | 標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない |

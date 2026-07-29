@@ -1,0 +1,236 @@
+import {
+  canonicalizeJson,
+  validateContract,
+  verifyResultTraceIntegrity,
+} from "@voidtrace/contracts";
+import { createNodeApplication, createProblem, type CliApplication } from "@voidtrace/runtime-node";
+import { describe, expect, it, vi } from "vitest";
+import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
+  type: "json",
+};
+import packageJson from "../package.json" with { type: "json" };
+import { runCli, type CliIo } from "./cli.ts";
+
+const SCENARIO_PATH = "data/fixtures/golden/direct-critical-armor.scenario.json";
+const CATALOG_PATH = "data/fixtures/catalog-mini/catalog.json";
+
+type Invocation = {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+};
+
+async function invoke(argv: readonly string[], application?: CliApplication): Promise<Invocation> {
+  let stdout = "";
+  let stderr = "";
+  const io: CliIo = {
+    writeOut: (text) => {
+      stdout += text;
+    },
+    writeErr: (text) => {
+      stderr += text;
+    },
+  };
+  const exitCode = await runCli(argv, {
+    ...(application === undefined ? {} : { application }),
+    io,
+  });
+  return { exitCode, stdout, stderr };
+}
+
+async function goldenOutcome() {
+  const outcome = await createNodeApplication().evaluate({
+    scenarioSource: SCENARIO_PATH,
+    catalogSource: CATALOG_PATH,
+  });
+  if (!outcome.ok) {
+    throw new Error(outcome.problem.message);
+  }
+  return outcome;
+}
+
+describe("VoidTrace CLI success routing", () => {
+  it("emits the generated Capability Manifest deterministically", async () => {
+    const first = await invoke(["describe"]);
+    const second = await invoke(["describe", "--json"]);
+
+    expect(first).toEqual(second);
+    expect(first.exitCode).toBe(0);
+    expect(first.stderr).toBe("");
+    expect(first.stdout.endsWith("\n")).toBe(true);
+    expect(JSON.parse(first.stdout)).toEqual(createNodeApplication().describe());
+    expect(first.stdout).toBe(`${canonicalizeJson(JSON.parse(first.stdout))}\n`);
+  });
+
+  it("selects only Result for run and only Trace for trace", async () => {
+    const evaluated = await goldenOutcome();
+    const evaluate = vi.fn(async () => evaluated);
+    const application: CliApplication = {
+      describe: () => createNodeApplication().describe(),
+      evaluate,
+    };
+
+    const run = await invoke(["run", "scenario.input", "--catalog", "catalog.input"], application);
+    const trace = await invoke(
+      ["trace", "scenario.input", "--catalog", "catalog.input"],
+      application,
+    );
+
+    expect(run).toEqual({
+      exitCode: 0,
+      stdout: `${canonicalizeJson(evaluated.result)}\n`,
+      stderr: "",
+    });
+    expect(trace).toEqual({
+      exitCode: 0,
+      stdout: `${canonicalizeJson(evaluated.trace)}\n`,
+      stderr: "",
+    });
+    expect(JSON.parse(run.stdout).kind).toBe("voidtrace.result");
+    expect(JSON.parse(trace.stdout).kind).toBe("voidtrace.trace");
+    expect(evaluate).toHaveBeenNthCalledWith(1, {
+      scenarioSource: "scenario.input",
+      catalogSource: "catalog.input",
+    });
+    expect(evaluate).toHaveBeenNthCalledWith(2, {
+      scenarioSource: "scenario.input",
+      catalogSource: "catalog.input",
+    });
+  });
+
+  it("produces contract-valid, mutually consistent golden Artifacts", async () => {
+    const run = await invoke(["run", SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const trace = await invoke(["trace", SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const resultValue = JSON.parse(run.stdout) as unknown;
+    const traceValue = JSON.parse(trace.stdout) as unknown;
+    const result = validateContract("result", resultValue);
+    const causalTrace = validateContract("trace", traceValue);
+
+    expect(run.exitCode).toBe(0);
+    expect(trace.exitCode).toBe(0);
+    expect(run.stderr).toBe("");
+    expect(trace.stderr).toBe("");
+    expect(result.ok).toBe(true);
+    expect(causalTrace.ok).toBe(true);
+    if (!result.ok || !causalTrace.ok) {
+      throw new Error("CLI emitted an invalid Result or Trace");
+    }
+    await expect(
+      verifyResultTraceIntegrity(result.value, causalTrace.value, scenarioFixture),
+    ).resolves.toBe(true);
+  });
+
+  it("pretty-printing changes whitespace but not the JSON value", async () => {
+    const compact = await invoke(["run", SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const pretty = await invoke(["run", SCENARIO_PATH, "--catalog", CATALOG_PATH, "--pretty"]);
+
+    expect(pretty.exitCode).toBe(0);
+    expect(pretty.stderr).toBe("");
+    expect(pretty.stdout).not.toBe(compact.stdout);
+    expect(JSON.parse(pretty.stdout)).toEqual(JSON.parse(compact.stdout));
+    expect(pretty.stdout).toBe(`${JSON.stringify(JSON.parse(compact.stdout), null, 2)}\n`);
+  });
+
+  it("accepts exactly one stdin Artifact source", async () => {
+    const application = createNodeApplication({
+      readStdin: async () => JSON.stringify(scenarioFixture),
+    });
+    const stdin = await invoke(["run", "-", "--catalog", CATALOG_PATH], application);
+    const file = await invoke(["run", SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+
+    expect(stdin).toEqual(file);
+  });
+});
+
+describe("VoidTrace CLI failure routing", () => {
+  it.each([
+    { argv: [] as string[] },
+    { argv: ["unknown"] },
+    { argv: ["describe", "unexpected-input"] },
+    { argv: ["run"] },
+    { argv: ["run", SCENARIO_PATH] },
+    { argv: ["run", SCENARIO_PATH, "--catalog", CATALOG_PATH, "--unknown"] },
+  ])("returns one input Problem without writing stdout for $argv", async ({ argv }) => {
+    const invocation = await invoke(argv);
+    const problem = validateContract("problem", JSON.parse(invocation.stderr));
+
+    expect(invocation.exitCode).toBe(2);
+    expect(invocation.stdout).toBe("");
+    expect(invocation.stderr.split("\n")).toHaveLength(2);
+    expect(problem.ok).toBe(true);
+    if (!problem.ok) {
+      throw new Error("CLI emitted an invalid Problem");
+    }
+    expect(problem.value.classification).toBe("input");
+  });
+
+  it("preserves a delegated unsupported Problem and exit code", async () => {
+    const problem = createProblem({
+      classification: "unsupported",
+      code: "unsupported-delivery",
+      message: "Unsupported attack delivery",
+      mechanicId: "mechanic.delivery.projectile",
+    });
+    const application: CliApplication = {
+      describe: () => createNodeApplication().describe(),
+      evaluate: async () => ({ ok: false, problem }),
+    };
+    const invocation = await invoke(
+      ["run", "scenario.input", "--catalog", "catalog.input"],
+      application,
+    );
+
+    expect(invocation).toEqual({
+      exitCode: 3,
+      stdout: "",
+      stderr: `${canonicalizeJson(problem)}\n`,
+    });
+  });
+
+  it("normalizes unexpected application exceptions without leaking details", async () => {
+    const application: CliApplication = {
+      describe: () => {
+        throw new Error("secret stack detail");
+      },
+      evaluate: async () => {
+        throw new Error("secret stack detail");
+      },
+    };
+    const invocation = await invoke(["describe"], application);
+    const parsed = JSON.parse(invocation.stderr) as {
+      classification: string;
+      message: string;
+    };
+
+    expect(invocation.exitCode).toBe(5);
+    expect(invocation.stdout).toBe("");
+    expect(parsed.classification).toBe("internal");
+    expect(invocation.stderr).not.toContain("secret");
+    expect(invocation.stderr).not.toContain("stack");
+  });
+
+  it.each([
+    { argv: ["--help"], usage: "Usage: voidtrace [options] [command]" },
+    { argv: ["describe", "--help"], usage: "Usage: voidtrace describe [options]" },
+    { argv: ["run", "--help"], usage: "Usage: voidtrace run [options] <scenario>" },
+    { argv: ["trace", "--help"], usage: "Usage: voidtrace trace [options] <scenario>" },
+  ])(
+    "keeps human-readable help as a stdout metadata exception for $argv",
+    async ({ argv, usage }) => {
+      const invocation = await invoke(argv);
+
+      expect(invocation.exitCode).toBe(0);
+      expect(invocation.stderr).toBe("");
+      expect(invocation.stdout).toContain(usage);
+    },
+  );
+});
+
+describe("VoidTrace executable aliases", () => {
+  it("maps voidtrace and vt to the same executable", () => {
+    expect(packageJson.bin).toEqual({
+      voidtrace: "./src/main.ts",
+      vt: "./src/main.ts",
+    });
+  });
+});

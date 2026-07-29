@@ -52,8 +52,44 @@ const rules: BoundaryRule[] = [
     ],
   },
   {
+    root: "packages/sdk",
+    forbiddenImports: [
+      "node:",
+      "@voidtrace/catalog",
+      "@voidtrace/runtime-node",
+      "@voidtrace/planner",
+      "@voidtrace/agent",
+      "react",
+    ],
+  },
+  {
+    root: "packages/runtime-node",
+    forbiddenImports: [
+      "@voidtrace/catalog",
+      "@voidtrace/rules",
+      "@voidtrace/kernel",
+      "@voidtrace/spec-artifacts",
+      "@voidtrace/planner",
+      "@voidtrace/agent",
+      "react",
+    ],
+  },
+  {
     root: "packages/analysis",
     forbiddenImports: ["@voidtrace/agent"],
+  },
+  {
+    root: "apps/cli",
+    forbiddenImports: [
+      "node:",
+      "@voidtrace/catalog",
+      "@voidtrace/rules",
+      "@voidtrace/kernel",
+      "@voidtrace/spec-artifacts",
+      "@voidtrace/sdk",
+      "@voidtrace/agent",
+      "react",
+    ],
   },
   {
     root: "apps/lab",

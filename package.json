@@ -23,6 +23,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.6",
     "@types/node": "24.13.3",
+    "@voidtrace/cli": "workspace:*",
     "fast-check": "4.9.0",
     "typescript": "7.0.2",
     "vitest": "4.1.10"

@@ -15,13 +15,19 @@ export const KNOWN_PATTERNS = [
   "trace_reconstructs_result",
   "rejected_rule_has_reason",
   "golden_scenario",
+  "cli_command_output_selection",
+  "cli_deterministic_json",
+  "cli_stream_exit_discipline",
+  "cli_alias_equivalence",
+  "cli_application_boundary",
+  "cli_input_surface",
 ] as const;
 
 export const VERIFICATION_LEVELS = ["property-tested", "example-tested", "manual"] as const;
 
 export const CLAUSE_MATURITIES = ["planned", "active", "retired"] as const;
 
-export const SPEC_AREAS = ["scope", "kernel", "mechanics", "catalog", "lab"] as const;
+export const SPEC_AREAS = ["scope", "kernel", "mechanics", "catalog", "cli", "lab"] as const;
 
 export type PatternId = (typeof KNOWN_PATTERNS)[number];
 export type VerificationLevel = (typeof VERIFICATION_LEVELS)[number];
@@ -113,6 +119,12 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "trace_reconstructs_result",
   "rejected_rule_has_reason",
   "golden_scenario",
+  "cli_command_output_selection",
+  "cli_deterministic_json",
+  "cli_stream_exit_discipline",
+  "cli_alias_equivalence",
+  "cli_application_boundary",
+  "cli_input_surface",
 ];
 
 const CLAUSE_ID = /^[A-Z][A-Z0-9]{2}-\d{3}$/;

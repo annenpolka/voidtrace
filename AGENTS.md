@@ -26,5 +26,6 @@
 5. Run `just check`.
 
 The current implemented boundary ends at the synthetic Direct Hit / fixed Critical tier / Armor
-vertical slice and its repository-local temporary skill adapter. Do not add placeholder public
-CLI, Lab, API, or MCP implementations until their planned vertical slice begins.
+vertical slice, its formal `describe` / `run` / `trace` JSON CLI, and the repository-local
+fixture-variation skill. Do not add further CLI commands, Lab, API, or MCP implementations until
+their planned vertical slice begins.

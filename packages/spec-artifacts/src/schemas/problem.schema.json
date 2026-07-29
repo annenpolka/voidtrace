@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:problem:0.1.0",
+  "title": "Problem",
+  "description": "Structured application failure whose stable classification determines the process exit status.",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "description": "Stable discriminator for a VoidTrace application failure.",
+      "type": "string",
+      "const": "voidtrace.problem"
+    },
+    "schemaVersion": {
+      "description": "Version of this Problem contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "code": {
+      "description": "Stable machine-readable failure code.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "message": {
+      "description": "Non-empty diagnostic suitable for a human or agent.",
+      "type": "string",
+      "minLength": 1
+    },
+    "classification": {
+      "description": "Stable failure class that determines the process exit status.",
+      "type": "string",
+      "enum": [
+        "input",
+        "unsupported",
+        "limit",
+        "internal"
+      ]
+    },
+    "pointer": {
+      "description": "Optional JSON Pointer locating the rejected input.",
+      "type": "string"
+    },
+    "mechanicId": {
+      "description": "Optional stable identifier of the unsupported or failed mechanic.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "causeCode": {
+      "description": "Optional stable code from the delegated application failure.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "source": {
+      "description": "Optional non-empty source identifier associated with input loading.",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "kind",
+    "schemaVersion",
+    "code",
+    "message",
+    "classification"
+  ],
+  "additionalProperties": false
+}

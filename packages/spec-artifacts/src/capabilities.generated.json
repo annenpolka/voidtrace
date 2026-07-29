@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:38ff0383cec87830c6227a29a780273930470d1e0bfb27126f8873c3a7af0496",
+  "sourceFingerprint": "sha256:87422d3a3c0c701eaea653935340d5ca365863afd65797255365442d5c510d43",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -15,6 +15,7 @@
         "artifact-ref",
         "catalog-snapshot",
         "fingerprint",
+        "problem",
         "result",
         "ruleset",
         "scenario",
@@ -50,6 +51,19 @@
       "plannedClauseRefs": [
         "CRT-001"
       ]
+    },
+    {
+      "id": "cli.core",
+      "status": "supported",
+      "activeClauseRefs": [
+        "CLI-001",
+        "CLI-002",
+        "CLI-003",
+        "CLI-004",
+        "CLI-005",
+        "CLI-006"
+      ],
+      "plannedClauseRefs": []
     }
   ]
 }

@@ -215,6 +215,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
     (clause) => clause.area === "kernel" || clause.area === "scope",
   );
   const mechanicsClauses = spec.clauses.filter((clause) => clause.area === "mechanics");
+  const cliClauses = spec.clauses.filter((clause) => clause.area === "cli");
   const rulesetContract = spec.contracts.find((contract) => contract.id === "ruleset");
   if (!rulesetContract) {
     throw new Error("Ruleset Contract is required when rendering Rule IR");
@@ -276,6 +277,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       },
       capability("kernel.foundation", kernelClauses),
       capability("mechanics.direct-critical-armor", mechanicsClauses),
+      capability("cli.core", cliClauses),
     ],
   };
   const conformance = {

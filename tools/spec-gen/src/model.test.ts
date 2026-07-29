@@ -139,6 +139,32 @@ describe("validateSpecDocument", () => {
     ).toBe("active");
   });
 
+  it("accepts the finite active CLI vocabulary with registered independent oracles", () => {
+    const patterns = [
+      "cli_command_output_selection",
+      "cli_deterministic_json",
+      "cli_stream_exit_discipline",
+      "cli_alias_equivalence",
+      "cli_application_boundary",
+      "cli_input_surface",
+    ] as const;
+    const clauses = patterns.map((pattern, index) => ({
+      ...validClause,
+      id: `CLI-00${index + 1}`,
+      pattern,
+      guarantee: "example-tested",
+      maturity: "active",
+      area: "cli",
+    }));
+
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses,
+      }).clauses,
+    ).toEqual(clauses);
+  });
+
   it("canonicalizes arbitrary unique Clause order", () => {
     fc.assert(
       fc.property(fc.uniqueArray(fc.integer({ min: 0, max: 999 }), { minLength: 1 }), (numbers) => {

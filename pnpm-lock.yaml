@@ -14,6 +14,9 @@ importers:
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
+      '@voidtrace/cli':
+        specifier: workspace:*
+        version: link:apps/cli
       fast-check:
         specifier: 4.9.0
         version: 4.9.0
@@ -23,6 +26,18 @@ importers:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.13.3)(vite@8.1.5(@types/node@24.13.3))
+
+  apps/cli:
+    dependencies:
+      '@voidtrace/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@voidtrace/runtime-node':
+        specifier: workspace:*
+        version: link:../../packages/runtime-node
+      commander:
+        specifier: 15.0.0
+        version: 15.0.0
 
   packages/catalog:
     dependencies:
@@ -56,6 +71,27 @@ importers:
       '@voidtrace/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@voidtrace/spec-artifacts':
+        specifier: workspace:*
+        version: link:../spec-artifacts
+
+  packages/runtime-node:
+    dependencies:
+      '@voidtrace/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@voidtrace/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+
+  packages/sdk:
+    dependencies:
+      '@voidtrace/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@voidtrace/rules':
+        specifier: workspace:*
+        version: link:../rules
       '@voidtrace/spec-artifacts':
         specifier: workspace:*
         version: link:../spec-artifacts
@@ -417,6 +453,10 @@ packages:
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
+
+  commander@15.0.0:
+    resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
+    engines: {node: '>=22.12.0'}
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -948,6 +988,8 @@ snapshots:
   assertion-error@2.0.1: {}
 
   chai@6.2.2: {}
+
+  commander@15.0.0: {}
 
   convert-source-map@2.0.0: {}
 
