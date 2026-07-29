@@ -5,6 +5,9 @@
   "type": "module",
   "exports": {
     "./ids": "./src/ids.generated.ts",
+    "./contracts": "./src/contracts.generated.ts",
+    "./schemas": "./src/schema-index.generated.ts",
+    "./schemas/*": "./src/schemas/*.schema.json",
     "./manifest": "./src/spec-manifest.generated.json",
     "./capabilities": "./src/capabilities.generated.json",
     "./conformance/engine": "./src/conformance/engine.generated.json"

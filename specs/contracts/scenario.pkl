@@ -1,0 +1,274 @@
+/// Persisted, immutable evaluation input without embedded game-mechanics semantics.
+module voidtrace.contracts.scenario
+
+import "artifact.pkl"
+import "model.pkl"
+
+local schemaIdentifier = "urn:voidtrace:schema:scenario:0.1.0"
+local contractVersion = "0.1.0"
+
+function nonEmptyString(): model.StringNode = new model.StringNode {
+  minLength = 1
+}
+
+function scalarValue(): model.UnionNode = new model.UnionNode {
+  variants = new {
+    new model.StringNode {}
+    new model.NumberNode {}
+    new model.BooleanNode {}
+    new model.NullNode {}
+  }
+}
+
+function scalarRecord(): model.RecordNode = new model.RecordNode {
+  values = scalarValue()
+}
+
+function artifactReference(expectedKindValue: String): model.RefNode = new model.RefNode {
+  target = "artifact-ref"
+  expectedKind = expectedKindValue
+}
+
+function actorConfiguration(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Scenario-local stable identity of the configured actor."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "configuration"
+      description = "Flat, explicit scalar configuration interpreted by later domain contracts."
+      required = true
+      schema = scalarRecord()
+    }
+  }
+}
+
+function targetConfiguration(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Scenario-local stable identity of the configured target."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "configuration"
+      description =
+        "Flat, explicit scalar target configuration interpreted by later domain contracts."
+      required = true
+      schema = scalarRecord()
+    }
+  }
+}
+
+function actionStep(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Scenario-local stable identity of this action step."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "kind"
+      description = "Domain action discriminator resolved by a later action contract."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "parameters"
+      description = "Flat, explicit scalar parameters for this action."
+      required = true
+      schema = scalarRecord()
+    }
+  }
+}
+
+function deterministicSimulation(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "mode"
+      description = "Evaluate fixed outcomes without probabilistic aggregation."
+      required = true
+      schema = new model.LiteralNode {
+        value = "deterministic"
+      }
+    }
+    new model.Field {
+      name = "timeLimitMs"
+      description = "Positive execution time horizon in milliseconds."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 1
+      }
+    }
+  }
+}
+
+function expectedSimulation(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "mode"
+      description = "Evaluate supported probabilistic behavior as expected values."
+      required = true
+      schema = new model.LiteralNode {
+        value = "expected"
+      }
+    }
+    new model.Field {
+      name = "timeLimitMs"
+      description = "Positive execution time horizon in milliseconds."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 1
+      }
+    }
+  }
+}
+
+function monteCarloSimulation(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "mode"
+      description = "Evaluate probabilistic behavior with deterministic seeded trials."
+      required = true
+      schema = new model.LiteralNode {
+        value = "monte-carlo"
+      }
+    }
+    new model.Field {
+      name = "seed"
+      description = "Non-negative deterministic random seed."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 0
+      }
+    }
+    new model.Field {
+      name = "iterations"
+      description = "Positive number of Monte Carlo trials."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 1
+      }
+    }
+    new model.Field {
+      name = "timeLimitMs"
+      description = "Positive execution time horizon in milliseconds."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 1
+      }
+    }
+  }
+}
+
+function assumption(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Stable identifier of an explicit Scenario assumption."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "description"
+      description = "Human-readable statement of the explicit assumption."
+      required = true
+      schema = nonEmptyString()
+    }
+  }
+}
+
+scenario: model.Contract = new {
+  id = "scenario"
+  typeName = "Scenario"
+  schemaId = schemaIdentifier
+  version = contractVersion
+  description =
+    "Immutable, reproducible evaluation input with explicit structured extension points."
+  root = new model.ObjectNode {
+    fields = (
+      artifact.envelopeFields(
+        schemaIdentifier,
+        "voidtrace.scenario",
+        contractVersion,
+      )
+    ) {
+      new model.Field {
+        name = "catalogRef"
+        description = "CatalogSnapshot revision used to resolve Scenario identities."
+        required = true
+        schema = artifactReference("catalog-snapshot")
+      }
+      new model.Field {
+        name = "rulesetRef"
+        description = "Ruleset revision used to evaluate this Scenario."
+        required = true
+        schema = artifactReference("ruleset")
+      }
+      new model.Field {
+        name = "attacker"
+        description = "Structured attacker input without embedded mechanics interpretation."
+        required = true
+        schema = actorConfiguration()
+      }
+      new model.Field {
+        name = "targets"
+        description = "One or more structured target inputs."
+        required = true
+        schema = new model.ArrayNode {
+          items = targetConfiguration()
+          minItems = 1
+        }
+      }
+      new model.Field {
+        name = "initialState"
+        description = "Explicit flat scalar state present before the first action."
+        required = true
+        schema = scalarRecord()
+      }
+      new model.Field {
+        name = "actionPlan"
+        description = "Ordered, non-empty sequence of structured action inputs."
+        required = true
+        schema = new model.ArrayNode {
+          items = actionStep()
+          minItems = 1
+        }
+      }
+      new model.Field {
+        name = "simulation"
+        description = "Bounded evaluation mode with no hidden random defaults."
+        required = true
+        schema = new model.UnionNode {
+          variants = new {
+            deterministicSimulation()
+            expectedSimulation()
+            monteCarloSimulation()
+          }
+        }
+      }
+      new model.Field {
+        name = "metrics"
+        description = "Non-empty list of requested metric identifiers."
+        required = true
+        schema = new model.ArrayNode {
+          items = artifact.stableId()
+          minItems = 1
+        }
+      }
+      new model.Field {
+        name = "assumptions"
+        description = "Explicit assumptions that qualify evaluation of this Scenario."
+        required = true
+        schema = new model.ArrayNode {
+          items = assumption()
+        }
+      }
+    }
+  }
+}

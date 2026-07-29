@@ -1,22 +1,11 @@
 /// Narrow, language-neutral vocabulary for VoidTrace verification clauses.
 module voidtrace.patterns.base
 
-typealias VerificationLevel =
-  "property-tested"
-  | "example-tested"
-  | "manual"
+typealias VerificationLevel = "property-tested" | "example-tested" | "manual"
 
-typealias ClauseMaturity =
-  "planned"
-  | "active"
-  | "retired"
+typealias ClauseMaturity = "planned" | "active" | "retired"
 
-typealias SpecArea =
-  "scope"
-  | "kernel"
-  | "mechanics"
-  | "catalog"
-  | "lab"
+typealias SpecArea = "scope" | "kernel" | "mechanics" | "catalog" | "lab"
 
 abstract class Clause {
   /// Permanent identifier such as ENG-001.

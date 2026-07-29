@@ -1,0 +1,705 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:trace:0.1.0",
+  "title": "Trace",
+  "description": "Ordered causal record that distinguishes applied rules from rejected candidates.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Schema identifier used to validate this Artifact.",
+      "type": "string",
+      "const": "urn:voidtrace:schema:trace:0.1.0"
+    },
+    "kind": {
+      "description": "Stable discriminator for this Artifact kind.",
+      "type": "string",
+      "const": "voidtrace.trace"
+    },
+    "schemaVersion": {
+      "description": "Version of this Artifact contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "id": {
+      "description": "Stable identity of this Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative immutable revision of this Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdFrom": {
+      "description": "Optional Artifact revision from which this Artifact was derived.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.trace"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build against which this Artifact is defined.",
+      "type": "string",
+      "minLength": 1
+    },
+    "scenarioRef": {
+      "description": "Scenario revision whose evaluation produced this Trace.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.scenario"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "fingerprint": {
+      "description": "Immutable input fingerprint shared with the associated Result.",
+      "$ref": "urn:voidtrace:schema:fingerprint:0.1.0"
+    },
+    "level": {
+      "description": "Trace detail level requested for this Artifact.",
+      "type": "string",
+      "enum": [
+        "none",
+        "summary",
+        "rules",
+        "full"
+      ]
+    },
+    "decisions": {
+      "description": "Ordered applied and rejected rule decisions.",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "description": "Discriminator stating whether this rule decision was applied or rejected.",
+                "type": "string",
+                "const": "applied"
+              },
+              "sequence": {
+                "description": "Stable non-negative order of this decision within the Trace.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "eventId": {
+                "description": "Stable identity of the event examined by this rule.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "parentEventId": {
+                "description": "Optional causal parent of the examined event.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "eventTimeMs": {
+                "description": "Non-negative logical event time in milliseconds.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "phase": {
+                "description": "Stable rule phase in which the decision was made.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "ruleId": {
+                "description": "Stable identity of the evaluated rule.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "reads": {
+                "description": "Flat scalar values read while evaluating the rule.",
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "evidenceStatus": {
+                "description": "Evidence status of the rule at evaluation time.",
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "experimental",
+                  "disputed",
+                  "unsupported",
+                  "approximated"
+                ]
+              },
+              "evidenceIds": {
+                "description": "Stable evidence identifiers supporting or qualifying the rule.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                }
+              },
+              "matched": {
+                "description": "Applied decisions always matched their event predicate.",
+                "type": "boolean",
+                "const": true
+              },
+              "operations": {
+                "description": "One or more structured operations emitted by the rule.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "description": "Stable operation discriminator.",
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                    },
+                    "parameters": {
+                      "description": "Flat scalar parameters applied by the operation.",
+                      "type": "object",
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "parameters"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1
+              },
+              "before": {
+                "description": "Flat scalar state projection captured before applying operations.",
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "after": {
+                "description": "Flat scalar state projection captured after applying operations.",
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "outcome",
+              "sequence",
+              "eventId",
+              "eventTimeMs",
+              "phase",
+              "ruleId",
+              "reads",
+              "evidenceStatus",
+              "evidenceIds",
+              "matched",
+              "operations",
+              "before",
+              "after"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "description": "Discriminator stating whether this rule decision was applied or rejected.",
+                "type": "string",
+                "const": "rejected"
+              },
+              "sequence": {
+                "description": "Stable non-negative order of this decision within the Trace.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "eventId": {
+                "description": "Stable identity of the event examined by this rule.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "parentEventId": {
+                "description": "Optional causal parent of the examined event.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "eventTimeMs": {
+                "description": "Non-negative logical event time in milliseconds.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "phase": {
+                "description": "Stable rule phase in which the decision was made.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "ruleId": {
+                "description": "Stable identity of the evaluated rule.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "reads": {
+                "description": "Flat scalar values read while evaluating the rule.",
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "evidenceStatus": {
+                "description": "Evidence status of the rule at evaluation time.",
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "experimental",
+                  "disputed",
+                  "unsupported",
+                  "approximated"
+                ]
+              },
+              "evidenceIds": {
+                "description": "Stable evidence identifiers supporting or qualifying the rule.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                }
+              },
+              "rejectionStage": {
+                "description": "Stage at which this rule decision was rejected.",
+                "type": "string",
+                "const": "predicate"
+              },
+              "rejectionReason": {
+                "description": "Structured explanation of why the rule was not applied.",
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "description": "Stable machine-readable rejection code.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "message": {
+                    "description": "Human-readable explanation of the rejection.",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "additionalProperties": false
+              },
+              "matched": {
+                "description": "Predicate rejection means the event predicate did not match.",
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "outcome",
+              "sequence",
+              "eventId",
+              "eventTimeMs",
+              "phase",
+              "ruleId",
+              "reads",
+              "evidenceStatus",
+              "evidenceIds",
+              "rejectionStage",
+              "rejectionReason",
+              "matched"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "description": "Discriminator stating whether this rule decision was applied or rejected.",
+                "type": "string",
+                "const": "rejected"
+              },
+              "sequence": {
+                "description": "Stable non-negative order of this decision within the Trace.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "eventId": {
+                "description": "Stable identity of the event examined by this rule.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "parentEventId": {
+                "description": "Optional causal parent of the examined event.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "eventTimeMs": {
+                "description": "Non-negative logical event time in milliseconds.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "phase": {
+                "description": "Stable rule phase in which the decision was made.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "ruleId": {
+                "description": "Stable identity of the evaluated rule.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "reads": {
+                "description": "Flat scalar values read while evaluating the rule.",
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "evidenceStatus": {
+                "description": "Evidence status of the rule at evaluation time.",
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "experimental",
+                  "disputed",
+                  "unsupported",
+                  "approximated"
+                ]
+              },
+              "evidenceIds": {
+                "description": "Stable evidence identifiers supporting or qualifying the rule.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                }
+              },
+              "rejectionStage": {
+                "description": "Stage at which this rule decision was rejected.",
+                "type": "string",
+                "const": "guard"
+              },
+              "rejectionReason": {
+                "description": "Structured explanation of why the rule was not applied.",
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "description": "Stable machine-readable rejection code.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "message": {
+                    "description": "Human-readable explanation of the rejection.",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "additionalProperties": false
+              },
+              "matched": {
+                "description": "Guard rejection occurs only after the event predicate matched.",
+                "type": "boolean",
+                "const": true
+              },
+              "guardResult": {
+                "description": "Guard rejection records the failed guard result.",
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "outcome",
+              "sequence",
+              "eventId",
+              "eventTimeMs",
+              "phase",
+              "ruleId",
+              "reads",
+              "evidenceStatus",
+              "evidenceIds",
+              "rejectionStage",
+              "rejectionReason",
+              "matched",
+              "guardResult"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "description": "Discriminator stating whether this rule decision was applied or rejected.",
+                "type": "string",
+                "const": "rejected"
+              },
+              "sequence": {
+                "description": "Stable non-negative order of this decision within the Trace.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "eventId": {
+                "description": "Stable identity of the event examined by this rule.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "parentEventId": {
+                "description": "Optional causal parent of the examined event.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "eventTimeMs": {
+                "description": "Non-negative logical event time in milliseconds.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "phase": {
+                "description": "Stable rule phase in which the decision was made.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "ruleId": {
+                "description": "Stable identity of the evaluated rule.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "reads": {
+                "description": "Flat scalar values read while evaluating the rule.",
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "evidenceStatus": {
+                "description": "Evidence status of the rule at evaluation time.",
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "experimental",
+                  "disputed",
+                  "unsupported",
+                  "approximated"
+                ]
+              },
+              "evidenceIds": {
+                "description": "Stable evidence identifiers supporting or qualifying the rule.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                }
+              },
+              "rejectionStage": {
+                "description": "Stage at which this rule decision was rejected.",
+                "type": "string",
+                "const": "operation"
+              },
+              "rejectionReason": {
+                "description": "Structured explanation of why the rule was not applied.",
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "description": "Stable machine-readable rejection code.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "message": {
+                    "description": "Human-readable explanation of the rejection.",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "additionalProperties": false
+              },
+              "matched": {
+                "description": "Operation rejection occurs only after the event predicate matched.",
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "outcome",
+              "sequence",
+              "eventId",
+              "eventTimeMs",
+              "phase",
+              "ruleId",
+              "reads",
+              "evidenceStatus",
+              "evidenceIds",
+              "rejectionStage",
+              "rejectionReason",
+              "matched"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild",
+    "scenarioRef",
+    "fingerprint",
+    "level",
+    "decisions"
+  ],
+  "additionalProperties": false
+}

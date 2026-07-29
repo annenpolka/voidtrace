@@ -1,0 +1,380 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:scenario:0.1.0",
+  "title": "Scenario",
+  "description": "Immutable, reproducible evaluation input with explicit structured extension points.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Schema identifier used to validate this Artifact.",
+      "type": "string",
+      "const": "urn:voidtrace:schema:scenario:0.1.0"
+    },
+    "kind": {
+      "description": "Stable discriminator for this Artifact kind.",
+      "type": "string",
+      "const": "voidtrace.scenario"
+    },
+    "schemaVersion": {
+      "description": "Version of this Artifact contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "id": {
+      "description": "Stable identity of this Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative immutable revision of this Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdFrom": {
+      "description": "Optional Artifact revision from which this Artifact was derived.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.scenario"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build against which this Artifact is defined.",
+      "type": "string",
+      "minLength": 1
+    },
+    "catalogRef": {
+      "description": "CatalogSnapshot revision used to resolve Scenario identities.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "catalog-snapshot"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "rulesetRef": {
+      "description": "Ruleset revision used to evaluate this Scenario.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "ruleset"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "attacker": {
+      "description": "Structured attacker input without embedded mechanics interpretation.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Scenario-local stable identity of the configured actor.",
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+        },
+        "configuration": {
+          "description": "Flat, explicit scalar configuration interpreted by later domain contracts.",
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "configuration"
+      ],
+      "additionalProperties": false
+    },
+    "targets": {
+      "description": "One or more structured target inputs.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Scenario-local stable identity of the configured target.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "configuration": {
+            "description": "Flat, explicit scalar target configuration interpreted by later domain contracts.",
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "configuration"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "initialState": {
+      "description": "Explicit flat scalar state present before the first action.",
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "actionPlan": {
+      "description": "Ordered, non-empty sequence of structured action inputs.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Scenario-local stable identity of this action step.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "kind": {
+            "description": "Domain action discriminator resolved by a later action contract.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "parameters": {
+            "description": "Flat, explicit scalar parameters for this action.",
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "parameters"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "simulation": {
+      "description": "Bounded evaluation mode with no hidden random defaults.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "description": "Evaluate fixed outcomes without probabilistic aggregation.",
+              "type": "string",
+              "const": "deterministic"
+            },
+            "timeLimitMs": {
+              "description": "Positive execution time horizon in milliseconds.",
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "mode",
+            "timeLimitMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "description": "Evaluate supported probabilistic behavior as expected values.",
+              "type": "string",
+              "const": "expected"
+            },
+            "timeLimitMs": {
+              "description": "Positive execution time horizon in milliseconds.",
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "mode",
+            "timeLimitMs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "description": "Evaluate probabilistic behavior with deterministic seeded trials.",
+              "type": "string",
+              "const": "monte-carlo"
+            },
+            "seed": {
+              "description": "Non-negative deterministic random seed.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "iterations": {
+              "description": "Positive number of Monte Carlo trials.",
+              "type": "integer",
+              "minimum": 1
+            },
+            "timeLimitMs": {
+              "description": "Positive execution time horizon in milliseconds.",
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "mode",
+            "seed",
+            "iterations",
+            "timeLimitMs"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "metrics": {
+      "description": "Non-empty list of requested metric identifiers.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+      },
+      "minItems": 1
+    },
+    "assumptions": {
+      "description": "Explicit assumptions that qualify evaluation of this Scenario.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Stable identifier of an explicit Scenario assumption.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "description": {
+            "description": "Human-readable statement of the explicit assumption.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "$schema",
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild",
+    "catalogRef",
+    "rulesetRef",
+    "attacker",
+    "targets",
+    "initialState",
+    "actionPlan",
+    "simulation",
+    "metrics",
+    "assumptions"
+  ],
+  "additionalProperties": false
+}

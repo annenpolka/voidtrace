@@ -15,6 +15,29 @@ const validSpec = {
   title: "VoidTrace test specification",
   schemaVersion: "0.1.0",
   clauses: [validClause],
+  contracts: [
+    {
+      id: "example",
+      typeName: "Example",
+      schemaId: "urn:voidtrace:schema:example:1.0.0",
+      version: "1.0.0",
+      description: "test contract",
+      root: {
+        kind: "object",
+        fields: [
+          {
+            name: "kind",
+            description: "discriminator",
+            required: true,
+            schema: {
+              kind: "literal",
+              value: "example",
+            },
+          },
+        ],
+      },
+    },
+  ],
 };
 
 describe("validateSpecDocument", () => {
@@ -43,6 +66,27 @@ describe("validateSpecDocument", () => {
         ],
       }),
     ).toThrow("Unknown value at clauses[0].pattern");
+  });
+
+  it("rejects unhandled top-level and Clause fields", () => {
+    expect(() =>
+      validateSpecDocument({
+        ...validSpec,
+        futureSection: [],
+      }),
+    ).toThrow("Unknown specification key at root: futureSection");
+
+    expect(() =>
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            futureConstraint: true,
+          },
+        ],
+      }),
+    ).toThrow("Unknown specification key at clauses[0]: futureConstraint");
   });
 
   it("rejects active machine-verified Clauses without an independent oracle", () => {

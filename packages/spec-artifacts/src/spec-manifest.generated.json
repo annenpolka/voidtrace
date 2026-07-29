@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:665871338ae7087403e063e7827966aff5a3492134cf285c29fa624483ade1de",
+  "sourceFingerprint": "sha256:17526c7ef661accd62cfb9a1c395d7853ae91626152e13ff93791befef66d3d3",
   "clauses": [
     {
       "id": "ENG-001",
@@ -43,6 +43,38 @@
       "guarantee": "property-tested",
       "maturity": "planned",
       "area": "scope"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "artifact-ref",
+      "typeName": "ArtifactRef",
+      "schemaId": "urn:voidtrace:schema:artifact-ref:0.1.0",
+      "version": "0.1.0"
+    },
+    {
+      "id": "fingerprint",
+      "typeName": "Fingerprint",
+      "schemaId": "urn:voidtrace:schema:fingerprint:0.1.0",
+      "version": "0.1.0"
+    },
+    {
+      "id": "result",
+      "typeName": "Result",
+      "schemaId": "urn:voidtrace:schema:result:0.1.0",
+      "version": "0.1.0"
+    },
+    {
+      "id": "scenario",
+      "typeName": "Scenario",
+      "schemaId": "urn:voidtrace:schema:scenario:0.1.0",
+      "version": "0.1.0"
+    },
+    {
+      "id": "trace",
+      "typeName": "Trace",
+      "schemaId": "urn:voidtrace:schema:trace:0.1.0",
+      "version": "0.1.0"
     }
   ]
 }

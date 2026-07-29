@@ -1,0 +1,201 @@
+/// Shared Artifact identity, reference, and execution-fingerprint contracts.
+module voidtrace.contracts.artifact
+
+import "model.pkl"
+
+function nonEmptyString(): model.StringNode = new model.StringNode {
+  minLength = 1
+}
+
+function stableId(): model.StringNode = new model.StringNode {
+  pattern = #"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"#
+  minLength = 1
+}
+
+function semanticVersion(): model.StringNode = new model.StringNode {
+  pattern = #"^\d+\.\d+\.\d+$"#
+  minLength = 5
+}
+
+function contentHash(): model.StringNode = new model.StringNode {
+  pattern = #"^sha256:[0-9a-f]{64}$"#
+  minLength = 71
+}
+
+function literalString(literalValue: String): model.LiteralNode = new model.LiteralNode {
+  value = literalValue
+}
+
+/// Fields shared by every top-level Artifact contract.
+function envelopeFields(
+  schemaIdValue: String,
+  kindValue: String,
+  versionValue: String,
+): Listing<model.Field> = new {
+  new model.Field {
+    name = "$schema"
+    description = "Schema identifier used to validate this Artifact."
+    required = true
+    schema = literalString(schemaIdValue)
+  }
+  new model.Field {
+    name = "kind"
+    description = "Stable discriminator for this Artifact kind."
+    required = true
+    schema = literalString(kindValue)
+  }
+  new model.Field {
+    name = "schemaVersion"
+    description = "Version of this Artifact contract."
+    required = true
+    schema = literalString(versionValue)
+  }
+  new model.Field {
+    name = "id"
+    description = "Stable identity of this Artifact."
+    required = true
+    schema = stableId()
+  }
+  new model.Field {
+    name = "revision"
+    description = "Non-negative immutable revision of this Artifact."
+    required = true
+    schema = new model.IntegerNode {
+      minimum = 0
+    }
+  }
+  new model.Field {
+    name = "createdFrom"
+    description = "Optional Artifact revision from which this Artifact was derived."
+    required = false
+    schema = new model.RefNode {
+      target = "artifact-ref"
+      expectedKind = kindValue
+    }
+  }
+  new model.Field {
+    name = "contentHash"
+    description =
+      "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field."
+    required = true
+    schema = contentHash()
+  }
+  new model.Field {
+    name = "gameBuild"
+    description = "Game build against which this Artifact is defined."
+    required = true
+    schema = nonEmptyString()
+  }
+}
+
+fingerprint: model.Contract = new {
+  id = "fingerprint"
+  typeName = "Fingerprint"
+  schemaId = "urn:voidtrace:schema:fingerprint:0.1.0"
+  version = "0.1.0"
+  description = "Complete immutable input fingerprint for a reproducible execution."
+  root = new model.ObjectNode {
+    fields = new {
+      new model.Field {
+        name = "productVersion"
+        description = "Version of the product that requested the evaluation."
+        required = true
+        schema = semanticVersion()
+      }
+      new model.Field {
+        name = "engineVersion"
+        description = "Version of the engine that produced the Result."
+        required = true
+        schema = semanticVersion()
+      }
+      new model.Field {
+        name = "scenarioSchemaVersion"
+        description = "Version of the Scenario contract consumed by the engine."
+        required = true
+        schema = semanticVersion()
+      }
+      new model.Field {
+        name = "catalogHash"
+        description = "Content hash of the CatalogSnapshot used for evaluation."
+        required = true
+        schema = contentHash()
+      }
+      new model.Field {
+        name = "rulesetHash"
+        description = "Content hash of the Ruleset used for evaluation."
+        required = true
+        schema = contentHash()
+      }
+      new model.Field {
+        name = "scenarioHash"
+        description = "Content hash of the Scenario used for evaluation."
+        required = true
+        schema = contentHash()
+      }
+      new model.Field {
+        name = "seed"
+        description = "Non-negative deterministic random seed used for evaluation."
+        required = true
+        schema = new model.IntegerNode {
+          minimum = 0
+        }
+      }
+      new model.Field {
+        name = "resultHash"
+        description = "SHA-256 of the canonical Fingerprint object excluding this resultHash field."
+        required = true
+        schema = contentHash()
+      }
+    }
+  }
+}
+
+artifactRef: model.Contract = new {
+  id = "artifact-ref"
+  typeName = "ArtifactRef"
+  schemaId = "urn:voidtrace:schema:artifact-ref:0.1.0"
+  version = "0.1.0"
+  description = "Immutable reference to one revision of a content-addressed Artifact."
+  root = new model.ObjectNode {
+    fields = new {
+      new model.Field {
+        name = "kind"
+        description = "Stable discriminator of the referenced Artifact kind."
+        required = true
+        schema = stableId()
+      }
+      new model.Field {
+        name = "schemaVersion"
+        description = "Contract version of the referenced Artifact."
+        required = true
+        schema = semanticVersion()
+      }
+      new model.Field {
+        name = "id"
+        description = "Stable identity of the referenced Artifact."
+        required = true
+        schema = stableId()
+      }
+      new model.Field {
+        name = "revision"
+        description = "Non-negative revision of the referenced Artifact."
+        required = true
+        schema = new model.IntegerNode {
+          minimum = 0
+        }
+      }
+      new model.Field {
+        name = "contentHash"
+        description = "SHA-256 fingerprint of the referenced Artifact content."
+        required = true
+        schema = contentHash()
+      }
+      new model.Field {
+        name = "gameBuild"
+        description = "Game build of the referenced Artifact."
+        required = true
+        schema = nonEmptyString()
+      }
+    }
+  }
+}

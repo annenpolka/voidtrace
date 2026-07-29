@@ -1,10 +1,35 @@
-import { access, mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, parse } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { resetControlledRoots } from "./generate.ts";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { generateSpecification, resetControlledRoots } from "./generate.ts";
+
+const filesystemControl = vi.hoisted(() => ({
+  swapBeforeNextMkdir: null as null | {
+    link: string;
+    target: string;
+  },
+}));
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...actual,
+    mkdir: async (...args: Parameters<typeof actual.mkdir>) => {
+      const swap = filesystemControl.swapBeforeNextMkdir;
+      if (swap !== null) {
+        filesystemControl.swapBeforeNextMkdir = null;
+        await actual.rm(swap.link, { force: true });
+        await actual.symlink(swap.target, swap.link);
+      }
+      return actual.mkdir(...args);
+    },
+  };
+});
 
 const temporaryRoots: string[] = [];
+const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
 async function temporaryRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "voidtrace-generation-test-"));
@@ -22,6 +47,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 afterEach(async () => {
+  filesystemControl.swapBeforeNextMkdir = null;
   await Promise.all(
     temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
   );
@@ -63,5 +89,44 @@ describe("resetControlledRoots", () => {
     await expect(resetControlledRoots(linkedRoot)).rejects.toThrow(
       "Refusing to generate specification artifacts at a filesystem root",
     );
+  });
+
+  it("refuses to traverse a symlink inside a controlled generated path", async () => {
+    const root = await temporaryRoot();
+    const outside = await temporaryRoot();
+    const sentinel = join(outside, "spec-artifacts/sentinel.txt");
+    await mkdir(join(outside, "spec-artifacts"), { recursive: true });
+    await writeFile(sentinel, "keep\n");
+    await symlink(outside, join(root, "packages"));
+
+    await expect(resetControlledRoots(root)).rejects.toThrow(
+      "Refusing to traverse a symlink in a controlled generated path",
+    );
+    await expect(exists(sentinel)).resolves.toBe(true);
+  });
+});
+
+describe("generateSpecification", () => {
+  it("keeps writing to the canonical root if the supplied symlink changes after reset", async () => {
+    const root = await temporaryRoot();
+    const originalTarget = join(root, "original");
+    const redirectedTarget = join(root, "redirected");
+    const linkedRoot = join(root, "output");
+    await Promise.all([mkdir(originalTarget), mkdir(redirectedTarget)]);
+    await symlink(originalTarget, linkedRoot);
+    filesystemControl.swapBeforeNextMkdir = {
+      link: linkedRoot,
+      target: redirectedTarget,
+    };
+
+    await generateSpecification(repositoryRoot, linkedRoot);
+
+    expect(filesystemControl.swapBeforeNextMkdir).toBeNull();
+    await expect(
+      exists(join(originalTarget, "packages/spec-artifacts/package.json")),
+    ).resolves.toBe(true);
+    await expect(
+      exists(join(redirectedTarget, "packages/spec-artifacts/package.json")),
+    ).resolves.toBe(false);
   });
 });

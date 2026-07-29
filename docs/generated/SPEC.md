@@ -4,13 +4,14 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:665871338ae7087403e063e7827966aff5a3492134cf285c29fa624483ade1de`
+- Source fingerprint: `sha256:17526c7ef661accd62cfb9a1c395d7853ae91626152e13ff93791befef66d3d3`
+- Generated contracts: 5 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
 
 `guarantee` names the intended independent verification method. `maturity` records
-whether that oracle currently exists. Commit 1 publishes foundational clauses as
-`planned`; it does not claim that a combat Kernel has verified them.
+whether that oracle currently exists. Foundational Kernel clauses remain `planned`;
+generated Contract validation does not claim that a combat Kernel has verified them.
 
 ## Clauses
 

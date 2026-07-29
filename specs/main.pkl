@@ -1,11 +1,16 @@
 /// Sole generator entrypoint for the normative VoidTrace specification.
 module voidtrace
 
-import "patterns/base.pkl"
-import "kernel/scope.pkl"
+import "contracts/artifact.pkl"
+import "contracts/model.pkl"
+import "contracts/result.pkl"
+import "contracts/scenario.pkl"
+import "contracts/trace.pkl"
 import "kernel/determinism.pkl"
 import "kernel/event-ordering.pkl"
 import "kernel/rng.pkl"
+import "kernel/scope.pkl"
+import "patterns/base.pkl"
 
 title = "VoidTrace Normative Specification"
 schemaVersion = "0.1.0"
@@ -16,4 +21,12 @@ clauses: Listing<base.Clause> = new {
   determinism.sameInputsReplay
   `event-ordering`.eventTimeNeverRegresses
   rng.logicalCoordinateIsStable
+}
+
+contracts: Listing<model.Contract> = new {
+  artifact.artifactRef
+  artifact.fingerprint
+  scenario.scenario
+  result.result
+  `trace`.`trace`
 }

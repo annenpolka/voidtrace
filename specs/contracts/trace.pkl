@@ -1,0 +1,307 @@
+/// Causal record of applied and rejected rule decisions.
+module voidtrace.contracts.`trace`
+
+import "artifact.pkl"
+import "model.pkl"
+
+local schemaIdentifier = "urn:voidtrace:schema:trace:0.1.0"
+local contractVersion = "0.1.0"
+
+function nonEmptyString(): model.StringNode = new model.StringNode {
+  minLength = 1
+}
+
+function stringValues(allowedValues: Listing<String>): model.StringNode = new model.StringNode {
+  values = allowedValues
+}
+
+function scalarValue(): model.UnionNode = new model.UnionNode {
+  variants = new {
+    new model.StringNode {}
+    new model.NumberNode {}
+    new model.BooleanNode {}
+    new model.NullNode {}
+  }
+}
+
+function scalarRecord(): model.RecordNode = new model.RecordNode {
+  values = scalarValue()
+}
+
+function artifactReference(expectedKindValue: String): model.RefNode = new model.RefNode {
+  target = "artifact-ref"
+  expectedKind = expectedKindValue
+}
+
+function evidenceStatus(): model.StringNode =
+  stringValues(new Listing<String> {
+    "verified"
+    "experimental"
+    "disputed"
+    "unsupported"
+    "approximated"
+  })
+
+function decisionFields(outcomeValue: String): Listing<model.Field> = new {
+  new model.Field {
+    name = "outcome"
+    description = "Discriminator stating whether this rule decision was applied or rejected."
+    required = true
+    schema = new model.LiteralNode {
+      value = outcomeValue
+    }
+  }
+  new model.Field {
+    name = "sequence"
+    description = "Stable non-negative order of this decision within the Trace."
+    required = true
+    schema = new model.IntegerNode {
+      minimum = 0
+    }
+  }
+  new model.Field {
+    name = "eventId"
+    description = "Stable identity of the event examined by this rule."
+    required = true
+    schema = artifact.stableId()
+  }
+  new model.Field {
+    name = "parentEventId"
+    description = "Optional causal parent of the examined event."
+    required = false
+    schema = artifact.stableId()
+  }
+  new model.Field {
+    name = "eventTimeMs"
+    description = "Non-negative logical event time in milliseconds."
+    required = true
+    schema = new model.IntegerNode {
+      minimum = 0
+    }
+  }
+  new model.Field {
+    name = "phase"
+    description = "Stable rule phase in which the decision was made."
+    required = true
+    schema = artifact.stableId()
+  }
+  new model.Field {
+    name = "ruleId"
+    description = "Stable identity of the evaluated rule."
+    required = true
+    schema = artifact.stableId()
+  }
+  new model.Field {
+    name = "reads"
+    description = "Flat scalar values read while evaluating the rule."
+    required = true
+    schema = scalarRecord()
+  }
+  new model.Field {
+    name = "evidenceStatus"
+    description = "Evidence status of the rule at evaluation time."
+    required = true
+    schema = evidenceStatus()
+  }
+  new model.Field {
+    name = "evidenceIds"
+    description = "Stable evidence identifiers supporting or qualifying the rule."
+    required = true
+    schema = new model.ArrayNode {
+      items = artifact.stableId()
+    }
+  }
+}
+
+function operation(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description = "Stable operation discriminator."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "parameters"
+      description = "Flat scalar parameters applied by the operation."
+      required = true
+      schema = scalarRecord()
+    }
+  }
+}
+
+function appliedDecision(): model.ObjectNode = new model.ObjectNode {
+  fields = (decisionFields("applied")) {
+    new model.Field {
+      name = "matched"
+      description = "Applied decisions always matched their event predicate."
+      required = true
+      schema = new model.LiteralNode {
+        value = true
+      }
+    }
+    new model.Field {
+      name = "operations"
+      description = "One or more structured operations emitted by the rule."
+      required = true
+      schema = new model.ArrayNode {
+        items = operation()
+        minItems = 1
+      }
+    }
+    new model.Field {
+      name = "before"
+      description = "Flat scalar state projection captured before applying operations."
+      required = true
+      schema = scalarRecord()
+    }
+    new model.Field {
+      name = "after"
+      description = "Flat scalar state projection captured after applying operations."
+      required = true
+      schema = scalarRecord()
+    }
+  }
+}
+
+function rejectionReason(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "code"
+      description = "Stable machine-readable rejection code."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "message"
+      description = "Human-readable explanation of the rejection."
+      required = true
+      schema = nonEmptyString()
+    }
+  }
+}
+
+function rejectedDecisionFields(rejectionStageValue: String): Listing<model.Field> = (
+  decisionFields("rejected")
+) {
+  new model.Field {
+    name = "rejectionStage"
+    description = "Stage at which this rule decision was rejected."
+    required = true
+    schema = new model.LiteralNode {
+      value = rejectionStageValue
+    }
+  }
+  new model.Field {
+    name = "rejectionReason"
+    description = "Structured explanation of why the rule was not applied."
+    required = true
+    schema = rejectionReason()
+  }
+}
+
+function predicateRejectedDecision(): model.ObjectNode = new model.ObjectNode {
+  fields = (rejectedDecisionFields("predicate")) {
+    new model.Field {
+      name = "matched"
+      description = "Predicate rejection means the event predicate did not match."
+      required = true
+      schema = new model.LiteralNode {
+        value = false
+      }
+    }
+  }
+}
+
+function guardRejectedDecision(): model.ObjectNode = new model.ObjectNode {
+  fields = (rejectedDecisionFields("guard")) {
+    new model.Field {
+      name = "matched"
+      description = "Guard rejection occurs only after the event predicate matched."
+      required = true
+      schema = new model.LiteralNode {
+        value = true
+      }
+    }
+    new model.Field {
+      name = "guardResult"
+      description = "Guard rejection records the failed guard result."
+      required = true
+      schema = new model.LiteralNode {
+        value = false
+      }
+    }
+  }
+}
+
+function operationRejectedDecision(): model.ObjectNode = new model.ObjectNode {
+  fields = (rejectedDecisionFields("operation")) {
+    new model.Field {
+      name = "matched"
+      description = "Operation rejection occurs only after the event predicate matched."
+      required = true
+      schema = new model.LiteralNode {
+        value = true
+      }
+    }
+  }
+}
+
+`trace`: model.Contract = new {
+  id = "trace"
+  typeName = "Trace"
+  schemaId = schemaIdentifier
+  version = contractVersion
+  description = "Ordered causal record that distinguishes applied rules from rejected candidates."
+  root = new model.ObjectNode {
+    fields = (
+      artifact.envelopeFields(
+        schemaIdentifier,
+        "voidtrace.trace",
+        contractVersion,
+      )
+    ) {
+      new model.Field {
+        name = "scenarioRef"
+        description = "Scenario revision whose evaluation produced this Trace."
+        required = true
+        schema = artifactReference("voidtrace.scenario")
+      }
+      new model.Field {
+        name = "fingerprint"
+        description = "Immutable input fingerprint shared with the associated Result."
+        required = true
+        schema = new model.RefNode {
+          target = "fingerprint"
+        }
+      }
+      new model.Field {
+        name = "level"
+        description = "Trace detail level requested for this Artifact."
+        required = true
+        schema =
+          stringValues(new Listing<String> {
+            "none"
+            "summary"
+            "rules"
+            "full"
+          })
+      }
+      new model.Field {
+        name = "decisions"
+        description = "Ordered applied and rejected rule decisions."
+        required = true
+        schema = new model.ArrayNode {
+          items = new model.UnionNode {
+            variants = new {
+              appliedDecision()
+              predicateRejectedDecision()
+              guardRejectedDecision()
+              operationRejectedDecision()
+            }
+          }
+        }
+      }
+    }
+  }
+}

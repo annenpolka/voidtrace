@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:result:0.1.0",
+  "title": "Result",
+  "description": "Versioned evaluation output with explicit provenance, coverage, and limitations.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Schema identifier used to validate this Artifact.",
+      "type": "string",
+      "const": "urn:voidtrace:schema:result:0.1.0"
+    },
+    "kind": {
+      "description": "Stable discriminator for this Artifact kind.",
+      "type": "string",
+      "const": "voidtrace.result"
+    },
+    "schemaVersion": {
+      "description": "Version of this Artifact contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "id": {
+      "description": "Stable identity of this Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative immutable revision of this Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdFrom": {
+      "description": "Optional Artifact revision from which this Artifact was derived.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.result"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build against which this Artifact is defined.",
+      "type": "string",
+      "minLength": 1
+    },
+    "scenarioRef": {
+      "description": "Scenario revision evaluated to produce this Result.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.scenario"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "fingerprint": {
+      "description": "Immutable input fingerprint for the execution that produced this Result.",
+      "$ref": "urn:voidtrace:schema:fingerprint:0.1.0"
+    },
+    "coverage": {
+      "description": "Evidence and support classification of mechanics affecting this Result.",
+      "type": "object",
+      "properties": {
+        "verified": {
+          "description": "Mechanic identifiers covered by verified rules.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          }
+        },
+        "experimental": {
+          "description": "Mechanic identifiers covered by experimental rules.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          }
+        },
+        "disputed": {
+          "description": "Mechanic identifiers whose interpretation remains disputed.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          }
+        },
+        "unsupported": {
+          "description": "Mechanic identifiers explicitly excluded from this Result.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          }
+        },
+        "approximated": {
+          "description": "Mechanic identifiers evaluated with an explicit approximation.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          }
+        }
+      },
+      "required": [
+        "verified",
+        "experimental",
+        "disputed",
+        "unsupported",
+        "approximated"
+      ],
+      "additionalProperties": false
+    },
+    "metrics": {
+      "description": "Computed scalar metrics keyed by stable metric identifier.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+      }
+    },
+    "damageBySource": {
+      "description": "Non-negative damage totals keyed by stable source identifier.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      },
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+      }
+    },
+    "damageByType": {
+      "description": "Non-negative damage totals keyed by stable damage-type identifier.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0
+      },
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+      }
+    },
+    "resolvedDefaults": {
+      "description": "Every default resolved during evaluation, represented as explicit scalar values.",
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "assumptions": {
+      "description": "Assumptions that qualify interpretation of this Result.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Stable identifier of the assumption.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "status": {
+            "description": "Evidence status qualifying this assumption.",
+            "type": "string",
+            "enum": [
+              "verified",
+              "experimental",
+              "disputed",
+              "unsupported",
+              "approximated"
+            ]
+          },
+          "impact": {
+            "description": "Estimated impact of the assumption on the Result.",
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "description": {
+            "description": "Human-readable statement of the assumption.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "impact",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "warnings": {
+      "description": "Structured warnings emitted without silently changing mechanics.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "description": "Stable machine-readable warning code.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "message": {
+            "description": "Human-readable warning message.",
+            "type": "string",
+            "minLength": 1
+          },
+          "pointer": {
+            "description": "Optional JSON Pointer locating the input or output that caused the warning.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "traceRef": {
+      "description": "Optional reference to the causal Trace produced with this Result.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.trace"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    }
+  },
+  "required": [
+    "$schema",
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild",
+    "scenarioRef",
+    "fingerprint",
+    "coverage",
+    "metrics",
+    "damageBySource",
+    "damageByType",
+    "resolvedDefaults",
+    "assumptions",
+    "warnings"
+  ],
+  "additionalProperties": false
+}

@@ -10,6 +10,17 @@ type BoundaryRule = {
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const rules: BoundaryRule[] = [
   {
+    root: "packages/contracts",
+    forbiddenImports: [
+      "node:",
+      "@voidtrace/catalog",
+      "@voidtrace/rules",
+      "@voidtrace/kernel",
+      "@voidtrace/agent",
+      "react",
+    ],
+  },
+  {
     root: "packages/kernel",
     forbiddenImports: [
       "node:",

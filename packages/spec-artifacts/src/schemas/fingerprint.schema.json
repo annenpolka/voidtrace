@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:fingerprint:0.1.0",
+  "title": "Fingerprint",
+  "description": "Complete immutable input fingerprint for a reproducible execution.",
+  "type": "object",
+  "properties": {
+    "productVersion": {
+      "description": "Version of the product that requested the evaluation.",
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "engineVersion": {
+      "description": "Version of the engine that produced the Result.",
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "scenarioSchemaVersion": {
+      "description": "Version of the Scenario contract consumed by the engine.",
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "catalogHash": {
+      "description": "Content hash of the CatalogSnapshot used for evaluation.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "rulesetHash": {
+      "description": "Content hash of the Ruleset used for evaluation.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "scenarioHash": {
+      "description": "Content hash of the Scenario used for evaluation.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "seed": {
+      "description": "Non-negative deterministic random seed used for evaluation.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "resultHash": {
+      "description": "SHA-256 of the canonical Fingerprint object excluding this resultHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "required": [
+    "productVersion",
+    "engineVersion",
+    "scenarioSchemaVersion",
+    "catalogHash",
+    "rulesetHash",
+    "scenarioHash",
+    "seed",
+    "resultHash"
+  ],
+  "additionalProperties": false
+}

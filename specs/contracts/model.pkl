@@ -1,0 +1,88 @@
+/// Finite, language-neutral schema IR rendered into JSON Schema and TypeScript.
+module voidtrace.contracts.model
+
+typealias LiteralValue = String | Int | Float | Boolean
+
+abstract class SchemaNode {
+  /// Generator dispatch key.
+  kind: String
+}
+
+class LiteralNode extends SchemaNode {
+  kind = "literal"
+  value: LiteralValue
+}
+
+class StringNode extends SchemaNode {
+  kind = "string"
+  pattern: String? = null
+  values: Listing<String>? = null
+  minLength: Int(isPositive)? = null
+}
+
+class IntegerNode extends SchemaNode {
+  kind = "integer"
+  minimum: Int? = null
+  maximum: Int? = null
+}
+
+class NumberNode extends SchemaNode {
+  kind = "number"
+  minimum: Number? = null
+  maximum: Number? = null
+}
+
+class BooleanNode extends SchemaNode {
+  kind = "boolean"
+}
+
+class NullNode extends SchemaNode {
+  kind = "null"
+}
+
+class ArrayNode extends SchemaNode {
+  kind = "array"
+  items: SchemaNode
+  minItems: Int(isPositive)? = null
+  maxItems: Int(isPositive)? = null
+}
+
+class RecordNode extends SchemaNode {
+  kind = "record"
+  values: SchemaNode
+  /// Optional constraint applied to every record key.
+  keySchema: StringNode? = null
+}
+
+class ObjectNode extends SchemaNode {
+  kind = "object"
+  fields: Listing<Field>
+}
+
+class RefNode extends SchemaNode {
+  kind = "ref"
+  target: String(length > 0)
+  /// Optional Artifact kind required when target is artifact-ref.
+  expectedKind: String? = null
+}
+
+class UnionNode extends SchemaNode {
+  kind = "union"
+  variants: Listing<SchemaNode>
+}
+
+class Field {
+  name: String(length > 0)
+  description: String(length > 0)
+  required: Boolean
+  schema: SchemaNode
+}
+
+class Contract {
+  id: String(length > 0)
+  typeName: String(matches(Regex(#"[A-Z][A-Za-z0-9]*"#)))
+  schemaId: String(length > 0)
+  version: String(matches(Regex(#"\d+\.\d+\.\d+"#)))
+  description: String(length > 0)
+  root: ObjectNode
+}

@@ -24,9 +24,16 @@ try {
     );
   }
 
-  console.log(`Specification is valid and ${generated.files.length} generated files are fresh.`);
+  const { assertContractSchemasReady } = await import(
+    "../../../packages/contracts/src/validator.ts"
+  );
+  assertContractSchemasReady();
+
   console.log(
-    `${generated.clauseCount} Clauses published; runtime oracle maturity is audited in COVERAGE.md.`,
+    `Specification is valid, all Contract schemas compile, and ${generated.files.length} generated files are fresh.`,
+  );
+  console.log(
+    `${generated.clauseCount} Clauses and ${generated.contractCount} Contracts published; runtime oracle maturity is audited in COVERAGE.md.`,
   );
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });

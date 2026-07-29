@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:artifact-ref:0.1.0",
+  "title": "ArtifactRef",
+  "description": "Immutable reference to one revision of a content-addressed Artifact.",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "description": "Stable discriminator of the referenced Artifact kind.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "schemaVersion": {
+      "description": "Contract version of the referenced Artifact.",
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "id": {
+      "description": "Stable identity of the referenced Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative revision of the referenced Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the referenced Artifact content.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build of the referenced Artifact.",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild"
+  ],
+  "additionalProperties": false
+}

@@ -1,3 +1,5 @@
+import { parseContracts, type ContractDefinition } from "./contract-model.ts";
+
 export const KNOWN_PATTERNS = [
   "scope_boundary",
   "unsupported_mechanic_rejected",
@@ -30,10 +32,11 @@ export type SpecDocument = {
   title: string;
   schemaVersion: string;
   clauses: Clause[];
+  contracts: ContractDefinition[];
 };
 
-// Commit 1 contains no runtime oracle. Add a pattern here only when its independent
-// runner exists and is exercised by `just check`.
+// Contract validation is not a Kernel behavior oracle. Add a pattern here only when
+// its independent runner exists and is exercised by `just check`.
 export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [];
 
 const CLAUSE_ID = /^[A-Z][A-Z0-9]{2}-\d{3}$/;
@@ -41,6 +44,20 @@ const SCHEMA_VERSION = /^\d+\.\d+\.\d+$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertExactKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  path: string,
+): void {
+  const allowed = new Set(allowedKeys);
+  const unknown = Object.keys(value)
+    .filter((key) => !allowed.has(key))
+    .toSorted();
+  if (unknown.length > 0) {
+    throw new Error(`Unknown specification key at ${path}: ${unknown[0]}`);
+  }
 }
 
 function requireString(
@@ -73,6 +90,7 @@ function parseClause(value: unknown, index: number): Clause {
   if (!isRecord(value)) {
     throw new Error(`Invalid specification value at ${path}`);
   }
+  assertExactKeys(value, ["id", "pattern", "desc", "guarantee", "maturity", "area"], path);
 
   return {
     id: requireString(value.id, `${path}.id`, (candidate) => CLAUSE_ID.test(candidate)),
@@ -88,6 +106,7 @@ export function validateSpecDocument(value: unknown): SpecDocument {
   if (!isRecord(value)) {
     throw new Error("Pkl entrypoint did not evaluate to an object");
   }
+  assertExactKeys(value, ["title", "schemaVersion", "clauses", "contracts"], "root");
   if (!Array.isArray(value.clauses) || value.clauses.length === 0) {
     throw new Error("Specification must contain at least one Clause");
   }
@@ -115,6 +134,9 @@ export function validateSpecDocument(value: unknown): SpecDocument {
     schemaVersion: requireString(value.schemaVersion, "schemaVersion", (candidate) =>
       SCHEMA_VERSION.test(candidate),
     ),
-    clauses: clauses.toSorted((left, right) => left.id.localeCompare(right.id)),
+    clauses: clauses.toSorted((left, right) =>
+      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+    ),
+    contracts: parseContracts(value.contracts),
   };
 }
