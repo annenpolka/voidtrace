@@ -186,6 +186,7 @@ function classificationForEvaluationError(error: EvaluationError): ProblemClassi
     return "unsupported";
   }
   switch (error.code) {
+    case "unsupported-critical-chance":
     case "unsupported-delivery":
       return "unsupported";
     case "scenario-invalid":
@@ -220,6 +221,8 @@ function sourceForEvaluationError(
     case "artifact-construction-failed":
     case "integrity-check-failed":
       return undefined;
+    case "unsupported-critical-chance":
+      return request.catalogSource;
   }
 }
 

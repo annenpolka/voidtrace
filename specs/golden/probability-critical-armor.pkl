@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for binary Critical resolution from an explicit roll.
+module voidtrace.golden.probabilityCriticalArmor
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-002"
+  desc =
+    "data/fixtures/golden/probability-critical-armor.scenario.jsonは明示Critical rollからbinary tierを解決し、独立literal expected vectorと一致するResultおよびTraceを生成する"
+  maturity = "active"
+}

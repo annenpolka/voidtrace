@@ -5,17 +5,19 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The current repository state is **Commit 6: CLI**. It establishes the normative
+The current repository state is **Commit 7: binary Critical roll**. It establishes the normative
 Pkl specification, deterministic generated artifacts, eight versioned public contracts, and
 the Kernel foundation: an ordered Event Queue, logical-coordinate RNG, explicit World State
 transitions, and generated finite Rule IR. A strictly validated synthetic mini catalog supplies
-one hitscan weapon and one target to a deterministic Direct Hit / fixed Critical tier / Armor
-round trip that emits content-addressed Result and causal Trace Artifacts. The formal
-`voidtrace` / `vt` command surface exposes that slice as deterministic JSON.
+one hitscan weapon and one target to deterministic Direct Hit / Critical / Armor round trips.
+Critical resolution accepts either a fixed tier or an explicit roll against the Catalog's binary
+Critical chance, and emits content-addressed Result and causal Trace Artifacts. The formal
+`voidtrace` / `vt` command surface exposes both slices as deterministic JSON.
 
 This slice is synthetic and experimental. It is not a verified statement of current Warframe
-mechanics, and probability Criticals, mods, headshots, Shield, Overguard, projectiles, status,
-multishot, Trace queries, comparisons, and the Lab remain unsupported.
+mechanics. Generated random rolls, expected values, Monte Carlo, Critical chance above `1`,
+mods, headshots, Shield, Overguard, projectiles, status, multishot, Trace queries, comparisons,
+and the Lab remain unsupported.
 
 `VoidTrace計画.md` is design input and discussion history. Normative behavior lives only under `specs/`.
 
@@ -63,6 +65,8 @@ pnpm exec vt run data/fixtures/golden/direct-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec voidtrace trace data/fixtures/golden/direct-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/probability-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt run - --catalog data/fixtures/catalog-mini/catalog.json \
   < data/fixtures/golden/direct-critical-armor.scenario.json
 ```
@@ -87,6 +91,7 @@ reported explicitly rather than approximated.
 
 ## Specification maturity
 
-Nineteen clauses are `active` because their boundary checks, property tests, or literal
-golden example are exercised through `just check`. Critical probability normalization remains
-`planned`; the current slice accepts only an explicit fixed tier of `0` or `1`.
+All twenty-one clauses are `active` because their boundary checks, property tests, or literal
+golden examples are exercised through `just check`. `CRT-001` covers only the binary
+`0 <= criticalChance <= 1` distribution and its explicit deterministic roll. Multi-tier,
+expected-value, and generated-randomness semantics remain future clauses.

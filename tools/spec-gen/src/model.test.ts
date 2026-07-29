@@ -41,6 +41,7 @@ const validSpec = {
   ruleset: {
     id: "ruleset.test",
     version: "0.1.0",
+    revision: 0,
     gameBuild: "test-build",
     rules: [
       {
@@ -116,7 +117,8 @@ describe("validateSpecDocument", () => {
         clauses: [
           {
             ...validClause,
-            pattern: "critical_tier_probability_sum",
+            pattern: "scope_boundary",
+            guarantee: "property-tested",
             maturity: "active",
           },
         ],
@@ -137,6 +139,59 @@ describe("validateSpecDocument", () => {
         ],
       }).clauses[0]?.maturity,
     ).toBe("active");
+
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            pattern: "critical_tier_probability_sum",
+            maturity: "active",
+            area: "mechanics",
+          },
+        ],
+      }).clauses[0]?.maturity,
+    ).toBe("active");
+  });
+
+  it("accepts the finite binary Critical roll phase and operation", () => {
+    const binaryRule = {
+      ...validSpec.ruleset.rules[0],
+      id: "rule.critical.resolve-binary-roll",
+      phase: "critical.roll",
+      reads: ["attack.critical-chance", "event.critical-roll"],
+      writes: [
+        "event.critical-tier",
+        "event.critical-tier-0-probability",
+        "event.critical-tier-1-probability",
+      ],
+      operation: {
+        kind: "critical-tier.resolve-binary-roll",
+      },
+    };
+
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        ruleset: {
+          ...validSpec.ruleset,
+          rules: [validSpec.ruleset.rules[0], binaryRule],
+        },
+      }).ruleset.rules[1],
+    ).toEqual(binaryRule);
+  });
+
+  it.each([-1, 0.5, "1"])("rejects invalid Ruleset revision %s", (revision) => {
+    expect(() =>
+      validateSpecDocument({
+        ...validSpec,
+        ruleset: {
+          ...validSpec.ruleset,
+          revision,
+        },
+      }),
+    ).toThrow("Invalid specification value at ruleset.revision");
   });
 
   it("accepts the finite active CLI vocabulary with registered independent oracles", () => {

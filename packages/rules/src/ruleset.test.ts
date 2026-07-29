@@ -22,11 +22,21 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.rules).toHaveLength(5);
+    expect(loaded.snapshot.rules).toHaveLength(6);
     expect(Object.isFrozen(loaded)).toBe(true);
     expect(Object.isFrozen(loaded.snapshot)).toBe(true);
     expect(Object.isFrozen(loaded.snapshot.rules)).toBe(true);
     expect(Object.isFrozen(loaded.snapshot.rules[0]?.operation)).toBe(true);
+    expect(loaded.resolveRule("rule.critical.resolve-binary-roll")).toMatchObject({
+      phase: "critical.roll",
+      reads: ["attack.critical-chance", "event.critical-roll"],
+      writes: [
+        "event.critical-tier",
+        "event.critical-tier-0-probability",
+        "event.critical-tier-1-probability",
+      ],
+      operation: { kind: "critical-tier.resolve-binary-roll" },
+    });
     expect(loaded.resolveRule("rule.defense.standard-armor").phase).toBe("target.mitigate");
   });
 
@@ -83,6 +93,22 @@ describe("loadRuleset", () => {
     });
 
     await expect(loadRuleset(ruleset)).rejects.toThrowError(
+      expect.objectContaining({ code: "operation-declaration-invalid" }),
+    );
+
+    const rollDeclarationMismatch = await attachArtifactContentHash({
+      ...withoutHash,
+      rules: coreRuleset.rules.map((rule) =>
+        rule.id === "rule.critical.resolve-binary-roll"
+          ? {
+              ...rule,
+              phase: "critical.resolve" as const,
+            }
+          : rule,
+      ),
+    });
+
+    await expect(loadRuleset(rollDeclarationMismatch)).rejects.toThrowError(
       expect.objectContaining({ code: "operation-declaration-invalid" }),
     );
   });

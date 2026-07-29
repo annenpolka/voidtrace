@@ -4,8 +4,8 @@ module voidtrace.contracts.ruleset
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.1.0"
-local contractVersion = "0.1.0"
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.2.0"
+local contractVersion = "0.2.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -33,6 +33,20 @@ function copyDamageVector(): model.ObjectNode = new model.ObjectNode {
       required = true
       schema = new model.LiteralNode {
         value = "damage-vector.copy"
+      }
+    }
+  }
+}
+
+function resolveBinaryCriticalRoll(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Resolve Critical tier 0 or 1 from an explicit roll and a normalized binary Critical chance."
+      required = true
+      schema = new model.LiteralNode {
+        value = "critical-tier.resolve-binary-roll"
       }
     }
   }
@@ -115,6 +129,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
       schema = new model.StringNode {
         values = new Listing<String> {
           "damage.construct"
+          "critical.roll"
           "critical.resolve"
           "target.mitigate"
           "damage.commit"
@@ -146,6 +161,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
       schema = new model.UnionNode {
         variants = new {
           copyDamageVector()
+          resolveBinaryCriticalRoll()
           scaleFixedCritical()
           scaleStandardArmor()
           commitHealthDamage()

@@ -3,6 +3,19 @@
 The checklists below are frozen before executor dispatch. A critical miss makes the scenario fail;
 normal items score full, half, or zero for accuracy.
 
+> Commit 7 scope note: this evaluation covers the fixed-tier helper only. The formal CLI's
+> checked-in explicit-roll Scenario is documented by the skill but is not evidence from these
+> empirical rounds.
+
+## Commit 7 structural re-review
+
+- Initial Iteration 0 review found description/body gaps around the formal CLI roll trigger,
+  fixed-tier helper input boundary, Monte Carlo exclusion, and the roll Trace recipe.
+- The minimum wording fixes were applied to those four points.
+- A fresh structural reviewer reported CLEAR / PASS with no new overclaim.
+- This was a static description/body check only. It is not an execution round and does not add
+  empirical convergence credit.
+
 ## Iteration 0: description/body consistency
 
 - Description trigger: operate or inspect the temporary synthetic Direct Hit / fixed Critical /

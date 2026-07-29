@@ -10,7 +10,9 @@ export type DamageVector = Readonly<Record<string, number>>;
 export type RuleContext = {
   readonly baseDamage: DamageVector;
   readonly currentDamage: DamageVector;
-  readonly criticalTier: number;
+  readonly criticalTier: 0 | 1 | null;
+  readonly criticalChance: number;
+  readonly criticalRoll: number | null;
   readonly criticalMultiplier: number;
   readonly armor: number;
   readonly health: number;
@@ -29,6 +31,7 @@ type RuleExecutionBase = {
   readonly parameters: Readonly<Record<string, number>>;
   readonly before: RuleStateProjection;
   readonly after: RuleStateProjection;
+  readonly resolvedCriticalTier?: 0 | 1;
 };
 
 export type AppliedRuleExecution = RuleExecutionBase & {
@@ -48,7 +51,9 @@ export type RuleExecution = AppliedRuleExecution | PredicateRejectedRuleExecutio
 type ValidatedRuleContext = {
   readonly baseDamage: DamageVector;
   readonly currentDamage: DamageVector;
-  readonly criticalTier: 0 | 1;
+  readonly criticalTier: 0 | 1 | null;
+  readonly criticalChance: number;
+  readonly criticalRoll: number | null;
   readonly criticalMultiplier: number;
   readonly armor: number;
   readonly health: number;
@@ -58,6 +63,8 @@ const CONTEXT_FIELDS = [
   "baseDamage",
   "currentDamage",
   "criticalTier",
+  "criticalChance",
+  "criticalRoll",
   "criticalMultiplier",
   "armor",
   "health",
@@ -137,6 +144,16 @@ function nonNegativeFinite(value: unknown, field: string): number {
   return value;
 }
 
+function nullableFinite(value: unknown, field: string): number | null {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    invalidContext(`${field} must be a finite number or null`, field);
+  }
+  return value;
+}
+
 function snapshotContext(value: RuleContext): ValidatedRuleContext {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     invalidContext("Rule context must be a plain object", "context");
@@ -155,9 +172,17 @@ function snapshotContext(value: RuleContext): ValidatedRuleContext {
   }
 
   const criticalTier = dataProperty(value, "criticalTier", "context");
-  if (criticalTier !== 0 && criticalTier !== 1) {
-    invalidContext("criticalTier must be the fixed integer tier 0 or 1", "criticalTier");
+  if (criticalTier !== null && criticalTier !== 0 && criticalTier !== 1) {
+    invalidContext("criticalTier must be the integer tier 0 or 1, or null", "criticalTier");
   }
+  const criticalChance = nonNegativeFinite(
+    dataProperty(value, "criticalChance", "context"),
+    "criticalChance",
+  );
+  const criticalRoll = nullableFinite(
+    dataProperty(value, "criticalRoll", "context"),
+    "criticalRoll",
+  );
   const criticalMultiplier = nonNegativeFinite(
     dataProperty(value, "criticalMultiplier", "context"),
     "criticalMultiplier",
@@ -173,6 +198,8 @@ function snapshotContext(value: RuleContext): ValidatedRuleContext {
       "currentDamage",
     ),
     criticalTier,
+    criticalChance,
+    criticalRoll,
     criticalMultiplier,
     armor: nonNegativeFinite(dataProperty(value, "armor", "context"), "armor"),
     health: nonNegativeFinite(dataProperty(value, "health", "context"), "health"),
@@ -241,6 +268,7 @@ function applied(
   values: Readonly<Record<string, number>>,
   before: RuleStateProjection,
   after: RuleStateProjection,
+  resolvedCriticalTier?: 0 | 1,
 ): AppliedRuleExecution {
   return Object.freeze({
     outcome: "applied",
@@ -252,6 +280,7 @@ function applied(
     parameters: values,
     before,
     after,
+    ...(resolvedCriticalTier === undefined ? {} : { resolvedCriticalTier }),
   });
 }
 
@@ -308,12 +337,51 @@ export function executeRule(rule: RuleDefinition, context: RuleContext): RuleExe
       const after = stateProjection(input.baseDamage, input.health);
       return applied(rule, 1, parameters({ factor: 1 }), before, after);
     }
+    case "critical-tier.resolve-binary-roll": {
+      if (input.criticalChance > 1) {
+        invalidContext(
+          "criticalChance must not exceed 1 for binary Critical resolution",
+          "criticalChance",
+        );
+      }
+      if (input.criticalRoll === null || input.criticalRoll < 0 || input.criticalRoll >= 1) {
+        invalidContext(
+          "criticalRoll must be in the half-open interval [0, 1) for binary Critical resolution",
+          "criticalRoll",
+        );
+      }
+
+      const tier0Probability = 1 - input.criticalChance;
+      const tier1Probability = input.criticalChance;
+      const resolvedTier = input.criticalRoll < input.criticalChance ? 1 : 0;
+      return applied(
+        rule,
+        1,
+        parameters({
+          criticalChance: input.criticalChance,
+          criticalRoll: input.criticalRoll,
+          tier0Probability,
+          tier1Probability,
+          resolvedTier,
+          factor: 1,
+        }),
+        before,
+        before,
+        resolvedTier,
+      );
+    }
     case "damage-vector.scale-fixed-critical": {
       const requiredTier = operation.requiredTier;
       if (requiredTier !== 0 && requiredTier !== 1) {
         throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid fixed Critical tier`, {
           ruleId: rule.id,
         });
+      }
+      if (input.criticalTier === null) {
+        invalidContext(
+          "criticalTier must be resolved before fixed Critical scaling",
+          "criticalTier",
+        );
       }
       const predicateParameters = parameters({
         actualTier: input.criticalTier,

@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:87422d3a3c0c701eaea653935340d5ca365863afd65797255365442d5c510d43",
+  "sourceFingerprint": "sha256:892b1dc0fd05d96f835656d971e785eb33d9c237c658947262ef4226dd2c356c",
   "clauses": [
     {
       "id": "CLI-001",
@@ -55,9 +55,9 @@
     {
       "id": "CRT-001",
       "pattern": "critical_tier_probability_sum",
-      "desc": "Critical tier確率分布を実装するとき、その確率総和は1となる",
+      "desc": "Critical解決入力はcriticalTierとcriticalRollの厳密に一方だけを持つ。criticalRollを選んだ場合、0以上1以下のCritical chance cはbinary分布p(tier 0)=1-c、p(tier 1)=cを形成し、rollがchance未満のときだけtier 1を解決する",
       "guarantee": "property-tested",
-      "maturity": "planned",
+      "maturity": "active",
       "area": "mechanics"
     },
     {
@@ -120,6 +120,14 @@
       "id": "GOL-001",
       "pattern": "golden_scenario",
       "desc": "data/fixtures/golden/direct-critical-armor.scenario.jsonは独立literal expected vectorと一致するResultおよびTraceを生成する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "GOL-002",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/probability-critical-armor.scenario.jsonは明示Critical rollからbinary tierを解決し、独立literal expected vectorと一致するResultおよびTraceを生成する",
       "guarantee": "example-tested",
       "maturity": "active",
       "area": "mechanics"
@@ -199,8 +207,8 @@
     {
       "id": "ruleset",
       "typeName": "Ruleset",
-      "schemaId": "urn:voidtrace:schema:ruleset:0.1.0",
-      "version": "0.1.0"
+      "schemaId": "urn:voidtrace:schema:ruleset:0.2.0",
+      "version": "0.2.0"
     },
     {
       "id": "scenario",
@@ -217,11 +225,13 @@
   ],
   "ruleset": {
     "id": "ruleset.synthetic-core",
-    "version": "0.1.0",
-    "contentHash": "sha256:c7a164e9e8310496d2bea51f1d41777ba7bf5448ed7e653c5e482cea5835176e",
+    "version": "0.2.0",
+    "revision": 1,
+    "contentHash": "sha256:2b5b497737616c284a6ab9e94ed690966738a5f2e91df17e76eff30337baf73c",
     "gameBuild": "synthetic-fixture-0",
     "ruleIds": [
       "rule.damage.direct-hit",
+      "rule.critical.resolve-binary-roll",
       "rule.critical.fixed-tier-0",
       "rule.critical.fixed-tier-1",
       "rule.defense.standard-armor",

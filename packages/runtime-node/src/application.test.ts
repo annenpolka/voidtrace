@@ -263,6 +263,34 @@ describe("createNodeApplication", () => {
     });
   });
 
+  it("maps unsupported binary Critical chance to the Catalog source", async () => {
+    const outcome = await createNodeApplication({
+      sdk: sdkFailure({
+        code: "unsupported-critical-chance",
+        message: "Critical chance exceeds the binary slice",
+        path: "/weapons/0/attackModes/0/criticalChance",
+        mechanicId: "mechanic.critical.probability",
+      }),
+    }).evaluate({
+      scenarioSource: scenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      problem: {
+        code: "unsupported-critical-chance",
+        classification: "unsupported",
+        pointer: "/weapons/0/attackModes/0/criticalChance",
+        mechanicId: "mechanic.critical.probability",
+        source: catalogPath,
+      },
+    });
+    if (!outcome.ok) {
+      expect(exitCodeForProblem(outcome.problem)).toBe(3);
+    }
+  });
+
   it("maps stale Artifact content to an input Problem", async () => {
     const staleScenario = {
       ...scenarioFixture,

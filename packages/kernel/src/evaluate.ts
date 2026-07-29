@@ -27,7 +27,7 @@ import { EventQueue, type KernelEvent } from "./event-queue.ts";
 import { parseScenarioDomain, type ScenarioDomainError } from "./scenario-domain.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.1.0";
+export const KERNEL_ENGINE_VERSION = "0.2.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -38,6 +38,7 @@ export type EvaluationErrorCode =
   | "ruleset-reference-mismatch"
   | "catalog-resolution-failed"
   | "unsupported-delivery"
+  | "unsupported-critical-chance"
   | "rule-execution-failed"
   | "artifact-construction-failed"
   | "integrity-check-failed";
@@ -76,8 +77,15 @@ type PhasePayload = {
 
 type ScalarRecord = Readonly<Record<string, string | number | boolean | null>>;
 
-const PHASES = [
+const FIXED_CRITICAL_PHASES = [
   "damage.construct",
+  "critical.resolve",
+  "target.mitigate",
+  "damage.commit",
+] as const satisfies ReadonlyArray<RuleDefinition["phase"]>;
+const ROLLED_CRITICAL_PHASES = [
+  "damage.construct",
+  "critical.roll",
   "critical.resolve",
   "target.mitigate",
   "damage.commit",
@@ -118,6 +126,25 @@ function suppliedSnapshot(value: unknown): unknown {
   }
   const descriptor = Object.getOwnPropertyDescriptor(value, "snapshot");
   return descriptor?.enumerable && Object.hasOwn(descriptor, "value") ? descriptor.value : value;
+}
+
+function criticalChancePath(
+  catalog: Catalog,
+  references: ResolvedCatalogReferences,
+): string | undefined {
+  const weaponIndex = catalog.snapshot.weapons.findIndex(
+    (weapon) => weapon.id === references.weapon.id,
+  );
+  if (weaponIndex < 0) {
+    return undefined;
+  }
+  const attackModeIndex = catalog.snapshot.weapons[weaponIndex]?.attackModes.findIndex(
+    (attackMode) => attackMode.id === references.attackMode.id,
+  );
+  if (attackModeIndex === undefined || attackModeIndex < 0) {
+    return undefined;
+  }
+  return `/weapons/${weaponIndex}/attackModes/${attackModeIndex}/criticalChance`;
 }
 
 function artifactRef<TKind extends string>(artifact: {
@@ -161,20 +188,28 @@ function ruleReads(
   rule: RuleDefinition,
   execution: RuleExecution,
   references: ResolvedCatalogReferences,
-  criticalTier: 0 | 1,
+  criticalTier: 0 | 1 | null,
+  criticalRoll: number | null,
   armor: number,
 ): ScalarRecord {
-  const values: Readonly<Record<string, number>> = {
+  const values: ScalarRecord = {
     "attack.base-damage": sumDamageVector(references.attackMode.baseDamage),
+    "attack.critical-chance": references.attackMode.criticalChance,
     "event.damage": execution.before.damageTotal,
-    "event.critical-tier": criticalTier,
     "attack.critical-multiplier": references.attackMode.criticalMultiplier,
     "target.armor": armor,
     "target.health": execution.before.health,
+    ...(criticalTier === null ? {} : { "event.critical-tier": criticalTier }),
+    ...(criticalRoll === null ? {} : { "event.critical-roll": criticalRoll }),
   };
-  return Object.freeze(
-    Object.fromEntries(rule.reads.map((readId) => [readId, values[readId] as number])),
-  );
+  const reads: Record<string, string | number | boolean | null> = {};
+  for (const readId of rule.reads) {
+    if (!Object.hasOwn(values, readId)) {
+      throw new TypeError(`Evaluator cannot project declared Rule read ${readId}`);
+    }
+    reads[readId] = values[readId] as string | number | boolean | null;
+  }
+  return Object.freeze(reads);
 }
 
 function operationParameters(execution: RuleExecution): Readonly<Record<string, number>> {
@@ -193,7 +228,8 @@ function decisionForExecution(
   rule: RuleDefinition,
   execution: RuleExecution,
   references: ResolvedCatalogReferences,
-  criticalTier: 0 | 1,
+  criticalTier: 0 | 1 | null,
+  criticalRoll: number | null,
   armor: number,
 ): Trace["decisions"][number] {
   const common = {
@@ -203,7 +239,7 @@ function decisionForExecution(
     eventTimeMs: event.timeMs,
     phase: rule.phase,
     ruleId: rule.id,
-    reads: ruleReads(rule, execution, references, criticalTier, armor),
+    reads: ruleReads(rule, execution, references, criticalTier, criticalRoll, armor),
     evidenceStatus: rule.evidenceStatus,
     evidenceIds: rule.evidenceIds,
   } as const;
@@ -236,10 +272,14 @@ function decisionForExecution(
   });
 }
 
-function createPhaseEvents(actionId: string): EventQueue<PhasePayload> {
+function createPhaseEvents(
+  actionId: string,
+  criticalResolution: "fixed" | "roll",
+): EventQueue<PhasePayload> {
   const queue = new EventQueue<PhasePayload>();
   let parentEventId: string | undefined;
-  for (const [sequence, phase] of PHASES.entries()) {
+  const phases = criticalResolution === "fixed" ? FIXED_CRITICAL_PHASES : ROLLED_CRITICAL_PHASES;
+  for (const [sequence, phase] of phases.entries()) {
     const id = `event.${actionId}.${phase}`;
     queue.enqueue({
       id,
@@ -266,7 +306,7 @@ function readHealth(world: WorldState, targetId: string): number {
 function updateMetricValues(
   metricValues: Record<string, number>,
   execution: RuleExecution,
-  criticalTier: 0 | 1,
+  criticalTier: 0 | 1 | null,
 ): void {
   if (execution.outcome !== "applied") {
     return;
@@ -275,7 +315,28 @@ function updateMetricValues(
     case "damage-vector.copy":
       metricValues["damage.direct-hit.total"] = execution.after.damageTotal;
       return;
+    case "critical-tier.resolve-binary-roll": {
+      if (execution.resolvedCriticalTier === undefined) {
+        throw new TypeError("Critical roll resolver did not produce a tier");
+      }
+      const { criticalRoll, tier0Probability, tier1Probability } = execution.parameters;
+      if (
+        criticalRoll === undefined ||
+        tier0Probability === undefined ||
+        tier1Probability === undefined
+      ) {
+        throw new TypeError("Critical roll resolver omitted probability metrics");
+      }
+      metricValues["critical.roll"] = criticalRoll;
+      metricValues["critical.tier-0.probability"] = tier0Probability;
+      metricValues["critical.tier-1.probability"] = tier1Probability;
+      metricValues["critical.tier"] = execution.resolvedCriticalTier;
+      return;
+    }
     case "damage-vector.scale-fixed-critical":
+      if (criticalTier === null) {
+        throw new TypeError("Fixed Critical rule executed before tier resolution");
+      }
       metricValues["critical.tier"] = criticalTier;
       metricValues["critical.multiplier"] = execution.factor;
       metricValues["damage.post-critical.total"] = execution.after.damageTotal;
@@ -309,6 +370,8 @@ function mechanicForRule(rule: RuleDefinition): string {
   switch (rule.operation.kind) {
     case "damage-vector.copy":
       return "mechanic.damage.direct-hit";
+    case "critical-tier.resolve-binary-roll":
+      return "mechanic.critical.probability";
     case "damage-vector.scale-fixed-critical":
       return "mechanic.critical.fixed-tier";
     case "damage-vector.scale-standard-armor":
@@ -321,11 +384,14 @@ function mechanicForRule(rule: RuleDefinition): string {
 }
 
 function coverageForRules(rules: readonly RuleDefinition[]): Result["coverage"] {
+  const probabilityResolved = rules.some(
+    (rule) => rule.operation.kind === "critical-tier.resolve-binary-roll",
+  );
   const groups: Record<RuleDefinition["evidenceStatus"], Set<string>> = {
     verified: new Set(),
     experimental: new Set(),
     disputed: new Set(),
-    unsupported: new Set(["mechanic.critical.probability"]),
+    unsupported: new Set(probabilityResolved ? [] : ["mechanic.critical.probability"]),
     approximated: new Set(),
   };
   for (const rule of rules) {
@@ -378,7 +444,7 @@ function validateBuiltArtifact<TContract extends "result" | "trace">(
 }
 
 /**
- * Evaluates the first deterministic Direct Hit / fixed Critical / Armor slice.
+ * Evaluates the deterministic Direct Hit / fixed-or-explicit-roll Critical / Armor slice.
  *
  * The function is pure with respect to external state: it rebuilds executable
  * handles from the supplied content-addressed snapshots and consults no clock,
@@ -459,6 +525,17 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       },
     );
   }
+  if (domain.action.criticalResolution === "roll" && references.attackMode.criticalChance > 1) {
+    const path = criticalChancePath(catalog, references);
+    return failure(
+      "unsupported-critical-chance",
+      `Binary Critical roll resolution supports criticalChance from 0 through 1; received ${references.attackMode.criticalChance}`,
+      {
+        ...(path === undefined ? {} : { path }),
+        mechanicId: "mechanic.critical.probability",
+      },
+    );
+  }
 
   const appliedRules: RuleDefinition[] = [];
   const decisions: Trace["decisions"][number][] = [];
@@ -470,10 +547,14 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       values: Object.freeze({ health: domain.target.resolvedHealth }),
     },
   ]);
+  let criticalTier = domain.action.criticalTier;
 
   try {
     let decisionSequence = 0;
-    for (const event of createPhaseEvents(domain.action.id).drain()) {
+    for (const event of createPhaseEvents(
+      domain.action.id,
+      domain.action.criticalResolution,
+    ).drain()) {
       for (const rule of ruleset.snapshot.rules) {
         if (rule.phase !== event.payload.phase) {
           continue;
@@ -481,7 +562,9 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
         const execution = ruleset.executeRule(rule.id, {
           baseDamage: references.attackMode.baseDamage,
           currentDamage: damage,
-          criticalTier: domain.action.criticalTier,
+          criticalTier,
+          criticalChance: references.attackMode.criticalChance,
+          criticalRoll: domain.action.criticalRoll,
           criticalMultiplier: references.attackMode.criticalMultiplier,
           armor: domain.target.resolvedArmor,
           health: readHealth(world, domain.target.id),
@@ -493,12 +576,16 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
             rule,
             execution,
             references,
-            domain.action.criticalTier,
+            criticalTier,
+            domain.action.criticalRoll,
             domain.target.resolvedArmor,
           ),
         );
         decisionSequence += 1;
-        updateMetricValues(metricValues, execution, domain.action.criticalTier);
+        updateMetricValues(metricValues, execution, criticalTier);
+        if (execution.resolvedCriticalTier !== undefined) {
+          criticalTier = execution.resolvedCriticalTier;
+        }
         if (execution.outcome === "applied") {
           appliedRules.push(rule);
           damage = execution.after.damage;

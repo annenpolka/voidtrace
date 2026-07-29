@@ -25,6 +25,8 @@ function context(
     baseDamage: currentDamage,
     currentDamage,
     criticalTier: 0,
+    criticalChance: 0,
+    criticalRoll: null,
     criticalMultiplier: 2,
     armor: 0,
     health: 1_000_000,
@@ -71,6 +73,7 @@ describe("DamageVector operations", () => {
 describe("generated core Rule execution", async () => {
   const loaded = await loadRuleset();
   const directHit = loaded.resolveRule("rule.damage.direct-hit");
+  const criticalRoll = loaded.resolveRule("rule.critical.resolve-binary-roll");
   const criticalTier0 = loaded.resolveRule("rule.critical.fixed-tier-0");
   const criticalTier1 = loaded.resolveRule("rule.critical.fixed-tier-1");
   const armorRule = loaded.resolveRule("rule.defense.standard-armor");
@@ -128,8 +131,99 @@ describe("generated core Rule execution", async () => {
             factor: criticalMultiplier,
             matched: true,
           });
+          expect(tier0Applied.resolvedCriticalTier).toBeUndefined();
+          expect(tier1Applied.resolvedCriticalTier).toBeUndefined();
         },
       ),
+    );
+  });
+
+  it("resolves a binary Critical tier and its probabilities from an explicit roll", () => {
+    fc.assert(
+      fc.property(
+        damageVectorArbitrary,
+        fc.integer({ min: 0, max: 1_000_000 }),
+        fc.integer({ min: 0, max: 999_999 }),
+        (damage, chanceNumerator, rollNumerator) => {
+          const criticalChance = chanceNumerator / 1_000_000;
+          const explicitRoll = rollNumerator / 1_000_000;
+          const result = executeRule(
+            criticalRoll,
+            context(damage, {
+              criticalTier: null,
+              criticalChance,
+              criticalRoll: explicitRoll,
+            }),
+          );
+          const expectedTier = explicitRoll < criticalChance ? 1 : 0;
+
+          expect(result).toMatchObject({
+            outcome: "applied",
+            factor: 1,
+            matched: true,
+            resolvedCriticalTier: expectedTier,
+          });
+          expect(result.before).toEqual(result.after);
+          expect(result.parameters).toEqual({
+            criticalChance,
+            criticalRoll: explicitRoll,
+            tier0Probability: 1 - criticalChance,
+            tier1Probability: criticalChance,
+            resolvedTier: expectedTier,
+            factor: 1,
+          });
+          expect(
+            Number(result.parameters.tier0Probability) + Number(result.parameters.tier1Probability),
+          ).toBeCloseTo(1, 15);
+        },
+      ),
+    );
+  });
+
+  it("uses strict roll comparison at the binary Critical boundaries", () => {
+    const damage = { "damage.synthetic": 1 };
+    const resolve = (criticalChance: number, explicitRoll: number) =>
+      executeRule(
+        criticalRoll,
+        context(damage, {
+          criticalTier: null,
+          criticalChance,
+          criticalRoll: explicitRoll,
+        }),
+      );
+
+    expect(resolve(0, 0).resolvedCriticalTier).toBe(0);
+    expect(resolve(0.5, 0.5).resolvedCriticalTier).toBe(0);
+    expect(resolve(0.5, 0.5 - Number.EPSILON).resolvedCriticalTier).toBe(1);
+    expect(resolve(1, 1 - Number.EPSILON).resolvedCriticalTier).toBe(1);
+  });
+
+  it("rejects out-of-domain binary Critical chance and rolls without clamping", () => {
+    const damage = { "damage.synthetic": 1 };
+    const resolve = (criticalChance: number, explicitRoll: number | null) =>
+      executeRule(
+        criticalRoll,
+        context(damage, {
+          criticalTier: null,
+          criticalChance,
+          criticalRoll: explicitRoll,
+        }),
+      );
+
+    expect(() => resolve(1 + Number.EPSILON, 0.5)).toThrowError(
+      expect.objectContaining({ code: "invalid-context" }),
+    );
+    expect(() => resolve(0.5, null)).toThrowError(
+      expect.objectContaining({ code: "invalid-context" }),
+    );
+    expect(() => resolve(0.5, -Number.EPSILON)).toThrowError(
+      expect.objectContaining({ code: "invalid-context" }),
+    );
+    expect(() => resolve(0.5, 1)).toThrowError(
+      expect.objectContaining({ code: "invalid-context" }),
+    );
+    expect(() => resolve(0.5, Number.NaN)).toThrowError(
+      expect.objectContaining({ code: "invalid-context" }),
     );
   });
 
@@ -207,7 +301,10 @@ describe("generated core Rule execution", async () => {
 
   it("rejects invalid context and unknown operations with structured errors", () => {
     const damage = { "damage.synthetic": 1 };
-    expect(() => executeRule(criticalTier0, context(damage, { criticalTier: 2 }))).toThrowError(
+    expect(() =>
+      executeRule(criticalTier0, context(damage, { criticalTier: 2 as never })),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    expect(() => executeRule(criticalTier0, context(damage, { criticalTier: null }))).toThrowError(
       expect.objectContaining({ code: "invalid-context" }),
     );
     expect(() => executeRule(armorRule, context(damage, { armor: -1 }))).toThrowError(

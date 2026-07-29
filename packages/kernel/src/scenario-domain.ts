@@ -7,6 +7,9 @@ import {
 
 export const SUPPORTED_METRIC_IDS = Object.freeze([
   "damage.direct-hit.total",
+  "critical.roll",
+  "critical.tier-0.probability",
+  "critical.tier-1.probability",
   "critical.tier",
   "critical.multiplier",
   "damage.post-critical.total",
@@ -30,6 +33,7 @@ export type ScenarioDomainErrorCode =
   | "unsupported-action-kind"
   | "unsupported-hit-location"
   | "unsupported-damage-layer"
+  | "invalid-critical-resolution"
   | "unsupported-critical-tier"
   | "unsupported-metric"
   | "duplicate-metric";
@@ -61,7 +65,9 @@ export type ScenarioDomain = {
     readonly targetId: string;
     readonly hitLocation: "hit-location.neutral-body";
     readonly damageLayer: "health";
-    readonly criticalTier: 0 | 1;
+    readonly criticalResolution: "fixed" | "roll";
+    readonly criticalTier: 0 | 1 | null;
+    readonly criticalRoll: number | null;
   };
   readonly simulation: {
     readonly mode: "deterministic";
@@ -94,12 +100,24 @@ const TARGET_CONFIGURATION_KEYS = Object.freeze([
   "resolvedArmor",
   "resolvedOverguard",
 ] as const);
-const ACTION_PARAMETER_KEYS = Object.freeze([
+const ACTION_PARAMETER_COMMON_KEYS = Object.freeze([
   "targetId",
   "hitLocation",
   "damageLayer",
+] as const);
+const FIXED_CRITICAL_PARAMETER_KEYS = Object.freeze([
+  ...ACTION_PARAMETER_COMMON_KEYS,
   "criticalTier",
 ] as const);
+const ROLLED_CRITICAL_PARAMETER_KEYS = Object.freeze([
+  ...ACTION_PARAMETER_COMMON_KEYS,
+  "criticalRoll",
+] as const);
+const ROLLED_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "critical.roll",
+  "critical.tier-0.probability",
+  "critical.tier-1.probability",
+]);
 
 function pointerSegment(value: string): string {
   return value.replaceAll("~", "~0").replaceAll("/", "~1");
@@ -349,9 +367,20 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       action.kind,
     );
   }
+  const hasCriticalTier = Object.hasOwn(action.parameters, "criticalTier");
+  const hasCriticalRoll = Object.hasOwn(action.parameters, "criticalRoll");
+  if (hasCriticalTier === hasCriticalRoll) {
+    return failure(
+      "invalid-critical-resolution",
+      "/actionPlan/0/parameters",
+      "Exactly one of criticalTier or criticalRoll is required",
+      "mechanic.critical.resolution",
+    );
+  }
+  const criticalResolution = hasCriticalTier ? "fixed" : "roll";
   const actionKeyError = exactKeys(
     action.parameters,
-    ACTION_PARAMETER_KEYS,
+    criticalResolution === "fixed" ? FIXED_CRITICAL_PARAMETER_KEYS : ROLLED_CRITICAL_PARAMETER_KEYS,
     "/actionPlan/0/parameters",
   );
   if (actionKeyError !== undefined) {
@@ -391,14 +420,35 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       "mechanic.damage-layer",
     );
   }
-  const criticalTier = action.parameters.criticalTier;
-  if (!Number.isInteger(criticalTier) || (criticalTier !== 0 && criticalTier !== 1)) {
-    return failure(
-      "unsupported-critical-tier",
-      "/actionPlan/0/parameters/criticalTier",
-      `Unsupported fixed Critical tier: ${String(criticalTier)}`,
-      "mechanic.critical.fixed-tier",
-    );
+  let criticalTier: 0 | 1 | null = null;
+  let criticalRoll: number | null = null;
+  if (criticalResolution === "fixed") {
+    const candidate = action.parameters.criticalTier;
+    if (!Number.isInteger(candidate) || (candidate !== 0 && candidate !== 1)) {
+      return failure(
+        "unsupported-critical-tier",
+        "/actionPlan/0/parameters/criticalTier",
+        `Unsupported fixed Critical tier: ${String(candidate)}`,
+        "mechanic.critical.fixed-tier",
+      );
+    }
+    criticalTier = candidate;
+  } else {
+    const candidate = action.parameters.criticalRoll;
+    if (
+      typeof candidate !== "number" ||
+      !Number.isFinite(candidate) ||
+      candidate < 0 ||
+      candidate >= 1
+    ) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/criticalRoll",
+        "criticalRoll must be a finite number in the half-open interval [0, 1)",
+        "mechanic.critical.probability",
+      );
+    }
+    criticalRoll = candidate;
   }
 
   if (scenario.metrics.length === 0) {
@@ -416,6 +466,17 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
         "unsupported-metric",
         `/metrics/${index}`,
         `Unsupported metric: ${metric}`,
+        metric,
+      );
+    }
+    if (
+      criticalResolution === "fixed" &&
+      ROLLED_CRITICAL_METRIC_IDS.has(metric as SupportedMetricId)
+    ) {
+      return failure(
+        "unsupported-metric",
+        `/metrics/${index}`,
+        `Metric ${metric} requires criticalRoll resolution`,
         metric,
       );
     }
@@ -452,7 +513,9 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       targetId: actionTargetId.value,
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
+      criticalResolution,
       criticalTier,
+      criticalRoll,
     }),
     simulation: Object.freeze({
       mode: "deterministic",

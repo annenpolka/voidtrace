@@ -10,6 +10,7 @@ const bins = {
   vt: fileURLToPath(new URL("../node_modules/.bin/vt", import.meta.url)),
 } as const;
 const scenarioPath = "data/fixtures/golden/direct-critical-armor.scenario.json";
+const probabilityScenarioPath = "data/fixtures/golden/probability-critical-armor.scenario.json";
 const catalogPath = "data/fixtures/catalog-mini/catalog.json";
 
 type ProcessResult = {
@@ -55,6 +56,8 @@ describe("installed VoidTrace CLI aliases", () => {
     ["describe"],
     ["run", scenarioPath, "--catalog", catalogPath],
     ["trace", scenarioPath, "--catalog", catalogPath],
+    ["run", probabilityScenarioPath, "--catalog", catalogPath],
+    ["trace", probabilityScenarioPath, "--catalog", catalogPath],
     ["run", "--help"],
     ["unknown"],
   ])("are byte-equivalent for %j", async (...argv) => {
@@ -72,6 +75,37 @@ describe("installed VoidTrace CLI aliases", () => {
     expect(validateContract("result", JSON.parse(result.stdout)).ok).toBe(true);
     expect(trace.exitCode).toBe(0);
     expect(trace.stderr).toBe("");
+    expect(validateContract("trace", JSON.parse(trace.stdout)).ok).toBe(true);
+  });
+
+  it("exposes explicit-roll Critical Result and Trace through the installed CLI", async () => {
+    const result = await execute("vt", ["run", probabilityScenarioPath, "--catalog", catalogPath]);
+    const trace = await execute("vt", ["trace", probabilityScenarioPath, "--catalog", catalogPath]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      metrics: {
+        "critical.roll": 0.2,
+        "critical.tier-0.probability": 0.75,
+        "critical.tier-1.probability": 0.25,
+        "critical.tier": 1,
+      },
+    });
+    expect(validateContract("result", JSON.parse(result.stdout)).ok).toBe(true);
+    expect(trace.exitCode).toBe(0);
+    expect(trace.stderr).toBe("");
+    const traceArtifact = JSON.parse(trace.stdout) as {
+      decisions: Array<{ outcome: string; ruleId: string }>;
+    };
+    expect(traceArtifact.decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outcome: "applied",
+          ruleId: "rule.critical.resolve-binary-roll",
+        }),
+      ]),
+    );
     expect(validateContract("trace", JSON.parse(trace.stdout)).ok).toBe(true);
   });
 

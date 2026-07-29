@@ -43,6 +43,7 @@ type OperationDeclaration = {
 
 const PHASES = [
   "damage.construct",
+  "critical.roll",
   "critical.resolve",
   "target.mitigate",
   "damage.commit",
@@ -56,6 +57,16 @@ const OPERATION_DECLARATIONS = {
     eventKind: "damage.direct",
     reads: ["attack.base-damage"],
     writes: ["event.damage"],
+  },
+  "critical-tier.resolve-binary-roll": {
+    phase: "critical.roll",
+    eventKind: "damage.direct",
+    reads: ["attack.critical-chance", "event.critical-roll"],
+    writes: [
+      "event.critical-tier",
+      "event.critical-tier-0-probability",
+      "event.critical-tier-1-probability",
+    ],
   },
   "damage-vector.scale-fixed-critical": {
     phase: "critical.resolve",
@@ -119,6 +130,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
   };
   switch (operation.kind) {
     case "damage-vector.copy":
+    case "critical-tier.resolve-binary-roll":
     case "damage.commit-health":
       return;
     case "damage-vector.scale-fixed-critical":

@@ -25,7 +25,7 @@
 4. Implement the handwritten code or oracle.
 5. Run `just check`.
 
-The current implemented boundary ends at the synthetic Direct Hit / fixed Critical tier / Armor
-vertical slice, its formal `describe` / `run` / `trace` JSON CLI, and the repository-local
-fixture-variation skill. Do not add further CLI commands, Lab, API, or MCP implementations until
-their planned vertical slice begins.
+The current implemented boundary ends at the synthetic Direct Hit / fixed-or-explicit-binary-roll
+Critical / Armor vertical slices, their formal `describe` / `run` / `trace` JSON CLI, and the
+repository-local fixed-tier fixture-variation skill. Do not add further CLI commands, Lab, API, or
+MCP implementations until their planned vertical slice begins.

@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, fixed Critical tier 0/1, and Armor vertical slice; vary resolved Armor, Health, or fixed tier; and inspect deterministic Result/Trace JSON. Do not use it for current Warframe claims, build advice, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, fixed Critical tier 0/1, checked-in explicit binary Critical roll, and Armor vertical slices; vary resolved Armor, Health, or fixed tier through the helper; and inspect deterministic Result/Trace JSON. Do not use it for current Warframe claims, build advice, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -26,10 +26,12 @@ The adapter supports exactly one target and one hitscan Direct Hit in determinis
 - neutral body hit against Health;
 - full Result and causal Trace JSON.
 
-Probability/expected-value Criticals, random Critical rolls, mods, headshots, Shield, Overguard,
-projectiles, status, multishot, real-game imports, and build recommendations are unsupported.
-If a request needs any of them, state the unsupported mechanic and stop. Do not approximate it as
-zero effect and do not silently adapt it to the supported slice.
+The helper does not synthesize or vary probability Criticals. The formal CLI can evaluate the
+checked-in binary explicit-roll Scenario, but generated random rolls, expected values, Critical
+chance above `1`, Monte Carlo aggregation, mods, headshots, Shield, Overguard, projectiles,
+status, multishot, real-game imports, and build recommendations are unsupported. If a request
+needs any of them, state the unsupported mechanic and stop. Do not approximate it as zero effect
+and do not silently adapt it to the supported slice.
 
 ## Commands
 
@@ -39,6 +41,10 @@ For immutable Scenario and Catalog Artifacts, use the formal CLI:
 pnpm exec vt run data/fixtures/golden/direct-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/direct-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/probability-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/probability-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -55,7 +61,8 @@ Vary only the supported resolved inputs:
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts --critical-tier 0 --armor 0 --health 1000
 ```
 
-Use a contract-valid Scenario or Catalog already prepared for this slice:
+Use a contract-valid fixed-tier Scenario with a Catalog already prepared for the helper's
+supported slice:
 
 ```bash
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts \

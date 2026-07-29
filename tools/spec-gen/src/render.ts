@@ -141,6 +141,7 @@ function renderRules(spec: SpecDocument): string {
 
 - Ruleset: \`${spec.ruleset.id}\`
 - Version: \`${spec.ruleset.version}\`
+- Revision: \`${spec.ruleset.revision}\`
 - Game build: \`${spec.ruleset.gameBuild}\`
 - Generated IR: \`packages/spec-artifacts/src/rulesets/core.generated.json\`
 
@@ -225,7 +226,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
     kind: "ruleset",
     schemaVersion: rulesetContract.version,
     id: spec.ruleset.id,
-    revision: 0,
+    revision: spec.ruleset.revision,
     gameBuild: spec.ruleset.gameBuild,
     rules: spec.ruleset.rules,
   };
@@ -254,6 +255,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
     ruleset: {
       id: generatedRuleset.id,
       version: spec.ruleset.version,
+      revision: generatedRuleset.revision,
       contentHash: generatedRuleset.contentHash,
       gameBuild: generatedRuleset.gameBuild,
       ruleIds: generatedRuleset.rules.map((rule) => rule.id),

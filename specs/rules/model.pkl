@@ -1,7 +1,8 @@
 /// Finite runtime Rule IR emitted by the normative specification.
 module voidtrace.rules.model
 
-typealias RulePhase = "damage.construct" | "critical.resolve" | "target.mitigate" | "damage.commit"
+typealias RulePhase =
+  "damage.construct" | "critical.roll" | "critical.resolve" | "target.mitigate" | "damage.commit"
 
 typealias RuleEvidenceStatus =
   "verified" | "experimental" | "disputed" | "unsupported" | "approximated"
@@ -12,6 +13,10 @@ abstract class RuleOperation {
 
 class CopyDamageVector extends RuleOperation {
   kind = "damage-vector.copy"
+}
+
+class ResolveBinaryCriticalRoll extends RuleOperation {
+  kind = "critical-tier.resolve-binary-roll"
 }
 
 class ScaleFixedCritical extends RuleOperation {
@@ -43,6 +48,7 @@ class Rule {
 class Ruleset {
   id: String(matches(Regex(#"[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*"#)))
   version: String(matches(Regex(#"\d+\.\d+\.\d+"#)))
+  revision: UInt
   gameBuild: String(length > 0)
   rules: Listing<Rule>
 }

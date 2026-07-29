@@ -16,6 +16,7 @@ export const CLAUSE_IDS = [
   "ENG-001",
   "ENG-002",
   "GOL-001",
+  "GOL-002",
   "RNG-001",
   "SCP-001",
   "SCP-002",

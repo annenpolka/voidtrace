@@ -17,7 +17,9 @@ damageTotalIsComponentSum: base.DamageTotalEqualsComponents = new {
 
 criticalProbabilityIsNormalized: base.CriticalTierProbabilitySum = new {
   id = "CRT-001"
-  desc = "Critical tier確率分布を実装するとき、その確率総和は1となる"
+  desc =
+    "Critical解決入力はcriticalTierとcriticalRollの厳密に一方だけを持つ。criticalRollを選んだ場合、0以上1以下のCritical chance cはbinary分布p(tier 0)=1-c、p(tier 1)=cを形成し、rollがchance未満のときだけtier 1を解決する"
+  maturity = "active"
 }
 
 fixedCriticalTierIsBinary: base.FixedCriticalTier = new {

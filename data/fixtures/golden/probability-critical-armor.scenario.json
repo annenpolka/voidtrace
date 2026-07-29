@@ -2,17 +2,9 @@
   "$schema": "urn:voidtrace:schema:scenario:0.1.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.1.0",
-  "id": "scenario.golden-direct-critical-armor",
-  "revision": 1,
-  "createdFrom": {
-    "kind": "voidtrace.scenario",
-    "schemaVersion": "0.1.0",
-    "id": "scenario.golden-direct-critical-armor",
-    "revision": 0,
-    "contentHash": "sha256:75c3ce6d1ee1953055c30a6a30ea1e0af4f35abae3b8549a38ab3610fef4b2a0",
-    "gameBuild": "synthetic-fixture-0"
-  },
-  "contentHash": "sha256:d1d5ccd92b5ffc0ae5d44e0ffcb1a90ef5a085047893d531770dd40854d07ca7",
+  "id": "scenario.golden-probability-critical-armor",
+  "revision": 0,
+  "contentHash": "sha256:f60252aa6b6a496d6c42ca78e99e63397218e52e6a580291ba61117ebea5b639",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -58,7 +50,7 @@
         "targetId": "actor.target",
         "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
-        "criticalTier": 1
+        "criticalRoll": 0.2
       }
     }
   ],
@@ -68,6 +60,9 @@
   },
   "metrics": [
     "damage.direct-hit.total",
+    "critical.roll",
+    "critical.tier-0.probability",
+    "critical.tier-1.probability",
     "critical.tier",
     "critical.multiplier",
     "damage.post-critical.total",
@@ -81,8 +76,8 @@
       "description": "The fixture and Ruleset are synthetic and do not claim verified current Warframe behavior."
     },
     {
-      "id": "assumption.fixed-critical-tier",
-      "description": "This Scenario supplies a fixed Critical tier, so it does not evaluate Critical probability or a roll."
+      "id": "assumption.explicit-critical-roll",
+      "description": "A literal roll resolves the supported binary Critical distribution; generated randomness, expected values, and Critical chance above 1 are unsupported."
     }
   ]
 }

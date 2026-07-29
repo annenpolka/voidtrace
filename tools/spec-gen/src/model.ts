@@ -45,6 +45,7 @@ export type Clause = {
 
 export const RULE_PHASES = [
   "damage.construct",
+  "critical.roll",
   "critical.resolve",
   "target.mitigate",
   "damage.commit",
@@ -64,6 +65,9 @@ export type RuleEvidenceStatus = (typeof RULE_EVIDENCE_STATUSES)[number];
 export type RuleOperation =
   | {
       kind: "damage-vector.copy";
+    }
+  | {
+      kind: "critical-tier.resolve-binary-roll";
     }
   | {
       kind: "damage-vector.scale-fixed-critical";
@@ -92,6 +96,7 @@ export type RuleDefinition = {
 export type RulesetDefinition = {
   id: string;
   version: string;
+  revision: number;
   gameBuild: string;
   rules: RuleDefinition[];
 };
@@ -113,6 +118,7 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "same_logical_random",
   "damage_vector_identity",
   "damage_total_equals_components",
+  "critical_tier_probability_sum",
   "fixed_critical_tier",
   "armor_monotonic",
   "armor_formula_example",
@@ -229,6 +235,9 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
     case "damage-vector.copy":
       assertExactKeys(value, ["kind"], path);
       return { kind };
+    case "critical-tier.resolve-binary-roll":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
     case "damage-vector.scale-fixed-critical": {
       assertExactKeys(value, ["kind", "requiredTier"], path);
       const requiredTier = requireFiniteNumber(
@@ -264,7 +273,7 @@ function parseRuleset(value: unknown): RulesetDefinition {
   if (!isRecord(value)) {
     throw new Error(`Invalid specification value at ${path}`);
   }
-  assertExactKeys(value, ["id", "version", "gameBuild", "rules"], path);
+  assertExactKeys(value, ["id", "version", "revision", "gameBuild", "rules"], path);
   if (!Array.isArray(value.rules) || value.rules.length === 0) {
     throw new Error("Ruleset must contain at least one Rule");
   }
@@ -324,6 +333,11 @@ function parseRuleset(value: unknown): RulesetDefinition {
     id: requireString(value.id, `${path}.id`, (candidate) => STABLE_ID.test(candidate)),
     version: requireString(value.version, `${path}.version`, (candidate) =>
       SCHEMA_VERSION.test(candidate),
+    ),
+    revision: requireFiniteNumber(
+      value.revision,
+      `${path}.revision`,
+      (candidate) => Number.isInteger(candidate) && candidate >= 0,
     ),
     gameBuild: requireString(
       value.gameBuild,

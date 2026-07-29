@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:87422d3a3c0c701eaea653935340d5ca365863afd65797255365442d5c510d43`
+- Source fingerprint: `sha256:892b1dc0fd05d96f835656d971e785eb33d9c237c658947262ef4226dd2c356c`
 - Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -24,7 +24,7 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `CLI-004` | `cli` | `cli_alias_equivalence` | `example-tested` | `active` | voidtraceとvtは同一引数に対してstdout、stderr、exit codeがbyte単位で一致する |
 | `CLI-005` | `cli` | `cli_application_boundary` | `example-tested` | `active` | CLIは引数解析、Artifact入出力、表示選択だけを担当し、評価意味論と能力記述をApplication APIへ委譲する |
 | `CLI-006` | `cli` | `cli_input_surface` | `example-tested` | `active` | describeはArtifact入力を取らず、runとtraceは<scenario-source>と必須--catalog <catalog-source>を取り、各sourceはJSONファイルpathまたはstdinを表す「-」とする。両sourceを同時に「-」にはできず、評価はApplication APIが生成core Rulesetを選択し、暗黙fixtureを使わない |
-| `CRT-001` | `mechanics` | `critical_tier_probability_sum` | `property-tested` | `planned` | Critical tier確率分布を実装するとき、その確率総和は1となる |
+| `CRT-001` | `mechanics` | `critical_tier_probability_sum` | `property-tested` | `active` | Critical解決入力はcriticalTierとcriticalRollの厳密に一方だけを持つ。criticalRollを選んだ場合、0以上1以下のCritical chance cはbinary分布p(tier 0)=1-c、p(tier 1)=cを形成し、rollがchance未満のときだけtier 1を解決する |
 | `CRT-002` | `mechanics` | `fixed_critical_tier` | `property-tested` | `active` | deterministic固定tierは0または1だけを受理し、tier 0は倍率1、tier 1はCatalogのcriticalMultiplierを適用する |
 | `DEF-001` | `mechanics` | `armor_monotonic` | `property-tested` | `active` | 標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない |
 | `DEF-002` | `mechanics` | `armor_formula_example` | `example-tested` | `active` | golden.direct-critical-armorにおいて、標準Armor 300では許容誤差0.000001以内でHealth Damage倍率が0.5となる |
@@ -33,6 +33,7 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `ENG-001` | `kernel` | `deterministic_replay` | `property-tested` | `active` | 同一Catalog、Ruleset、Scenario、seedは同一のcanonical Resultを返す |
 | `ENG-002` | `kernel` | `event_time_monotonic` | `property-tested` | `active` | Event Queueから処理されるイベント時刻は後退しない |
 | `GOL-001` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/direct-critical-armor.scenario.jsonは独立literal expected vectorと一致するResultおよびTraceを生成する |
+| `GOL-002` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/probability-critical-armor.scenario.jsonは明示Critical rollからbinary tierを解決し、独立literal expected vectorと一致するResultおよびTraceを生成する |
 | `RNG-001` | `kernel` | `same_logical_random` | `property-tested` | `active` | 同一seed、論理Event ID、roll purposeは同一乱数を返す |
 | `SCP-001` | `scope` | `scope_boundary` | `manual` | `active` | 物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない |
 | `SCP-002` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | 非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す |

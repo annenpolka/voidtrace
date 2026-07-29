@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
   type: "json",
 };
-import { parseScenarioDomain, SUPPORTED_METRIC_IDS } from "./scenario-domain.ts";
+import { parseScenarioDomain } from "./scenario-domain.ts";
 
 type MutableScenarioFixture = {
   contentHash: string;
@@ -104,13 +104,15 @@ describe("parseScenarioDomain", () => {
           targetId: "actor.target",
           hitLocation: "hit-location.neutral-body",
           damageLayer: "health",
+          criticalResolution: "fixed",
           criticalTier: 1,
+          criticalRoll: null,
         },
         simulation: {
           mode: "deterministic",
           timeLimitMs: 1,
         },
-        metrics: SUPPORTED_METRIC_IDS,
+        metrics: scenarioFixture.metrics,
         fingerprintSeed: 0,
       },
     });
@@ -215,13 +217,6 @@ describe("parseScenarioDomain", () => {
         delete firstTarget(scenario).configuration.resolvedArmor;
       },
       "/targets/0/configuration/resolvedArmor",
-    ],
-    [
-      "action",
-      (scenario: MutableScenarioFixture) => {
-        delete firstAction(scenario).parameters.criticalTier;
-      },
-      "/actionPlan/0/parameters/criticalTier",
     ],
   ])("rejects a missing %s configuration key", async (_label, change, path) => {
     const scenario = await changedScenario(change);
@@ -404,8 +399,93 @@ describe("parseScenarioDomain", () => {
       ok: true,
       value: {
         action: {
+          criticalResolution: "fixed",
           criticalTier: 0,
+          criticalRoll: null,
         },
+      },
+    });
+  });
+
+  it.each([0, 0.25, 0.999_999])("accepts explicit Critical roll %s", async (roll) => {
+    const scenario = await changedScenario((mutable) => {
+      const parameters = firstAction(mutable).parameters;
+      delete parameters.criticalTier;
+      parameters.criticalRoll = roll;
+    });
+
+    const result = await parseScenarioDomain(scenario);
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          criticalResolution: "roll",
+          criticalTier: null,
+          criticalRoll: roll,
+        },
+      },
+    });
+  });
+
+  it.each([-1, 1, 1.1, "0.5"])("rejects invalid explicit Critical roll %s", async (roll) => {
+    const scenario = await changedScenario((mutable) => {
+      const parameters = firstAction(mutable).parameters;
+      delete parameters.criticalTier;
+      parameters.criticalRoll = roll;
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-configuration-value",
+      path: "/actionPlan/0/parameters/criticalRoll",
+      mechanicId: "mechanic.critical.probability",
+    });
+  });
+
+  it("requires exactly one Critical resolution input", async () => {
+    const missing = await changedScenario((mutable) => {
+      delete firstAction(mutable).parameters.criticalTier;
+    });
+    await expectFailure(missing, {
+      code: "invalid-critical-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.critical.resolution",
+    });
+
+    const conflicting = await changedScenario((mutable) => {
+      firstAction(mutable).parameters.criticalRoll = 0.25;
+    });
+    await expectFailure(conflicting, {
+      code: "invalid-critical-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.critical.resolution",
+    });
+  });
+
+  it("requires rolled Critical metrics to use criticalRoll resolution", async () => {
+    const fixed = await changedScenario((mutable) => {
+      mutable.metrics = ["critical.roll"];
+    });
+    await expectFailure(fixed, {
+      code: "unsupported-metric",
+      path: "/metrics/0",
+      mechanicId: "critical.roll",
+    });
+
+    const rolled = await changedScenario((mutable) => {
+      const parameters = firstAction(mutable).parameters;
+      delete parameters.criticalTier;
+      parameters.criticalRoll = 0.25;
+      mutable.metrics = [
+        "critical.roll",
+        "critical.tier-0.probability",
+        "critical.tier-1.probability",
+      ];
+    });
+    const result = await parseScenarioDomain(rolled);
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        metrics: ["critical.roll", "critical.tier-0.probability", "critical.tier-1.probability"],
       },
     });
   });

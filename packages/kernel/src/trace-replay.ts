@@ -86,6 +86,14 @@ export async function replayTraceDamage(input: unknown): Promise<DamageVector> {
         case "damage-vector.copy":
           damage = copyOperationDamage(operation.parameters);
           break;
+        case "critical-tier.resolve-binary-roll":
+          if (damage === undefined) {
+            throw new TraceReplayError(
+              "missing-damage-vector",
+              "Trace resolves a Critical roll before constructing a Damage Vector",
+            );
+          }
+          break;
         case "damage-vector.scale-fixed-critical":
         case "damage-vector.scale-standard-armor":
           if (damage === undefined) {

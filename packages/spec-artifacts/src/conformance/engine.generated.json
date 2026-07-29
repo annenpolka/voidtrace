@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:87422d3a3c0c701eaea653935340d5ca365863afd65797255365442d5c510d43",
+  "sourceFingerprint": "sha256:892b1dc0fd05d96f835656d971e785eb33d9c237c658947262ef4226dd2c356c",
   "activeClauses": [
     {
       "id": "CLI-001",
@@ -50,6 +50,14 @@
       "guarantee": "example-tested",
       "maturity": "active",
       "area": "cli"
+    },
+    {
+      "id": "CRT-001",
+      "pattern": "critical_tier_probability_sum",
+      "desc": "Critical解決入力はcriticalTierとcriticalRollの厳密に一方だけを持つ。criticalRollを選んだ場合、0以上1以下のCritical chance cはbinary分布p(tier 0)=1-c、p(tier 1)=cを形成し、rollがchance未満のときだけtier 1を解決する",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
     },
     {
       "id": "CRT-002",
@@ -116,6 +124,14 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-002",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/probability-critical-armor.scenario.jsonは明示Critical rollからbinary tierを解決し、独立literal expected vectorと一致するResultおよびTraceを生成する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "RNG-001",
       "pattern": "same_logical_random",
       "desc": "同一seed、論理Event ID、roll purposeは同一乱数を返す",
@@ -156,14 +172,5 @@
       "area": "kernel"
     }
   ],
-  "plannedClauses": [
-    {
-      "id": "CRT-001",
-      "pattern": "critical_tier_probability_sum",
-      "desc": "Critical tier確率分布を実装するとき、その確率総和は1となる",
-      "guarantee": "property-tested",
-      "maturity": "planned",
-      "area": "mechanics"
-    }
-  ]
+  "plannedClauses": []
 }

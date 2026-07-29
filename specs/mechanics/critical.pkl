@@ -1,7 +1,27 @@
-/// Conservative deterministic Critical rule; probability semantics remain unsupported.
+/// Conservative binary Critical resolution for explicit deterministic rolls and fixed tiers.
 module voidtrace.mechanics.critical
 
 import "../rules/model.pkl"
+
+binaryRollRule: model.Rule = new {
+  id = "rule.critical.resolve-binary-roll"
+  description =
+    "For Critical chance c in [0, 1], resolve the binary distribution p(tier 0) = 1 - c and p(tier 1) = c from an explicit roll: tier 1 exactly when roll is less than c, otherwise tier 0."
+  phase = "critical.roll"
+  eventKind = "damage.direct"
+  reads {
+    "attack.critical-chance"
+    "event.critical-roll"
+  }
+  writes {
+    "event.critical-tier"
+    "event.critical-tier-0-probability"
+    "event.critical-tier-1-probability"
+  }
+  operation = new model.ResolveBinaryCriticalRoll {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
 
 nonCriticalRule: model.Rule = new {
   id = "rule.critical.fixed-tier-0"

@@ -15,6 +15,12 @@ import expectedFixture from "../../../data/fixtures/golden/direct-critical-armor
 import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
   type: "json",
 };
+import probabilityExpectedFixture from "../../../data/fixtures/golden/probability-critical-armor.expected.json" with {
+  type: "json",
+};
+import probabilityScenarioFixture from "../../../data/fixtures/golden/probability-critical-armor.scenario.json" with {
+  type: "json",
+};
 import { evaluateScenario } from "./evaluate.ts";
 import { SUPPORTED_METRIC_IDS } from "./scenario-domain.ts";
 import { replayTraceDamage, type TraceReplayError } from "./trace-replay.ts";
@@ -22,6 +28,14 @@ import { replayTraceDamage, type TraceReplayError } from "./trace-replay.ts";
 async function evaluateGolden() {
   return evaluateScenario({
     scenario: structuredClone(scenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateProbabilityGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(probabilityScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -87,6 +101,78 @@ describe("evaluateScenario", () => {
     expect(Object.isFrozen(outcome.trace.decisions)).toBe(true);
   });
 
+  it("matches the independently authored explicit-roll Critical golden", async () => {
+    const outcome = await evaluateProbabilityGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+
+    for (const [metricId, expected] of Object.entries(probabilityExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(probabilityExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(probabilityExpectedFixture.damageByType);
+    expect(outcome.result.coverage).toEqual({
+      verified: [],
+      experimental: [
+        "mechanic.critical.fixed-tier",
+        "mechanic.critical.probability",
+        "mechanic.damage.direct-hit",
+        "mechanic.damage.health-commit",
+        "mechanic.defense.standard-armor",
+      ],
+      disputed: [],
+      unsupported: [],
+      approximated: [],
+    });
+
+    const appliedRuleIds = outcome.trace.decisions
+      .filter((decision) => decision.outcome === "applied")
+      .map((decision) => decision.ruleId);
+    const rejectedRules = outcome.trace.decisions
+      .filter((decision) => decision.outcome === "rejected")
+      .map((decision) => ({
+        ruleId: decision.ruleId,
+        stage: decision.rejectionStage,
+        code: decision.rejectionReason.code,
+      }));
+    expect(appliedRuleIds).toEqual(probabilityExpectedFixture.appliedRuleIds);
+    expect(rejectedRules).toEqual(probabilityExpectedFixture.rejectedRules);
+    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual([
+      0, 1, 2, 3, 4, 5,
+    ]);
+    expect(outcome.trace.decisions[1]).toMatchObject({
+      outcome: "applied",
+      phase: "critical.roll",
+      ruleId: "rule.critical.resolve-binary-roll",
+      reads: {
+        "attack.critical-chance": 0.25,
+        "event.critical-roll": 0.2,
+      },
+      operations: [
+        {
+          kind: "critical-tier.resolve-binary-roll",
+          parameters: {
+            criticalChance: 0.25,
+            criticalRoll: 0.2,
+            tier0Probability: 0.75,
+            tier1Probability: 0.25,
+            resolvedTier: 1,
+          },
+        },
+      ],
+    });
+
+    expect(await replayTraceDamage(outcome.trace)).toEqual(outcome.result.damageByType);
+    expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
+    expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, probabilityScenarioFixture),
+    ).toBe(true);
+  });
+
   it("is canonically deterministic for identical Scenario, Catalog, Ruleset, and seed", async () => {
     const first = await evaluateGolden();
     const second = await evaluateGolden();
@@ -94,6 +180,56 @@ describe("evaluateScenario", () => {
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+  });
+
+  it("resolves binary Critical probabilities and threshold rolls deterministically", async () => {
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 0, max: 1_000_000 }),
+        fc.integer({ min: 0, max: 999_999 }),
+        async (chanceNumerator, rollNumerator) => {
+          const criticalChance = chanceNumerator / 1_000_000;
+          const criticalRoll = rollNumerator / 1_000_000;
+          const changedCatalog = structuredClone(catalogFixture);
+          const attackMode = changedCatalog.weapons[0]?.attackModes[0];
+          if (attackMode === undefined) {
+            throw new Error("Mini Catalog must contain an attack mode");
+          }
+          attackMode.criticalChance = criticalChance;
+          const catalogArtifact = await rehash(changedCatalog);
+          const catalog = await loadCatalogSnapshot(catalogArtifact);
+
+          const changedScenario = structuredClone(probabilityScenarioFixture);
+          const action = changedScenario.actionPlan[0];
+          if (action === undefined) {
+            throw new Error("Probability Scenario must contain an action");
+          }
+          action.parameters.criticalRoll = criticalRoll;
+          changedScenario.catalogRef.contentHash = catalog.snapshot.contentHash;
+          const scenario = await rehash(changedScenario);
+
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+
+          const tier0 = first.result.metrics["critical.tier-0.probability"];
+          const tier1 = first.result.metrics["critical.tier-1.probability"];
+          expect(tier0).toBeCloseTo(1 - criticalChance, 15);
+          expect(tier1).toBeCloseTo(criticalChance, 15);
+          expect((tier0 as number) + (tier1 as number)).toBeCloseTo(1, 15);
+          expect(first.result.metrics["critical.tier"]).toBe(criticalRoll < criticalChance ? 1 : 0);
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+          expect(await replayTraceDamage(first.trace)).toEqual(first.result.damageByType);
+        },
+      ),
+      { numRuns: 50 },
+    );
   });
 
   it("rebuilds executable handles from snapshots instead of invoking caller closures", async () => {
@@ -128,9 +264,15 @@ describe("evaluateScenario", () => {
   it("property-tests deterministic replay, Trace reconstruction, and rejection reasons", async () => {
     const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
     const ruleset = await loadCoreRuleset();
-    const metricSubset = fc.uniqueArray(fc.constantFrom(...SUPPORTED_METRIC_IDS), {
+    const fixedMetricIds = SUPPORTED_METRIC_IDS.filter(
+      (metric) =>
+        metric !== "critical.roll" &&
+        metric !== "critical.tier-0.probability" &&
+        metric !== "critical.tier-1.probability",
+    );
+    const metricSubset = fc.uniqueArray(fc.constantFrom(...fixedMetricIds), {
       minLength: 1,
-      maxLength: SUPPORTED_METRIC_IDS.length,
+      maxLength: fixedMetricIds.length,
     });
 
     await fc.assert(
@@ -252,6 +394,47 @@ describe("evaluateScenario", () => {
         mechanicId: "mechanic.delivery.projectile",
       },
     });
+  });
+
+  it("rejects Critical chance above the binary slice without clamping or partial artifacts", async () => {
+    const changedCatalog = structuredClone(catalogFixture);
+    const selectedWeapon = changedCatalog.weapons[0];
+    if (selectedWeapon === undefined) {
+      throw new Error("Mini Catalog must contain a weapon");
+    }
+    const decoyWeapon = structuredClone(selectedWeapon);
+    decoyWeapon.id = "weapon.synthetic-decoy";
+    for (const [index, attackMode] of decoyWeapon.attackModes.entries()) {
+      attackMode.id = `attack-mode.synthetic-decoy.${index}`;
+    }
+    changedCatalog.weapons.unshift(decoyWeapon);
+    const attackMode = changedCatalog.weapons[1]?.attackModes[0];
+    if (attackMode === undefined) {
+      throw new Error("Mini Catalog must contain an attack mode");
+    }
+    attackMode.criticalChance = 1.25;
+    const catalogArtifact = await rehash(changedCatalog);
+    const catalog = await loadCatalogSnapshot(catalogArtifact);
+
+    const changedScenario = structuredClone(probabilityScenarioFixture);
+    changedScenario.catalogRef.contentHash = catalog.snapshot.contentHash;
+    const scenario = await rehash(changedScenario);
+    const ruleset = await loadCoreRuleset();
+
+    const outcome = await evaluateScenario({ scenario, catalog, ruleset });
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: {
+        code: "unsupported-critical-chance",
+        message:
+          "Binary Critical roll resolution supports criticalChance from 0 through 1; received 1.25",
+        path: "/weapons/1/attackModes/0/criticalChance",
+        mechanicId: "mechanic.critical.probability",
+      },
+    });
+    expect("result" in outcome).toBe(false);
+    expect("trace" in outcome).toBe(false);
   });
 });
 

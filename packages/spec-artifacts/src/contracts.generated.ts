@@ -208,11 +208,11 @@ export type Result = {
 /** Generated finite Rule IR interpreted by the Kernel-facing Rules package. */
 export type Ruleset = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:ruleset:0.1.0";
+  readonly "$schema": "urn:voidtrace:schema:ruleset:0.2.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "ruleset";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.1.0";
+  readonly "schemaVersion": "0.2.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -230,7 +230,7 @@ export type Ruleset = {
     /** Human-readable normative operation semantics. */
     readonly "description": string;
     /** Finite execution phase. */
-    readonly "phase": "damage.construct" | "critical.resolve" | "target.mitigate" | "damage.commit";
+    readonly "phase": "damage.construct" | "critical.roll" | "critical.resolve" | "target.mitigate" | "damage.commit";
     /** Stable event discriminator matched by this Rule. */
     readonly "eventKind": string;
     /** Declared scalar or vector paths read by this Rule. */
@@ -241,6 +241,9 @@ export type Ruleset = {
     readonly "operation": {
       /** Copy the input base Damage Vector into event damage. */
       readonly "kind": "damage-vector.copy";
+    } | {
+      /** Resolve Critical tier 0 or 1 from an explicit roll and a normalized binary Critical chance. */
+      readonly "kind": "critical-tier.resolve-binary-roll";
     } | {
       /** Scale by the finite deterministic fixed-tier Critical rule. */
       readonly "kind": "damage-vector.scale-fixed-critical";

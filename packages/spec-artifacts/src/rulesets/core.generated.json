@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.1.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.2.0",
   "kind": "ruleset",
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "ruleset.synthetic-core",
-  "revision": 0,
-  "contentHash": "sha256:c7a164e9e8310496d2bea51f1d41777ba7bf5448ed7e653c5e482cea5835176e",
+  "revision": 1,
+  "contentHash": "sha256:2b5b497737616c284a6ab9e94ed690966738a5f2e91df17e76eff30337baf73c",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -20,6 +20,26 @@
       ],
       "operation": {
         "kind": "damage-vector.copy"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.critical.resolve-binary-roll",
+      "description": "For Critical chance c in [0, 1], resolve the binary distribution p(tier 0) = 1 - c and p(tier 1) = c from an explicit roll: tier 1 exactly when roll is less than c, otherwise tier 0.",
+      "phase": "critical.roll",
+      "eventKind": "damage.direct",
+      "reads": [
+        "attack.critical-chance",
+        "event.critical-roll"
+      ],
+      "writes": [
+        "event.critical-tier",
+        "event.critical-tier-0-probability",
+        "event.critical-tier-1-probability"
+      ],
+      "operation": {
+        "kind": "critical-tier.resolve-binary-roll"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

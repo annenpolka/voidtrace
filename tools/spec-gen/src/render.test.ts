@@ -55,6 +55,7 @@ const spec: SpecDocument = {
   ruleset: {
     id: "ruleset.test",
     version: "0.1.0",
+    revision: 7,
     gameBuild: "test-build",
     rules: [
       {
@@ -207,9 +208,11 @@ describe("renderGeneratedFiles", () => {
     );
     const ruleset = JSON.parse(rulesetFile?.contents ?? "{}") as {
       contentHash: string;
+      revision: number;
       rules: Array<{ id: string; operation: { kind: string } }>;
     };
 
+    expect(ruleset.revision).toBe(7);
     expect(ruleset.rules).toEqual([
       expect.objectContaining({
         id: "rule.damage.copy",

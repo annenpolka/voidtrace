@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:87422d3a3c0c701eaea653935340d5ca365863afd65797255365442d5c510d43",
+  "sourceFingerprint": "sha256:892b1dc0fd05d96f835656d971e785eb33d9c237c658947262ef4226dd2c356c",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -39,18 +39,18 @@
     },
     {
       "id": "mechanics.direct-critical-armor",
-      "status": "partial",
+      "status": "supported",
       "activeClauseRefs": [
+        "CRT-001",
         "CRT-002",
         "DEF-001",
         "DEF-002",
         "DMG-001",
         "DMG-002",
-        "GOL-001"
+        "GOL-001",
+        "GOL-002"
       ],
-      "plannedClauseRefs": [
-        "CRT-001"
-      ]
+      "plannedClauseRefs": []
     },
     {
       "id": "cli.core",
