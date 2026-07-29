@@ -25,4 +25,6 @@
 4. Implement the handwritten code or oracle.
 5. Run `just check`.
 
-The current implemented boundary ends at generated Contracts and their pure validation/fingerprint wrapper. Do not add placeholder Kernel, Catalog, CLI, Lab, API, or MCP implementations until their planned vertical slice begins.
+The current implemented boundary ends at the synthetic Direct Hit / fixed Critical tier / Armor
+vertical slice and its repository-local temporary skill adapter. Do not add placeholder public
+CLI, Lab, API, or MCP implementations until their planned vertical slice begins.
