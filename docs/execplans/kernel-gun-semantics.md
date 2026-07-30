@@ -49,6 +49,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 10:34:00Z) repository-local skillへresolved punch-through操作例と非対応境界を追加し、empirical-prompt-tuningを2回とhold-outで実行した。対応・非対応はいずれも100%、不明点0、retry 0で、impact-distanceの暗黙変換も拒否した。
 - [x] (2026-07-30 10:34:00Z) Node 26.0.0とNode 24.18.0で35 Clauses、8 Contracts、生成24ファイル、21テストファイル311テストを含む `just check` を通した。
 - [x] (2026-07-30 10:35:00Z) Resolved punch-throughマイルストーンを `bd0b659` としてコミットした。
+- [ ] 次の複数target sliceとして、明示されたresolved ricochet順序に沿う固定Critical Direct Hit列を実装する。（2026-07-30 10:38:00Z開始。Goldenはtargets配列と異なるC→A→B順、固定tier 2、target別Armor/Health、反射角・自動選択・減衰なし）
 
 ## Surprises & Discoveries
 
@@ -156,6 +157,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: Result Contractをtarget別終端Healthを持つ `targetStates` へ拡張し、複数target集約metricはtarget数、撃破数、残Health総和、Damage総和だけを公開する。
   Rationale: `target.health.remaining`を複数targetへ曖昧に流用せず、個別状態と集約値を分離する。Traceにはpath／target identityを残し、target別初期Healthをアンカーに再生する。
   Date/Author: 2026-07-30 08:36:00Z / Codex
+
+- Decision: punch-through後の次のTarget Graph relationは、`pathKind: ricochet` の解決済みordered pathとする。
+  Rationale: 既存Contractが表せる明示順を再利用しつつ、target配列順と命中順を分離できる。Chainは候補edgeと選択戦略のContractがまだないため後続とし、反射角、物理軌道、target自動選択、減衰、rollを同時に導入しない。
+  Date/Author: 2026-07-30 10:38:00Z / Codex
+
+- Decision: ricochetはpunch-throughと別action、別Rule ID、別operation、別capability、別aggregate metricを持ち、安全なtarget別Direct Hit実行器だけを共有する。
+  Rationale: 同じordered pathでも意味論と将来の補正点は異なる。汎用pathという名前へ早期に畳んでTraceから由来を失わず、Kernel内のCritical／Armor／Health pipeline重複も避ける。
+  Date/Author: 2026-07-30 10:38:00Z / Codex
 
 ## Outcomes & Retrospective
 
