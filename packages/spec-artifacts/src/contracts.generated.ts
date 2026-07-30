@@ -302,11 +302,11 @@ export type Ruleset = {
 /** Immutable, reproducible evaluation input with explicit structured extension points. */
 export type Scenario = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:scenario:0.1.0";
+  readonly "$schema": "urn:voidtrace:schema:scenario:0.2.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "voidtrace.scenario";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.1.0";
+  readonly "schemaVersion": "0.2.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -335,6 +335,33 @@ export type Scenario = {
     /** Flat, explicit scalar target configuration interpreted by later domain contracts. */
     readonly "configuration": Readonly<Record<string, string | number | boolean | null>>;
   }>;
+  /** Explicit relations already resolved from geometry, collision, or target selection. */
+  readonly "targetGraph": {
+    /** Resolved target relations. An empty list states that no spatial or ordered relation is used. */
+    readonly "relations": ReadonlyArray<{
+      /** Scenario-local stable identity of this resolved target relation. */
+      readonly "id": string;
+      /** Resolved impact-to-target distance relation discriminator. */
+      readonly "kind": "target-relation.impact-distance";
+      /** Scenario-local stable identity of the already resolved impact. */
+      readonly "impactId": string;
+      /** Scenario-local target identity measured from the impact. */
+      readonly "targetId": string;
+      /** Finite non-negative distance already resolved outside the Kernel. */
+      readonly "resolvedDistanceMeters": number;
+      /** Explicitly resolved line-of-sight result; the Kernel performs no geometry. */
+      readonly "lineOfSightClear": boolean;
+    } | {
+      /** Scenario-local stable identity of this resolved target relation. */
+      readonly "id": string;
+      /** Resolved ordered target path relation discriminator. */
+      readonly "kind": "target-relation.ordered-path";
+      /** Mechanic that consumes the already resolved target order. */
+      readonly "pathKind": "punch-through" | "chain" | "ricochet";
+      /** Non-empty target order resolved outside the Kernel. */
+      readonly "targetIds": ReadonlyArray<string>;
+    }>;
+  };
   /** Explicit flat scalar state present before the first action. */
   readonly "initialState": Readonly<Record<string, string | number | boolean | null>>;
   /** Ordered, non-empty sequence of structured action inputs. */

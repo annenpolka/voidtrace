@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.1.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "scenario.golden-expected-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:cbd64dbc32318264efc5304a82fe675e2da2b7336b320bb184215e8b83ae2b70",
+  "contentHash": "sha256:290d00cfaca2098e0d4b1ec6e43efc5da446309bfb7a933cccbd6c66531a30e1",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -41,6 +41,9 @@
       }
     }
   ],
+  "targetGraph": {
+    "relations": []
+  },
   "initialState": {},
   "actionPlan": [
     {

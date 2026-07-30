@@ -27,6 +27,6 @@ export const CONTRACT_SCHEMA_IDS = {
   "problem": "urn:voidtrace:schema:problem:0.1.0",
   "result": "urn:voidtrace:schema:result:0.1.0",
   "ruleset": "urn:voidtrace:schema:ruleset:0.8.0",
-  "scenario": "urn:voidtrace:schema:scenario:0.1.0",
+  "scenario": "urn:voidtrace:schema:scenario:0.2.0",
   "trace": "urn:voidtrace:schema:trace:0.1.0",
 } as const;

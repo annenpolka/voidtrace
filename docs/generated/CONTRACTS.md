@@ -137,8 +137,8 @@ Generated finite Rule IR interpreted by the Kernel-facing Rules package.
 ## Scenario
 
 - Contract ID: `scenario`
-- Schema ID: `urn:voidtrace:schema:scenario:0.1.0`
-- Schema version: `0.1.0`
+- Schema ID: `urn:voidtrace:schema:scenario:0.2.0`
+- Schema version: `0.2.0`
 
 Immutable, reproducible evaluation input with explicit structured extension points.
 
@@ -156,6 +156,7 @@ Immutable, reproducible evaluation input with explicit structured extension poin
 | `rulesetRef` | required | Ruleset revision used to evaluate this Scenario. |
 | `attacker` | required | Structured attacker input without embedded mechanics interpretation. |
 | `targets` | required | One or more structured target inputs. |
+| `targetGraph` | required | Explicit relations already resolved from geometry, collision, or target selection. |
 | `initialState` | required | Explicit flat scalar state present before the first action. |
 | `actionPlan` | required | Ordered, non-empty sequence of structured action inputs. |
 | `simulation` | required | Bounded evaluation mode with no hidden random defaults. |

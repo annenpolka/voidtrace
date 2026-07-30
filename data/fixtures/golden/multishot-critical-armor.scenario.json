@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.1.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "scenario.golden-multishot-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:272c0af7199d04835d3dc01b45e0de2f4802c387215bef2fd4ebc4b750de8dcc",
+  "contentHash": "sha256:b21d815fbc418d0cb826b4317c4d954d4ae64bb040c3ab1adef23c608cab1302",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -41,6 +41,9 @@
       }
     }
   ],
+  "targetGraph": {
+    "relations": []
+  },
   "initialState": {},
   "actionPlan": [
     {

@@ -1,7 +1,7 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.1.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "scenario.golden-direct-critical-armor",
   "revision": 2,
   "createdFrom": {
@@ -12,7 +12,7 @@
     "contentHash": "sha256:d1d5ccd92b5ffc0ae5d44e0ffcb1a90ef5a085047893d531770dd40854d07ca7",
     "gameBuild": "synthetic-fixture-0"
   },
-  "contentHash": "sha256:71bb47fce479addb7b9123921fe64a56509d1b5388d5ee23e550e88da5b3a3b5",
+  "contentHash": "sha256:45888aad955fe9c0c33ce088159c0e3947893f9710d0d01fae75c43c87e0011b",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -49,6 +49,9 @@
       }
     }
   ],
+  "targetGraph": {
+    "relations": []
+  },
   "initialState": {},
   "actionPlan": [
     {

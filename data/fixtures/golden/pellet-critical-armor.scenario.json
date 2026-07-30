@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.1.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "scenario.golden-pellet-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:4e7e2a1e12bad6c5432025dd61f0216b26cb546e6540412f74d1e264ec9e15f2",
+  "contentHash": "sha256:502412e95a6a3bc2b0707be7957868771b3bd9ff27923e96a19538935123d460",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -41,6 +41,9 @@
       }
     }
   ],
+  "targetGraph": {
+    "relations": []
+  },
   "initialState": {},
   "actionPlan": [
     {

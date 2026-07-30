@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:scenario:0.1.0",
+  "$id": "urn:voidtrace:schema:scenario:0.2.0",
   "title": "Scenario",
   "description": "Immutable, reproducible evaluation input with explicit structured extension points.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:scenario:0.1.0"
+      "const": "urn:voidtrace:schema:scenario:0.2.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -176,6 +176,112 @@
         "additionalProperties": false
       },
       "minItems": 1
+    },
+    "targetGraph": {
+      "description": "Explicit relations already resolved from geometry, collision, or target selection.",
+      "type": "object",
+      "properties": {
+        "relations": {
+          "description": "Resolved target relations. An empty list states that no spatial or ordered relation is used.",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "description": "Scenario-local stable identity of this resolved target relation.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "kind": {
+                    "description": "Resolved impact-to-target distance relation discriminator.",
+                    "type": "string",
+                    "const": "target-relation.impact-distance"
+                  },
+                  "impactId": {
+                    "description": "Scenario-local stable identity of the already resolved impact.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "targetId": {
+                    "description": "Scenario-local target identity measured from the impact.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "resolvedDistanceMeters": {
+                    "description": "Finite non-negative distance already resolved outside the Kernel.",
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "lineOfSightClear": {
+                    "description": "Explicitly resolved line-of-sight result; the Kernel performs no geometry.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "impactId",
+                  "targetId",
+                  "resolvedDistanceMeters",
+                  "lineOfSightClear"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "description": "Scenario-local stable identity of this resolved target relation.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "kind": {
+                    "description": "Resolved ordered target path relation discriminator.",
+                    "type": "string",
+                    "const": "target-relation.ordered-path"
+                  },
+                  "pathKind": {
+                    "description": "Mechanic that consumes the already resolved target order.",
+                    "type": "string",
+                    "enum": [
+                      "punch-through",
+                      "chain",
+                      "ricochet"
+                    ]
+                  },
+                  "targetIds": {
+                    "description": "Non-empty target order resolved outside the Kernel.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "pathKind",
+                  "targetIds"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "relations"
+      ],
+      "additionalProperties": false
     },
     "initialState": {
       "description": "Explicit flat scalar state present before the first action.",
@@ -370,6 +476,7 @@
     "rulesetRef",
     "attacker",
     "targets",
+    "targetGraph",
     "initialState",
     "actionPlan",
     "simulation",

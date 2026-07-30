@@ -27,6 +27,10 @@ Standalone Radial evaluation accepts an explicit finite falloff multiplier in `[
 after fixed Critical resolution and before Armor, and records a distinct Radial event and metrics.
 Resolved synthetic Status evaluation schedules up to 64 explicit Health-damage ticks at a positive
 logical-time interval, commits them sequentially, and aggregates their terminal Damage and Health.
+Scenario Contract `0.2.0` also makes the resolved Target Graph explicit. Its finite input
+vocabulary covers impact-to-target distance with a resolved LoS result and ordered
+punch-through/chain/ricochet paths. Current evaluation accepts only an empty graph; non-empty
+relations and multiple targets are rejected rather than ignored.
 
 This slice and its runtime Rules remain synthetic and experimental. They are not verified
 statements of current Warframe mechanics. Generated random rolls, Monte Carlo,
@@ -35,7 +39,8 @@ headshots, Shield, Overguard, projectiles, Status chance or type rolls, probabil
 custom-count helper variation, Multishot-plus-pellet composition, variable or probabilistic
 pellets, per-pellet rolls, pellet hit distribution, Spread, Multishot or pellet expected values,
 Trace queries, comparisons, distance-derived Radial falloff, physical geometry, Direct-plus-Radial
-or Projectile parent composition, multi-target Radial damage, and the Lab remain unsupported.
+or Projectile parent composition, non-empty Target Graph evaluation, multi-target Radial damage,
+and the Lab remain unsupported.
 Real Status formulas, application from Direct or Radial hits, Critical or Armor derivation,
 stacking, refresh, snapshots, defense changes, expected values, and generated Status rolls also
 remain unsupported.

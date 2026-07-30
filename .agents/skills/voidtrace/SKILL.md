@@ -54,6 +54,9 @@ stacking, refresh, snapshot rules, defense changes between ticks, expected Statu
 generated Status rolls are unsupported. If a request needs any of them, state the unsupported
 mechanic and stop. Do not approximate it as zero effect and do not silently adapt it to the
 supported slice.
+The Scenario Contract contains an explicit resolved `targetGraph`, but the current evaluator
+accepts only `relations: []`. Non-empty impact-distance, ordered-path, or other Target Graph
+evaluation and multiple targets are unsupported and must not be silently reduced to one target.
 
 ## Commands
 

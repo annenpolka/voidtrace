@@ -27,9 +27,9 @@ function artifactRef(kind: string, id: string): ArtifactRef {
 }
 
 const scenario = {
-  $schema: "urn:voidtrace:schema:scenario:0.1.0",
+  $schema: "urn:voidtrace:schema:scenario:0.2.0",
   kind: "voidtrace.scenario",
-  schemaVersion: "0.1.0",
+  schemaVersion: "0.2.0",
   id: "scenario.example",
   revision: 0,
   contentHash: HASH,
@@ -51,6 +51,9 @@ const scenario = {
       },
     },
   ],
+  targetGraph: {
+    relations: [],
+  },
   initialState: {
     comboMultiplier: 1,
   },
@@ -191,6 +194,58 @@ describe("generated Contract validation", () => {
       false,
     );
     expect(validateContract("scenario", { ...scenario, revision: -1 }).ok).toBe(false);
+  });
+
+  it("validates only the finite resolved Target Graph relation vocabulary", () => {
+    const withRelations = {
+      ...scenario,
+      targetGraph: {
+        relations: [
+          {
+            id: "relation.impact-target",
+            kind: "target-relation.impact-distance",
+            impactId: "impact.example",
+            targetId: "target.primary",
+            resolvedDistanceMeters: 4.5,
+            lineOfSightClear: true,
+          },
+          {
+            id: "relation.punch-path",
+            kind: "target-relation.ordered-path",
+            pathKind: "punch-through",
+            targetIds: ["target.primary", "target.secondary"],
+          },
+        ],
+      },
+    };
+
+    expect(validateContract("scenario", withRelations).ok).toBe(true);
+    expect(
+      validateContract("scenario", {
+        ...withRelations,
+        targetGraph: {
+          relations: [
+            {
+              ...withRelations.targetGraph.relations[0],
+              resolvedDistanceMeters: -1,
+            },
+          ],
+        },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("scenario", {
+        ...withRelations,
+        targetGraph: {
+          relations: [
+            {
+              ...withRelations.targetGraph.relations[1],
+              targetIds: [],
+            },
+          ],
+        },
+      }).ok,
+    ).toBe(false);
   });
 
   it("does not coerce, repair, or mutate invalid input", () => {

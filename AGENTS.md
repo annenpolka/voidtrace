@@ -45,6 +45,10 @@ Resolved Status ticks accept only `status.synthetic-resolved-dot`, explicit fina
 tick, a positive count up to 64, and a positive interval whose last tick fits within
 `timeLimitMs`. They do not derive Status application, type, damage, Critical, Armor, stack,
 refresh, snapshot, defense changes, expected values, or rolls.
+Scenario Contract `0.2.0` requires an explicit `targetGraph`. It can represent resolved
+impact-distance/LoS and ordered punch-through/chain/ricochet relations, but the current runtime
+accepts only an empty relation list and rejects every non-empty Target Graph without partial
+Artifacts. It never performs geometry or target selection implicitly.
 
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
 repository-local analytic expected preset; it is not the formal CLI boundary and does not
@@ -57,5 +61,6 @@ Spread, distance-derived Radial falloff, Direct-plus-Radial or Projectile compos
 random rolls, grouped-hit expected values, and Monte Carlo remain unsupported.
 Real Status formulas, chance/type resolution, Direct/Radial application, stacking, refresh,
 snapshot behavior, and Status expected values remain unsupported.
+Multiple targets and non-empty Target Graph evaluation remain unsupported.
 Do not add further CLI commands, Lab, API, or MCP implementations until their planned vertical
 slice begins.

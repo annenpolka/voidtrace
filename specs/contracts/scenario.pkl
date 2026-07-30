@@ -4,8 +4,8 @@ module voidtrace.contracts.scenario
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:scenario:0.1.0"
-local contractVersion = "0.1.0"
+local schemaIdentifier = "urn:voidtrace:schema:scenario:0.2.0"
+local contractVersion = "0.2.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -83,6 +83,110 @@ function actionStep(): model.ObjectNode = new model.ObjectNode {
       description = "Flat, explicit scalar parameters for this action."
       required = true
       schema = scalarRecord()
+    }
+  }
+}
+
+function resolvedImpactDistanceRelation(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Scenario-local stable identity of this resolved target relation."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "kind"
+      description = "Resolved impact-to-target distance relation discriminator."
+      required = true
+      schema = new model.LiteralNode {
+        value = "target-relation.impact-distance"
+      }
+    }
+    new model.Field {
+      name = "impactId"
+      description = "Scenario-local stable identity of the already resolved impact."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "targetId"
+      description = "Scenario-local target identity measured from the impact."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "resolvedDistanceMeters"
+      description = "Finite non-negative distance already resolved outside the Kernel."
+      required = true
+      schema = new model.NumberNode {
+        minimum = 0
+      }
+    }
+    new model.Field {
+      name = "lineOfSightClear"
+      description = "Explicitly resolved line-of-sight result; the Kernel performs no geometry."
+      required = true
+      schema = new model.BooleanNode {}
+    }
+  }
+}
+
+function resolvedOrderedPathRelation(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Scenario-local stable identity of this resolved target relation."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "kind"
+      description = "Resolved ordered target path relation discriminator."
+      required = true
+      schema = new model.LiteralNode {
+        value = "target-relation.ordered-path"
+      }
+    }
+    new model.Field {
+      name = "pathKind"
+      description = "Mechanic that consumes the already resolved target order."
+      required = true
+      schema = new model.StringNode {
+        values = new Listing<String> {
+          "punch-through"
+          "chain"
+          "ricochet"
+        }
+      }
+    }
+    new model.Field {
+      name = "targetIds"
+      description = "Non-empty target order resolved outside the Kernel."
+      required = true
+      schema = new model.ArrayNode {
+        items = artifact.stableId()
+        minItems = 1
+      }
+    }
+  }
+}
+
+function targetGraph(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "relations"
+      description =
+        "Resolved target relations. An empty list states that no spatial or ordered relation is used."
+      required = true
+      schema = new model.ArrayNode {
+        items = new model.UnionNode {
+          variants = new {
+            resolvedImpactDistanceRelation()
+            resolvedOrderedPathRelation()
+          }
+        }
+      }
     }
   }
 }
@@ -224,6 +328,13 @@ scenario: model.Contract = new {
           items = targetConfiguration()
           minItems = 1
         }
+      }
+      new model.Field {
+        name = "targetGraph"
+        description =
+          "Explicit relations already resolved from geometry, collision, or target selection."
+        required = true
+        schema = targetGraph()
       }
       new model.Field {
         name = "initialState"

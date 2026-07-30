@@ -44,6 +44,7 @@ export type ScenarioDomainErrorCode =
   | "contract-invalid"
   | "content-hash-mismatch"
   | "unsupported-simulation-mode"
+  | "unsupported-target-graph"
   | "unsupported-scenario-shape"
   | "unsupported-configuration-key"
   | "missing-configuration-key"
@@ -347,6 +348,15 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       "/simulation/mode",
       `Unsupported simulation mode: ${scenario.simulation.mode}`,
       `simulation.${scenario.simulation.mode}`,
+    );
+  }
+
+  if (scenario.targetGraph.relations.length > 0) {
+    return failure(
+      "unsupported-target-graph",
+      "/targetGraph/relations",
+      "Resolved Target Graph relations are not implemented by the current single-target slice",
+      "mechanic.target-graph",
     );
   }
 

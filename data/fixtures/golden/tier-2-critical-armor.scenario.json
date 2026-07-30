@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.1.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "scenario.golden-tier-2-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:6bc081b6acd6f9e8c55663c1bc91d6b02a977896f91e4de72897b868a7e9bad5",
+  "contentHash": "sha256:7876136fd44123543efae881e88aa05b00e6dfe9d65b8d61955604c515f56b8a",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -41,6 +41,9 @@
       }
     }
   ],
+  "targetGraph": {
+    "relations": []
+  },
   "initialState": {},
   "actionPlan": [
     {

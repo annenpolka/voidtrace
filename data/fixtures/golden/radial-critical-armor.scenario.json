@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.1.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "scenario.golden-radial-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:a2cf4cc10aca4ed7d36847d28ec2cd5530949f6af2e629117acc343251b70372",
+  "contentHash": "sha256:ab6b1962c002497efdb976f82c349c27b75b12b0366d3a1f4e360838d4927d03",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -41,6 +41,9 @@
       }
     }
   ],
+  "targetGraph": {
+    "relations": []
+  },
   "initialState": {},
   "actionPlan": [
     {

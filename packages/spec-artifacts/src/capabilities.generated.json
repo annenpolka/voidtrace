@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:02b5d66b1f75b3fc98583883d283ac29aef361cb2b892b9eac365eb3583dff6b",
+  "sourceFingerprint": "sha256:2b588f78a338a34e35fabe43ff5e6e82af8f4351b1e50d4ff44a2d7aa5b717a3",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -32,6 +32,7 @@
         "RNG-001",
         "SCP-001",
         "SCP-002",
+        "SCP-003",
         "TRC-001"
       ],
       "plannedClauseRefs": [

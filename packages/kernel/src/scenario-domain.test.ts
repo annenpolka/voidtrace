@@ -20,6 +20,9 @@ type MutableScenarioFixture = {
     id: string;
     configuration: Record<string, unknown>;
   }>;
+  targetGraph: {
+    relations: Array<Record<string, unknown>>;
+  };
   initialState: Record<string, unknown>;
   actionPlan: Array<{
     id: string;
@@ -207,6 +210,25 @@ describe("parseScenarioDomain", () => {
         },
         metrics: expectedScenarioFixture.metrics,
       },
+    });
+  });
+
+  it("rejects a non-empty resolved Target Graph without silently ignoring it", async () => {
+    const scenario = await changedScenario((mutable) => {
+      mutable.targetGraph.relations.push({
+        id: "target-relation.impact-1-target",
+        kind: "target-relation.impact-distance",
+        impactId: "impact.synthetic-1",
+        targetId: "actor.target",
+        resolvedDistanceMeters: 4.5,
+        lineOfSightClear: true,
+      });
+    });
+
+    await expectFailure(scenario, {
+      code: "unsupported-target-graph",
+      path: "/targetGraph/relations",
+      mechanicId: "mechanic.target-graph",
     });
   });
 

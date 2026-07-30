@@ -39,6 +39,7 @@ schemaVersion = "0.1.0"
 clauses: Listing<base.Clause> = new {
   scope.geometryIsResolvedInput
   scope.unsupportedIsExplicit
+  scope.targetGraphIsResolvedAndExplicit
   determinism.sameInputsReplay
   `event-ordering`.eventTimeNeverRegresses
   rng.logicalCoordinateIsStable

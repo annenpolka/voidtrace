@@ -13,3 +13,10 @@ unsupportedIsExplicit: base.UnsupportedMechanicRejected = new {
   desc = "非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す"
   maturity = "active"
 }
+
+targetGraphIsResolvedAndExplicit: base.UnsupportedMechanicRejected = new {
+  id = "SCP-003"
+  desc =
+    "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。現在の単一target縦切りは空relationsだけを受理し、非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する"
+  maturity = "active"
+}
