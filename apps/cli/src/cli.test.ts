@@ -20,6 +20,9 @@ import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-rico
 import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.scenario.json" with {
   type: "json",
 };
+import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
+  type: "json",
+};
 import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
   type: "json",
 };
@@ -32,6 +35,7 @@ const STATUS_SCENARIO_PATH = "data/fixtures/golden/resolved-status-ticks.scenari
 const PUNCH_THROUGH_SCENARIO_PATH = "data/fixtures/golden/resolved-punch-through.scenario.json";
 const RICOCHET_SCENARIO_PATH = "data/fixtures/golden/resolved-ricochet.scenario.json";
 const CHAIN_SCENARIO_PATH = "data/fixtures/golden/resolved-chain.scenario.json";
+const RADIAL_TARGETS_SCENARIO_PATH = "data/fixtures/golden/resolved-radial-targets.scenario.json";
 const CATALOG_PATH = "data/fixtures/catalog-mini/catalog.json";
 
 type Invocation = {
@@ -278,6 +282,31 @@ describe("VoidTrace CLI success routing", () => {
     });
     await expect(
       verifyResultTraceIntegrity(result.value, causalTrace.value, chainScenarioFixture),
+    ).resolves.toBe(true);
+  });
+
+  it("round-trips resolved multi-target Radial through run and trace", async () => {
+    const run = await invoke(["run", RADIAL_TARGETS_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const trace = await invoke(["trace", RADIAL_TARGETS_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const result = validateContract("result", JSON.parse(run.stdout) as unknown);
+    const causalTrace = validateContract("trace", JSON.parse(trace.stdout) as unknown);
+
+    expect(run.exitCode).toBe(0);
+    expect(trace.exitCode).toBe(0);
+    expect(result.ok).toBe(true);
+    expect(causalTrace.ok).toBe(true);
+    if (!result.ok || !causalTrace.ok) {
+      throw new Error("CLI emitted an invalid resolved multi-target Radial Result or Trace");
+    }
+    expect(result.value.metrics).toEqual({
+      "radial.target-count": 2,
+      "damage.radial.targets-total": 67.5,
+      "damage.health.total": 67.5,
+      "targets.health.remaining-total": 242.5,
+      "targets.defeated-count": 0,
+    });
+    await expect(
+      verifyResultTraceIntegrity(result.value, causalTrace.value, radialTargetsScenarioFixture),
     ).resolves.toBe(true);
   });
 

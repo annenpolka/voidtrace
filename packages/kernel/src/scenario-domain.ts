@@ -42,6 +42,8 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "damage.ricochet.total",
   "chain.target-count",
   "damage.chain.total",
+  "radial.target-count",
+  "damage.radial.targets-total",
   "targets.health.remaining-total",
   "targets.defeated-count",
 ] as const);
@@ -98,10 +100,13 @@ export type ScenarioDomain = {
       | "resolved-status-ticks"
       | "resolved-punch-through"
       | "resolved-ricochet"
-      | "resolved-chain";
+      | "resolved-chain"
+      | "resolved-radial-targets";
     readonly targetId: string;
     readonly targetPathRelationId: string | null;
     readonly pathTargetIds: readonly string[];
+    readonly impactId: string | null;
+    readonly radialTargetRelations: readonly ScenarioDomainRadialTargetRelation[];
     readonly hitLocation: "hit-location.neutral-body" | null;
     readonly damageLayer: "health";
     readonly criticalResolution: "fixed" | "roll" | "expected" | "none";
@@ -120,6 +125,15 @@ export type ScenarioDomain = {
   };
   readonly metrics: readonly SupportedMetricId[];
   readonly fingerprintSeed: 0;
+};
+
+export type ScenarioDomainRadialTargetRelation = {
+  readonly id: string;
+  readonly targetId: string;
+  readonly resolvedDistanceMeters: number;
+  readonly lineOfSightClear: boolean;
+  readonly hit: boolean;
+  readonly falloffMultiplier: number | null;
 };
 
 export type ScenarioDomainTarget = {
@@ -197,6 +211,15 @@ const RESOLVED_PUNCH_THROUGH_PARAMETER_KEYS = Object.freeze([
   "damageLayer",
   "criticalTier",
 ] as const);
+const RESOLVED_RADIAL_TARGET_PARAMETER_KEYS = Object.freeze([
+  "impactId",
+  "hitLocation",
+  "damageLayer",
+  "criticalTier",
+  "falloffStartMeters",
+  "falloffEndMeters",
+  "minimumFalloffMultiplier",
+] as const);
 const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "multishot.hit-count",
   "damage.multishot.total",
@@ -250,6 +273,13 @@ const CHAIN_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
 const CHAIN_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   ...CHAIN_ONLY_METRIC_IDS,
   "damage.health.total",
+]);
+const RADIAL_TARGET_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "radial.target-count",
+  "damage.radial.targets-total",
+  "damage.health.total",
+  "targets.health.remaining-total",
+  "targets.defeated-count",
 ]);
 const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "critical.base-tier",
@@ -370,6 +400,410 @@ function deepFreeze<T>(value: T): T {
     deepFreeze(child);
   }
   return Object.freeze(value);
+}
+
+function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainParseResult {
+  const mechanicId = "mechanic.radial.resolved-targets";
+  if (scenario.simulation.mode !== "deterministic") {
+    return failure(
+      "unsupported-simulation-mode",
+      "/simulation/mode",
+      "Resolved multi-target Radial currently requires deterministic mode",
+      mechanicId,
+    );
+  }
+  if (
+    scenario.targetGraph.relations.length < 1 ||
+    scenario.targetGraph.relations.length > 64 ||
+    scenario.targetGraph.relations.some(
+      (relation) => relation.kind !== "target-relation.impact-distance",
+    )
+  ) {
+    return failure(
+      "unsupported-target-graph",
+      "/targetGraph/relations",
+      "Resolved multi-target Radial requires 1 to 64 impact-distance relations",
+      mechanicId,
+    );
+  }
+  if (scenario.targets.length !== scenario.targetGraph.relations.length) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/targets",
+      "Resolved multi-target Radial requires targets to match impact relations exactly",
+      mechanicId,
+    );
+  }
+  if (scenario.actionPlan.length !== 1) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/actionPlan",
+      "Resolved multi-target Radial requires exactly one action",
+      mechanicId,
+    );
+  }
+  if (Object.keys(scenario.initialState).length > 0) {
+    return failure(
+      "unsupported-configuration-key",
+      "/initialState",
+      "Resolved multi-target Radial requires an empty initialState",
+      mechanicId,
+    );
+  }
+
+  const attackerKeyError = exactKeys(
+    scenario.attacker.configuration,
+    ATTACKER_CONFIGURATION_KEYS,
+    "/attacker/configuration",
+  );
+  if (attackerKeyError !== undefined) {
+    return attackerKeyError;
+  }
+  const weaponId = readStableString(
+    scenario.attacker.configuration,
+    "weaponId",
+    "/attacker/configuration",
+  );
+  if (!weaponId.ok) {
+    return weaponId;
+  }
+  const attackModeId = readStableString(
+    scenario.attacker.configuration,
+    "attackModeId",
+    "/attacker/configuration",
+  );
+  if (!attackModeId.ok) {
+    return attackModeId;
+  }
+
+  const action = scenario.actionPlan[0];
+  if (action === undefined || action.kind !== "action.resolved-radial-targets") {
+    return failure(
+      "unsupported-action-kind",
+      "/actionPlan/0/kind",
+      "Impact-distance relations require action.resolved-radial-targets",
+      action?.kind ?? "action.missing",
+    );
+  }
+  const actionKeyError = exactKeys(
+    action.parameters,
+    RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
+    "/actionPlan/0/parameters",
+  );
+  if (actionKeyError !== undefined) {
+    return actionKeyError;
+  }
+  const impactId = readStableString(action.parameters, "impactId", "/actionPlan/0/parameters");
+  if (!impactId.ok) {
+    return impactId;
+  }
+  if (action.parameters.hitLocation !== "hit-location.neutral-body") {
+    return failure(
+      "unsupported-hit-location",
+      "/actionPlan/0/parameters/hitLocation",
+      `Unsupported hit location: ${String(action.parameters.hitLocation)}`,
+      "mechanic.hit-location",
+    );
+  }
+  if (action.parameters.damageLayer !== "health") {
+    return failure(
+      "unsupported-damage-layer",
+      "/actionPlan/0/parameters/damageLayer",
+      `Unsupported damage layer: ${String(action.parameters.damageLayer)}`,
+      "mechanic.damage-layer",
+    );
+  }
+  const criticalTier = action.parameters.criticalTier;
+  if (typeof criticalTier !== "number" || !Number.isSafeInteger(criticalTier) || criticalTier < 0) {
+    return failure(
+      "unsupported-critical-tier",
+      "/actionPlan/0/parameters/criticalTier",
+      "Resolved multi-target Radial criticalTier must be a non-negative safe integer",
+      "mechanic.critical.tier-multiplier",
+    );
+  }
+  const falloffStartMeters = readNonNegativeFiniteNumber(
+    action.parameters,
+    "falloffStartMeters",
+    "/actionPlan/0/parameters",
+  );
+  if (!falloffStartMeters.ok) {
+    return falloffStartMeters;
+  }
+  const falloffEndMeters = readNonNegativeFiniteNumber(
+    action.parameters,
+    "falloffEndMeters",
+    "/actionPlan/0/parameters",
+  );
+  if (!falloffEndMeters.ok) {
+    return falloffEndMeters;
+  }
+  if (falloffEndMeters.value <= falloffStartMeters.value) {
+    return failure(
+      "unsupported-radial-resolution",
+      "/actionPlan/0/parameters/falloffEndMeters",
+      "falloffEndMeters must be greater than falloffStartMeters",
+      mechanicId,
+    );
+  }
+  const minimumFalloffMultiplier = readNonNegativeFiniteNumber(
+    action.parameters,
+    "minimumFalloffMultiplier",
+    "/actionPlan/0/parameters",
+  );
+  if (!minimumFalloffMultiplier.ok) {
+    return minimumFalloffMultiplier;
+  }
+  if (minimumFalloffMultiplier.value > 1) {
+    return failure(
+      "unsupported-radial-resolution",
+      "/actionPlan/0/parameters/minimumFalloffMultiplier",
+      "minimumFalloffMultiplier must be in the closed interval [0, 1]",
+      mechanicId,
+    );
+  }
+
+  const configuredTargets = new Map(scenario.targets.map((target) => [target.id, target]));
+  if (configuredTargets.size !== scenario.targets.length) {
+    return failure(
+      "invalid-target-reference",
+      "/targets",
+      "Scenario target IDs must be unique",
+      mechanicId,
+    );
+  }
+  const seenRelationIds = new Set<string>();
+  const seenTargetIds = new Set<string>();
+  const targets: ScenarioDomainTarget[] = [];
+  const radialTargetRelations: ScenarioDomainRadialTargetRelation[] = [];
+  for (const [relationIndex, relation] of scenario.targetGraph.relations.entries()) {
+    if (relation.kind !== "target-relation.impact-distance") {
+      return failure(
+        "unsupported-target-graph",
+        `/targetGraph/relations/${relationIndex}`,
+        "Resolved multi-target Radial cannot mix relation kinds",
+        mechanicId,
+      );
+    }
+    if (relation.impactId !== impactId.value) {
+      return failure(
+        "invalid-target-reference",
+        `/targetGraph/relations/${relationIndex}/impactId`,
+        `Impact relation ${relation.id} does not reference ${impactId.value}`,
+        mechanicId,
+      );
+    }
+    if (seenRelationIds.has(relation.id) || seenTargetIds.has(relation.targetId)) {
+      return failure(
+        "invalid-target-reference",
+        `/targetGraph/relations/${relationIndex}`,
+        "Resolved multi-target Radial relation and target IDs must be unique",
+        mechanicId,
+      );
+    }
+    const target = configuredTargets.get(relation.targetId);
+    if (target === undefined) {
+      return failure(
+        "invalid-target-reference",
+        `/targetGraph/relations/${relationIndex}/targetId`,
+        `Unknown Radial target: ${relation.targetId}`,
+        mechanicId,
+      );
+    }
+    const targetIndex = scenario.targets.indexOf(target);
+    const basePath = `/targets/${targetIndex}/configuration`;
+    const keyError = exactKeys(target.configuration, TARGET_CONFIGURATION_KEYS, basePath);
+    if (keyError !== undefined) {
+      return keyError;
+    }
+    const catalogTargetId = readStableString(target.configuration, "catalogTargetId", basePath);
+    if (!catalogTargetId.ok) {
+      return catalogTargetId;
+    }
+    const resolvedHealth = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedHealth",
+      basePath,
+    );
+    if (!resolvedHealth.ok) {
+      return resolvedHealth;
+    }
+    const resolvedShield = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedShield",
+      basePath,
+    );
+    if (!resolvedShield.ok) {
+      return resolvedShield;
+    }
+    const resolvedArmor = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedArmor",
+      basePath,
+    );
+    if (!resolvedArmor.ok) {
+      return resolvedArmor;
+    }
+    const resolvedOverguard = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedOverguard",
+      basePath,
+    );
+    if (!resolvedOverguard.ok) {
+      return resolvedOverguard;
+    }
+    if (resolvedShield.value !== 0 || resolvedOverguard.value !== 0) {
+      return failure(
+        "unsupported-target-defense",
+        basePath,
+        "Resolved multi-target Radial supports Health and Armor only",
+        resolvedShield.value !== 0 ? "mechanic.shield" : "mechanic.overguard",
+      );
+    }
+    const hit =
+      relation.lineOfSightClear && relation.resolvedDistanceMeters <= falloffEndMeters.value;
+    const falloffMultiplier = hit
+      ? relation.resolvedDistanceMeters <= falloffStartMeters.value
+        ? 1
+        : minimumFalloffMultiplier.value +
+          (1 - minimumFalloffMultiplier.value) *
+            ((falloffEndMeters.value - relation.resolvedDistanceMeters) /
+              (falloffEndMeters.value - falloffStartMeters.value))
+      : null;
+    if (
+      falloffMultiplier !== null &&
+      (!Number.isFinite(falloffMultiplier) || falloffMultiplier < 0 || falloffMultiplier > 1)
+    ) {
+      return failure(
+        "unsupported-radial-resolution",
+        `/targetGraph/relations/${relationIndex}/resolvedDistanceMeters`,
+        "Resolved Radial falloff could not be represented as a finite multiplier",
+        mechanicId,
+      );
+    }
+    seenRelationIds.add(relation.id);
+    seenTargetIds.add(relation.targetId);
+    targets.push(
+      Object.freeze({
+        id: target.id,
+        catalogTargetId: catalogTargetId.value,
+        resolvedHealth: resolvedHealth.value,
+        resolvedShield: 0,
+        resolvedArmor: resolvedArmor.value,
+        resolvedOverguard: 0,
+      }),
+    );
+    radialTargetRelations.push(
+      Object.freeze({
+        id: relation.id,
+        targetId: relation.targetId,
+        resolvedDistanceMeters: relation.resolvedDistanceMeters,
+        lineOfSightClear: relation.lineOfSightClear,
+        hit,
+        falloffMultiplier,
+      }),
+    );
+  }
+  if (seenTargetIds.size !== configuredTargets.size) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/targets",
+      "Resolved multi-target Radial requires one relation for every target",
+      mechanicId,
+    );
+  }
+  if (new Set(targets.map((target) => target.catalogTargetId)).size !== 1) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/targets",
+      "Resolved multi-target Radial currently requires one shared Catalog target definition",
+      mechanicId,
+    );
+  }
+
+  const metrics: SupportedMetricId[] = [];
+  const seenMetrics = new Set<string>();
+  for (const [index, metric] of scenario.metrics.entries()) {
+    if (!SUPPORTED_METRIC_SET.has(metric)) {
+      return failure(
+        "unsupported-metric",
+        `/metrics/${index}`,
+        `Unsupported metric: ${metric}`,
+        metric,
+      );
+    }
+    const supportedMetric = metric as SupportedMetricId;
+    if (!RADIAL_TARGET_AVAILABLE_METRIC_IDS.has(supportedMetric)) {
+      return failure(
+        "unsupported-metric",
+        `/metrics/${index}`,
+        `Metric ${metric} is unavailable for resolved multi-target Radial`,
+        metric,
+      );
+    }
+    if (seenMetrics.has(metric)) {
+      return failure(
+        "duplicate-metric",
+        `/metrics/${index}`,
+        `Duplicate metric: ${metric}`,
+        metric,
+      );
+    }
+    seenMetrics.add(metric);
+    metrics.push(supportedMetric);
+  }
+  if (metrics.length === 0) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/metrics",
+      "At least one resolved multi-target Radial metric is required",
+      mechanicId,
+    );
+  }
+
+  const frozenScenario = deepFreeze(scenario);
+  const frozenTargets = Object.freeze(targets);
+  const primaryTarget = frozenTargets[0];
+  if (primaryTarget === undefined) {
+    return failure("unsupported-scenario-shape", "/targets", "At least one target is required");
+  }
+  const value: ScenarioDomain = Object.freeze({
+    scenario: frozenScenario,
+    attacker: Object.freeze({
+      id: frozenScenario.attacker.id,
+      weaponId: weaponId.value,
+      attackModeId: attackModeId.value,
+    }),
+    target: primaryTarget,
+    targets: frozenTargets,
+    action: Object.freeze({
+      id: action.id,
+      kind: "resolved-radial-targets",
+      targetId: primaryTarget.id,
+      targetPathRelationId: null,
+      pathTargetIds: Object.freeze(radialTargetRelations.map((relation) => relation.targetId)),
+      impactId: impactId.value,
+      radialTargetRelations: Object.freeze(radialTargetRelations),
+      hitLocation: "hit-location.neutral-body",
+      damageLayer: "health",
+      criticalResolution: "fixed",
+      criticalTier,
+      criticalRoll: null,
+      hitCount: radialTargetRelations.filter((relation) => relation.hit).length,
+      resolvedRadialFalloffMultiplier: 1,
+      statusId: null,
+      resolvedHealthDamagePerTick: 0,
+      statusTickCount: 0,
+      statusTickIntervalMs: 0,
+    }),
+    simulation: Object.freeze({
+      mode: "deterministic",
+      timeLimitMs: frozenScenario.simulation.timeLimitMs,
+    }),
+    metrics: Object.freeze(metrics),
+    fingerprintSeed: 0,
+  });
+  return Object.freeze({ ok: true, value });
 }
 
 function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseResult {
@@ -704,6 +1138,8 @@ function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseR
       targetId: primaryTarget.id,
       targetPathRelationId: relation.id,
       pathTargetIds: Object.freeze([...relation.targetIds]),
+      impactId: null,
+      radialTargetRelations: Object.freeze([]),
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
       criticalResolution: "fixed",
@@ -758,7 +1194,9 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
 
   if (scenario.targetGraph.relations.length > 0) {
-    return parseResolvedTargetPathDomain(scenario);
+    return scenario.targetGraph.relations[0]?.kind === "target-relation.impact-distance"
+      ? parseResolvedRadialTargetsDomain(scenario)
+      : parseResolvedTargetPathDomain(scenario);
   }
 
   if (scenario.targets.length !== 1) {
@@ -1064,6 +1502,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
         targetId: actionTargetId.value,
         targetPathRelationId: null,
         pathTargetIds: Object.freeze([]),
+        impactId: null,
+        radialTargetRelations: Object.freeze([]),
         hitLocation: null,
         damageLayer: "health",
         criticalResolution: "none",
@@ -1350,6 +1790,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       targetId: actionTargetId.value,
       targetPathRelationId: null,
       pathTargetIds: Object.freeze([]),
+      impactId: null,
+      radialTargetRelations: Object.freeze([]),
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
       criticalResolution,

@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:3fb3598dc7ed9e720577e244a0d77d7ce6295a12287dd4c0fc9fab58f3bf05e3",
+  "sourceFingerprint": "sha256:ee6cc97c9382690c57e6d1ba3dd74be7f666f0006e757cef7ac2002841bec0e5",
   "activeClauses": [
     {
       "id": "CHN-001",
@@ -220,6 +220,14 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-012",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-radial-targets.scenario.jsonはtargets配列B→D→A→Cと異なるrelation順A→C→B→Dを固定Critical tier 0で検査し、Aは距離0でfalloff 1、Cは距離5でfalloff 0.7、Bは終了距離超、Dはresolved LoS falseとして、Healthを120→70、90→72.5、60→60、40→40へ更新し、命中Damage合計67.5と全target残Health合計242.5をliteral expected vectorとしてResultおよびTraceと照合する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "MSH-001",
       "pattern": "fixed_multishot_expansion",
       "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
@@ -247,6 +255,14 @@
       "id": "RAD-001",
       "pattern": "resolved_radial_falloff",
       "desc": "action.radial-hitは明示された有限な0以上1以下のresolvedFalloffMultiplierと固定Critical tierを受理する。Radial Damage VectorはCritical解決後かつArmor適用前にこの倍率でscaleされる。距離式、物理配置、Direct sibling、Projectile親、Multishot、Pellet、複数target、暗黙rollは生成しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "RAD-002",
+      "pattern": "resolved_radial_targets",
+      "desc": "action.resolved-radial-targetsは一つのimpactId、有限な非負falloffStartMeters、それより大きいfalloffEndMeters、有限な0以上1以下のminimumFalloffMultiplier、固定Critical tierを受理し、同じimpactIdを持つ1以上64以下のimpact-distance relationを宣言順に検査する。resolved LoS falseまたは終了距離超のtargetは非命中としてHealthを変更せず、開始距離以下の命中targetはfalloff倍率1、開始と終了の間は1からminimumFalloffMultiplierへ線形補間し、各targetのRadial DamageへCritical後かつArmor前に適用する。爆心座標、地形、LoS、距離、現行Warframeのfalloff式、暗黙rollは導出しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"
@@ -286,7 +302,7 @@
     {
       "id": "SCP-003",
       "pattern": "unsupported_mechanic_rejected",
-      "desc": "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relationsまたはresolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered pathだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する",
+      "desc": "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relations、resolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered path、またはresolved multi-target Radialが参照する同一impactの1以上64以下のimpact-distance relationsだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "scope"

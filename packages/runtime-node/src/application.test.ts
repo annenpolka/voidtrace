@@ -54,6 +54,9 @@ const ricochetScenarioPath = fileURLToPath(
 const chainScenarioPath = fileURLToPath(
   new URL("../../../data/fixtures/golden/resolved-chain.scenario.json", import.meta.url),
 );
+const radialTargetsScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/resolved-radial-targets.scenario.json", import.meta.url),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -366,6 +369,31 @@ describe("createNodeApplication", () => {
     });
     expect(outcome.trace.decisions.at(-1)).toMatchObject({
       ruleId: "rule.chain.aggregate-resolved-targets",
+    });
+  });
+
+  it("evaluates resolved multi-target Radial through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: radialTargetsScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toEqual({
+      "radial.target-count": 2,
+      "damage.radial.targets-total": 67.5,
+      "damage.health.total": 67.5,
+      "targets.health.remaining-total": 242.5,
+      "targets.defeated-count": 0,
+    });
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      ruleId: "rule.radial.expand-resolved-targets",
+    });
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      ruleId: "rule.radial.aggregate-resolved-targets",
     });
   });
 

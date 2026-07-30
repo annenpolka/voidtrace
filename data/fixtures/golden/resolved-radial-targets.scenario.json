@@ -2,7 +2,7 @@
   "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.2.0",
-  "id": "scenario.golden-resolved-chain",
+  "id": "scenario.golden-resolved-radial-targets",
   "revision": 0,
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
@@ -40,6 +40,16 @@
       }
     },
     {
+      "id": "actor.target-d",
+      "configuration": {
+        "catalogTargetId": "target.synthetic-calibration",
+        "resolvedHealth": 40,
+        "resolvedShield": 0,
+        "resolvedArmor": 0,
+        "resolvedOverguard": 0
+      }
+    },
+    {
       "id": "actor.target-a",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
@@ -63,23 +73,52 @@
   "targetGraph": {
     "relations": [
       {
-        "id": "target-relation.chain-1",
-        "kind": "target-relation.ordered-path",
-        "pathKind": "chain",
-        "targetIds": ["actor.target-a", "actor.target-c", "actor.target-b"]
+        "id": "target-relation.radial-a",
+        "kind": "target-relation.impact-distance",
+        "impactId": "impact.radial-1",
+        "targetId": "actor.target-a",
+        "resolvedDistanceMeters": 0,
+        "lineOfSightClear": true
+      },
+      {
+        "id": "target-relation.radial-c",
+        "kind": "target-relation.impact-distance",
+        "impactId": "impact.radial-1",
+        "targetId": "actor.target-c",
+        "resolvedDistanceMeters": 5,
+        "lineOfSightClear": true
+      },
+      {
+        "id": "target-relation.radial-b",
+        "kind": "target-relation.impact-distance",
+        "impactId": "impact.radial-1",
+        "targetId": "actor.target-b",
+        "resolvedDistanceMeters": 12,
+        "lineOfSightClear": true
+      },
+      {
+        "id": "target-relation.radial-d",
+        "kind": "target-relation.impact-distance",
+        "impactId": "impact.radial-1",
+        "targetId": "actor.target-d",
+        "resolvedDistanceMeters": 4,
+        "lineOfSightClear": false
       }
     ]
   },
   "initialState": {},
   "actionPlan": [
     {
-      "id": "action.resolved-chain-1",
-      "kind": "action.resolved-chain-direct-hits",
+      "id": "action.resolved-radial-targets-1",
+      "kind": "action.resolved-radial-targets",
       "parameters": {
-        "targetPathRelationId": "target-relation.chain-1",
+        "impactId": "impact.radial-1",
         "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
-        "criticalTier": 0
+        "criticalTier": 0,
+        "falloffStartMeters": 2,
+        "falloffEndMeters": 8,
+        "minimumFalloffMultiplier": 0.4
       }
     }
   ],
@@ -88,21 +127,21 @@
     "timeLimitMs": 1
   },
   "metrics": [
-    "chain.target-count",
-    "damage.chain.total",
+    "radial.target-count",
+    "damage.radial.targets-total",
     "damage.health.total",
     "targets.health.remaining-total",
     "targets.defeated-count"
   ],
   "assumptions": [
     {
-      "id": "assumption.synthetic-resolved-chain",
-      "description": "Synthetic resolved chain order; not a verified current-game Warframe chain or target-selection rule."
+      "id": "assumption.synthetic-resolved-radial-targets",
+      "description": "Synthetic resolved impact distances and LoS with linear falloff; not a verified current-game Warframe rule."
     },
     {
-      "id": "assumption.no-chain-selection",
-      "description": "Each target receives one independent Direct Hit without candidate search, branching, distance, selection, revisit, or attenuation."
+      "id": "assumption.no-radial-geometry",
+      "description": "The fixture does not derive impact coordinates, terrain, LoS, distance, or current-game falloff parameters."
     }
   ],
-  "contentHash": "sha256:9c7dd341cce001ee7518b7fd37343a99c27abd1526c52090e43530da89d4517b"
+  "contentHash": "sha256:e92a6cb5336df269ff966b227a3ac21a9870016d6e819df116cf64c1b3320d0e"
 }

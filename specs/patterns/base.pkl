@@ -105,6 +105,12 @@ class ResolvedRadialFalloff extends Clause {
   area = "mechanics"
 }
 
+class ResolvedRadialTargets extends Clause {
+  pattern = "resolved_radial_targets"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
 class ResolvedStatusTicks extends Clause {
   pattern = "resolved_status_ticks"
   guarantee = "property-tested"

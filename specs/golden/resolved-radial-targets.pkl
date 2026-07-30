@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for resolved multi-target Radial distance and LoS.
+module voidtrace.golden.resolvedRadialTargets
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-012"
+  desc =
+    "data/fixtures/golden/resolved-radial-targets.scenario.jsonはtargets配列B→D→A→Cと異なるrelation順A→C→B→Dを固定Critical tier 0で検査し、Aは距離0でfalloff 1、Cは距離5でfalloff 0.7、Bは終了距離超、Dはresolved LoS falseとして、Healthを120→70、90→72.5、60→60、40→40へ更新し、命中Damage合計67.5と全target残Health合計242.5をliteral expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

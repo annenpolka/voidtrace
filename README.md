@@ -5,9 +5,9 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The current repository state is **Commit 17: resolved chain target path**. It establishes the
+The current repository state is **Commit 18: resolved multi-target Radial**. It establishes the
 normative Pkl specification, deterministic generated artifacts, eight versioned public contracts,
-and Ruleset `0.11.0` revision `1` on the Kernel foundation: an ordered Event Queue,
+and Ruleset `0.12.0` revision `1` on the Kernel foundation: an ordered Event Queue,
 logical-coordinate RNG, explicit World State transitions, and generated finite Rule IR. Strictly
 validated synthetic mini catalogs supply one hitscan weapon and one target to deterministic or
 analytic expected Direct Hit / Critical / Armor round trips. Critical resolution accepts either a fixed
@@ -27,15 +27,20 @@ Standalone Radial evaluation accepts an explicit finite falloff multiplier in `[
 after fixed Critical resolution and before Armor, and records a distinct Radial event and metrics.
 Resolved synthetic Status evaluation schedules up to 64 explicit Health-damage ticks at a positive
 logical-time interval, commits them sequentially, and aggregates their terminal Damage and Health.
+Resolved multi-target Radial consumes 1 to 64 same-impact distance/LoS relations and explicit
+synthetic linear falloff bounds. It evaluates clear-LoS targets within the end distance through
+the existing Radial pipeline, preserves blocked or out-of-range target Health, and aggregates
+terminal Damage and target states without deriving coordinates, terrain, LoS, distance, or
+current-game falloff parameters.
 Scenario Contract `0.2.0` also makes the resolved Target Graph explicit. Its finite input
 vocabulary covers impact-to-target distance with a resolved LoS result and ordered
-punch-through/chain/ricochet paths. Current evaluation accepts an empty graph or one resolved
-punch-through, ricochet, or chain ordered path referenced by a matching action. Each applies the
-same fixed-tier Direct Hit independently to every explicit target in path order, records
-target-specific terminal Health in Result `targetStates`, and aggregates Damage, remaining
-Health, and defeated count. Geometry, collision, wall penetration, attenuation, reflection
-angles, chain candidate search, branching, distance, revisit behavior, target selection, and
-rolls are not derived; every other non-empty graph is rejected rather than ignored.
+punch-through/chain/ricochet paths. Current evaluation accepts an empty graph, one resolved
+punch-through, ricochet, or chain ordered path referenced by a matching action, or same-impact
+distance/LoS relations referenced by resolved multi-target Radial. Every multi-target slice records
+target-specific terminal Health in Result `targetStates` and aggregates Damage, remaining Health,
+and defeated count. Geometry, collision, wall penetration, attenuation, reflection angles, chain
+candidate search, branching, distance, revisit behavior, target selection, and rolls are not
+derived; every other non-empty graph is rejected rather than ignored.
 
 This slice and its runtime Rules remain synthetic and experimental. They are not verified
 statements of current Warframe mechanics. Generated random rolls, Monte Carlo,
@@ -43,9 +48,9 @@ Critical inputs whose tiers or resulting multiplier cannot be represented safely
 headshots, Shield, Overguard, projectiles, Status chance or type rolls, probabilistic Multishot,
 custom-count helper variation, Multishot-plus-pellet composition, variable or probabilistic
 pellets, per-pellet rolls, pellet hit distribution, Spread, Multishot or pellet expected values,
-Trace queries, comparisons, distance-derived Radial falloff, physical geometry, Direct-plus-Radial
-or Projectile parent composition, Target Graph evaluation outside the resolved punch-through,
-ricochet, and chain ordered-path slices, multi-target Radial damage,
+Trace queries, comparisons, Catalog- or current-game-derived Radial falloff, physical geometry,
+Direct-plus-Radial or Projectile parent composition, Target Graph evaluation outside the resolved
+punch-through, ricochet, chain ordered-path, and resolved Radial distance/LoS slices,
 and the Lab remain unsupported.
 Real Status formulas, application from Direct or Radial hits, Critical or Armor derivation,
 stacking, refresh, snapshots, defense changes, expected values, and generated Status rolls also
@@ -82,11 +87,11 @@ Pkl under `specs/contracts/` is the sole contract source. It generates:
 
 The handwritten `@voidtrace/contracts` package registers every generated Schema with Ajv in strict mode. It validates without coercion or default insertion and provides RFC 8785 canonical JSON, SHA-256 Artifact fingerprints, stable ID checks, and cross-Artifact integrity checks. `Fingerprint.resultHash` identifies canonical execution inputs; Result and Trace content hashes independently identify their complete stored payloads. The package contains no game mechanics.
 
-This commit intentionally stops at the eight contracts and generated Ruleset `0.11.0` required by
+This commit intentionally stops at the eight contracts and generated Ruleset `0.12.0` required by
 the deterministic, single-hit expected, resolved fixed-count Multishot, and resolved fixed-count
 pellet round trips, standalone resolved Radial falloff, and resolved synthetic Status ticks plus
-the resolved punch-through, ricochet, and chain target paths and their structured CLI failure
-surface.
+the resolved punch-through, ricochet, and chain target paths, resolved multi-target Radial, and
+their structured CLI failure surface.
 Result Contract `0.2.0` exposes terminal Health keyed by stable target ID.
 `ScenarioPatch`/JSON Patch and later domain-specific Result proof fields remain future work.
 
@@ -137,6 +142,10 @@ pnpm exec vt run data/fixtures/golden/resolved-chain.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-chain.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-radial-targets.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-radial-targets.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt run - --catalog data/fixtures/catalog-mini/catalog.json \
   < data/fixtures/golden/direct-critical-armor.scenario.json
 ```
@@ -152,9 +161,10 @@ The skill at `.agents/skills/voidtrace/SKILL.md` is a fixed-tier/expected fixtur
 formal-CLI golden inspection helper. It accepts non-negative safe-integer deterministic tiers and
 an analytic expected preset through its helper, and documents the resolved fixed-count Multishot
 and pellet fixtures plus standalone resolved Radial falloff and resolved Status ticks through the
-formal CLI, along with the resolved punch-through, ricochet, and chain ordered target paths. It is
-not a second public CLI and does not synthesize Critical chance, rolls, Multishot counts, pellet
-counts, distance, geometry, or target-path selection:
+formal CLI, along with the resolved punch-through, ricochet, and chain ordered target paths and
+the resolved multi-target Radial fixture. It is not a second public CLI and does not synthesize
+Critical chance, rolls, Multishot counts, pellet counts, distance, geometry, LoS, or target-path
+selection:
 
 ```bash
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts --critical-tier 4 --armor 0 --health 1000
@@ -169,6 +179,8 @@ pnpm exec vt run data/fixtures/golden/radial-critical-armor.scenario.json \
 pnpm exec vt run data/fixtures/golden/resolved-status-ticks.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt run data/fixtures/golden/resolved-chain.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-radial-targets.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 .agents/skills/voidtrace/scripts/smoke.sh
 ```

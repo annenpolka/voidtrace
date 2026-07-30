@@ -723,7 +723,9 @@ async function replayTrace(
     switch (operation.kind) {
       case "event.expand-resolved-punch-through-targets":
       case "event.expand-resolved-ricochet-targets":
-      case "event.expand-resolved-chain-targets": {
+      case "event.expand-resolved-chain-targets":
+      case "event.expand-resolved-radial-targets": {
+        const isRadialTargets = operation.kind === "event.expand-resolved-radial-targets";
         const targetCount = operation.parameters.targetCount;
         const maximumTargets = operation.parameters.maximumTargets;
         if (
@@ -735,10 +737,12 @@ async function replayTrace(
           !Number.isSafeInteger(maximumTargets) ||
           maximumTargets < targetCount ||
           Object.keys(anchoredInitialHealthByTarget).length !== targetCount ||
-          decision.reads["action.target-path-count"] !== targetCount ||
+          decision.reads[
+            isRadialTargets ? "action.impact-target-count" : "action.target-path-count"
+          ] !== targetCount ||
           decision.eventTimeMs !== 0
         ) {
-          invalidParameters("Trace resolved target-path expansion has invalid parameters");
+          invalidParameters("Trace resolved target expansion has invalid parameters");
         }
         const initialHealthTotal = Object.values(anchoredInitialHealthByTarget).reduce(
           (total, value) => total + value,
@@ -920,7 +924,7 @@ async function replayTrace(
             metadata === undefined ||
             expectedPathTargetCount === undefined ||
             metadata.count !== expectedPathTargetCount ||
-            metadata.index !== pathTargets.size ||
+            [...pathTargets.values()].some((target) => target.index === metadata.index) ||
             pathTargets.has(operationPathTargetId) ||
             (expectedPathId !== undefined && metadata.pathId !== expectedPathId)
           ) {
@@ -1456,6 +1460,159 @@ async function replayTrace(
           decision.reads["path-target.health-after"] !== canonicalizeJson(afterReads)
         ) {
           invalidParameters("Trace target-path aggregate reads are inconsistent");
+        }
+        const aggregate = Object.freeze(aggregateDamage);
+        assertProjection(
+          decision.before,
+          aggregate,
+          initialHealthTotal,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          aggregate,
+          remainingHealthTotal,
+          `Trace decision ${decision.sequence} after`,
+        );
+        damage = aggregate;
+        health = remainingHealthTotal;
+        committed = true;
+        break;
+      }
+      case "damage-vector.aggregate-resolved-radial-targets": {
+        if (
+          anchoredInitialHealthByTarget === undefined ||
+          expectedPathTargetCount === undefined ||
+          operation.parameters.inspectedTargetCount !== expectedPathTargetCount ||
+          operation.parameters.targetCount !== pathTargets.size
+        ) {
+          invalidParameters(
+            "Trace aggregates resolved Radial targets before complete target inspection",
+          );
+        }
+        const aggregateDamage: Record<string, number> = {};
+        const damageReads: Array<Record<string, unknown>> = [];
+        const beforeReads: Array<Record<string, unknown>> = [];
+        const afterReads: Array<Record<string, unknown>> = [];
+        let initialHealthTotal = 0;
+        let remainingHealthTotal = 0;
+        const hitTargetCount = pathTargets.size;
+        for (let index = 0; index < expectedPathTargetCount; index += 1) {
+          const targetId = operation.parameters[`target.${index}.id`];
+          const eventId = operation.parameters[`target.${index}.event-id`];
+          const targetIndex = operation.parameters[`target.${index}.index`];
+          const damageTotal = operation.parameters[`target.${index}.damageTotal`];
+          const healthBefore = operation.parameters[`target.${index}.healthBefore`];
+          const healthAfter = operation.parameters[`target.${index}.healthAfter`];
+          if (
+            typeof targetId !== "string" ||
+            !isStableId(targetId) ||
+            eventId !== `radial-target.${index}` ||
+            targetIndex !== index ||
+            typeof damageTotal !== "number" ||
+            !Number.isFinite(damageTotal) ||
+            damageTotal < 0 ||
+            typeof healthBefore !== "number" ||
+            !Number.isFinite(healthBefore) ||
+            healthBefore < 0 ||
+            typeof healthAfter !== "number" ||
+            !Number.isFinite(healthAfter) ||
+            healthAfter < 0 ||
+            anchoredInitialHealthByTarget[targetId] !== healthBefore
+          ) {
+            invalidParameters(`Trace resolved Radial aggregate target ${index} is invalid`);
+          }
+          const damage: Record<string, number> = {};
+          const damagePrefix = `target.${index}.damage.`;
+          for (const [key, value] of Object.entries(operation.parameters)) {
+            if (!key.startsWith(damagePrefix)) {
+              continue;
+            }
+            const damageTypeId = key.slice(damagePrefix.length);
+            if (
+              damageTypeId.length === 0 ||
+              typeof value !== "number" ||
+              !Number.isFinite(value) ||
+              value < 0
+            ) {
+              invalidParameters(
+                `Trace resolved Radial target ${index} has invalid Damage components`,
+              );
+            }
+            damage[damageTypeId] = value;
+          }
+          if (
+            Object.keys(damage).length === 0 ||
+            sumDamageVector(damage) !== damageTotal ||
+            healthAfter !== Math.max(0, healthBefore - damageTotal)
+          ) {
+            invalidParameters(
+              `Trace resolved Radial target ${index} has an invalid Health transition`,
+            );
+          }
+          const hitState = pathTargets.get(targetId);
+          if (hitState === undefined) {
+            if (damageTotal !== 0 || healthAfter !== healthBefore) {
+              invalidParameters(`Trace non-hit Radial target ${targetId} changed Damage or Health`);
+            }
+            pathTargets.set(
+              targetId,
+              Object.freeze({
+                targetId,
+                pathId: expectedPathId ?? "impact.resolved-radial",
+                damage: Object.freeze(damage),
+                health: healthAfter,
+                healthBefore,
+                committed: true,
+                index,
+                count: expectedPathTargetCount,
+              }),
+            );
+          } else if (
+            !hitState.committed ||
+            hitState.index !== index ||
+            hitState.count !== expectedPathTargetCount ||
+            canonicalizeJson(hitState.damage) !== canonicalizeJson(damage) ||
+            hitState.healthBefore !== healthBefore ||
+            hitState.health !== healthAfter
+          ) {
+            invalidParameters(`Trace hit Radial target ${targetId} is inconsistent`);
+          }
+          initialHealthTotal += healthBefore;
+          remainingHealthTotal += healthAfter;
+          for (const [damageTypeId, component] of Object.entries(damage)) {
+            const total = (aggregateDamage[damageTypeId] ?? 0) + component;
+            if (!Number.isFinite(total)) {
+              invalidParameters("Trace resolved Radial aggregate overflowed Damage");
+            }
+            aggregateDamage[damageTypeId] = total;
+          }
+          damageReads.push({
+            id: `radial-target.${index}`,
+            targetId,
+            index,
+            damage,
+          });
+          beforeReads.push({
+            id: `radial-target.${index}`,
+            targetId,
+            index,
+            healthBefore,
+          });
+          afterReads.push({
+            id: `radial-target.${index}`,
+            targetId,
+            index,
+            healthAfter,
+          });
+        }
+        if (
+          hitTargetCount !== operation.parameters.targetCount ||
+          decision.reads["radial-target.damage"] !== canonicalizeJson(damageReads) ||
+          decision.reads["radial-target.health-before"] !== canonicalizeJson(beforeReads) ||
+          decision.reads["radial-target.health-after"] !== canonicalizeJson(afterReads)
+        ) {
+          invalidParameters("Trace resolved Radial aggregate reads are inconsistent");
         }
         const aggregate = Object.freeze(aggregateDamage);
         assertProjection(

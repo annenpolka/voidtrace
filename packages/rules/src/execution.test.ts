@@ -11,6 +11,8 @@ import {
   executeResolvedRicochetExpansionRule,
   executeResolvedChainAggregateRule,
   executeResolvedChainExpansionRule,
+  executeResolvedRadialTargetAggregateRule,
+  executeResolvedRadialTargetExpansionRule,
   executeResolvedStatusTickDamageRule,
   executeResolvedStatusTickScheduleRule,
   executeSequentialHitAggregateRule,
@@ -119,6 +121,8 @@ describe("generated core Rule execution", async () => {
   const ricochetAggregate = loaded.resolveRule("rule.ricochet.aggregate-resolved-targets");
   const chainExpansion = loaded.resolveRule("rule.chain.expand-resolved-targets");
   const chainAggregate = loaded.resolveRule("rule.chain.aggregate-resolved-targets");
+  const radialTargetsExpansion = loaded.resolveRule("rule.radial.expand-resolved-targets");
+  const radialTargetsAggregate = loaded.resolveRule("rule.radial.aggregate-resolved-targets");
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -437,6 +441,47 @@ describe("generated core Rule execution", async () => {
       damage: { "damage.synthetic": 100 },
       damageTotal: 100,
       health: 50,
+    });
+  });
+
+  it("aggregates hit and unchanged non-hit resolved Radial targets", () => {
+    const expansion = executeResolvedRadialTargetExpansionRule(radialTargetsExpansion, {
+      targetCount: 2,
+      initialHealthTotal: 150,
+      zeroDamage: { "damage.synthetic": 0 },
+    });
+    expect(expansion.operationKind).toBe("event.expand-resolved-radial-targets");
+    const aggregate = executeResolvedRadialTargetAggregateRule(radialTargetsAggregate, {
+      initialHealthTotal: 150,
+      hitCount: 1,
+      targets: [
+        {
+          id: "radial-target.0",
+          targetId: "actor.target-a",
+          index: 0,
+          damage: { "damage.synthetic": 50 },
+          healthBefore: 100,
+          healthAfter: 50,
+        },
+        {
+          id: "radial-target.1",
+          targetId: "actor.target-b",
+          index: 1,
+          damage: { "damage.synthetic": 0 },
+          healthBefore: 50,
+          healthAfter: 50,
+        },
+      ],
+    });
+    expect(aggregate.operationKind).toBe("damage-vector.aggregate-resolved-radial-targets");
+    expect(aggregate.parameters).toMatchObject({
+      inspectedTargetCount: 2,
+      targetCount: 1,
+    });
+    expect(aggregate.after).toEqual({
+      damage: { "damage.synthetic": 50 },
+      damageTotal: 50,
+      health: 100,
     });
   });
 

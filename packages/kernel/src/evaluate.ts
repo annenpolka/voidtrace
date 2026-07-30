@@ -36,7 +36,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.11.0";
+export const KERNEL_ENGINE_VERSION = "0.12.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -457,12 +457,14 @@ function updateMetricValues(
     case "event.expand-resolved-punch-through-targets":
     case "event.expand-resolved-ricochet-targets":
     case "event.expand-resolved-chain-targets":
+    case "event.expand-resolved-radial-targets":
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
     case "damage-vector.aggregate-sequential-status-ticks":
     case "damage-vector.aggregate-resolved-punch-through-targets":
     case "damage-vector.aggregate-resolved-ricochet-targets":
     case "damage-vector.aggregate-resolved-chain-targets":
+    case "damage-vector.aggregate-resolved-radial-targets":
       return;
     case "damage-vector.copy":
       metricValues[
@@ -599,6 +601,9 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "event.expand-resolved-chain-targets":
     case "damage-vector.aggregate-resolved-chain-targets":
       return "mechanic.chain.resolved-path";
+    case "event.expand-resolved-radial-targets":
+    case "damage-vector.aggregate-resolved-radial-targets":
+      return "mechanic.radial.resolved-targets";
     case "damage-vector.scale-resolved-radial-falloff":
       return "mechanic.damage.radial-falloff";
     case "damage-vector.copy":
@@ -1271,6 +1276,263 @@ function evaluateResolvedTargetPathRuntime(
   metricValues[`damage.${pathLabel}.total`] = aggregateExecution.after.damageTotal;
   metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
   metricValues["targets.health.remaining-total"] = remainingHealthTotal;
+  metricValues["targets.defeated-count"] = targetHits.filter(
+    (target) => target.healthAfter === 0,
+  ).length;
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage: aggregateExecution.after.damage,
+    targetHealthById: Object.freeze(
+      Object.fromEntries(targetHits.map((target) => [target.targetId, target.healthAfter])),
+    ),
+  });
+}
+
+function evaluateResolvedRadialTargetsRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (
+    domain.action.kind !== "resolved-radial-targets" ||
+    domain.action.criticalResolution !== "fixed" ||
+    domain.action.criticalTier === null ||
+    domain.action.impactId === null ||
+    domain.action.radialTargetRelations.length !== domain.targets.length
+  ) {
+    throw new TypeError("Invalid input reached resolved multi-target Radial evaluation");
+  }
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  const zeroDamage = zeroVector(references.attackMode.baseDamage);
+  const initialHealthTotal = domain.targets.reduce(
+    (total, target) => total + target.resolvedHealth,
+    0,
+  );
+  let world = createWorldState(
+    domain.targets.map((target) => ({
+      id: target.id,
+      values: Object.freeze({ health: target.resolvedHealth }),
+    })),
+  );
+  let decisionSequence = 0;
+  let expansionExecution: RuleExecution | undefined;
+  let expansionEventId: string | undefined;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-radial-targets",
+    phases: FIXED_MULTISHOT_EMISSION_PHASES,
+  }).drain()) {
+    expansionEventId = event.id;
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeResolvedRadialTargetExpansionRule(rule.id, {
+        targetCount: domain.targets.length,
+        initialHealthTotal,
+        zeroDamage,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          0,
+          {
+            readOverrides: {
+              "action.impact-target-count": domain.targets.length,
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        expansionExecution = execution;
+      }
+    }
+  }
+  if (
+    expansionExecution?.operationKind !== "event.expand-resolved-radial-targets" ||
+    expansionEventId === undefined
+  ) {
+    throw new TypeError("Ruleset did not apply resolved multi-target Radial expansion");
+  }
+
+  const targetHits: ResolvedPunchThroughTargetHit[] = [];
+  for (const [index, target] of domain.targets.entries()) {
+    const relation = domain.action.radialTargetRelations[index];
+    if (relation === undefined || relation.targetId !== target.id) {
+      throw new TypeError("Resolved Radial target relation order does not match targets");
+    }
+    const healthBefore = readHealth(world, target.id);
+    let targetDamage = zeroVector(references.attackMode.baseDamage);
+    if (relation.hit) {
+      if (relation.falloffMultiplier === null) {
+        throw new TypeError("Resolved Radial hit omitted its falloff multiplier");
+      }
+      const pathTarget: PathTargetTraceMetadata = Object.freeze({
+        pathId: domain.action.impactId,
+        targetId: target.id,
+        index,
+        count: domain.targets.length,
+      });
+      for (const event of createPhaseEvents({
+        actionId: domain.action.id,
+        namespace: `${domain.action.id}.radial-target-${index}`,
+        logicalId: `${domain.action.id}.${target.id}`,
+        parentEventId: expansionEventId,
+        kind: "damage.radial",
+        phases: FIXED_RADIAL_PHASES,
+      }).drain()) {
+        for (const rule of ruleset.snapshot.rules) {
+          if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+            continue;
+          }
+          const execution =
+            rule.operation.kind === "damage-vector.scale-resolved-radial-falloff"
+              ? ruleset.executeResolvedRadialFalloffRule(rule.id, {
+                  currentDamage: targetDamage,
+                  multiplier: relation.falloffMultiplier,
+                  health: readHealth(world, target.id),
+                })
+              : ruleset.executeRule(
+                  rule.id,
+                  ruleContext(
+                    references,
+                    targetDamage,
+                    domain.action.criticalTier,
+                    null,
+                    target.resolvedArmor,
+                    readHealth(world, target.id),
+                  ),
+                );
+          decisions.push(
+            decisionForExecution(
+              decisionSequence,
+              event,
+              rule,
+              execution,
+              references,
+              domain.action.criticalTier,
+              null,
+              target.resolvedArmor,
+              {
+                pathTarget,
+                ...(rule.operation.kind === "damage-vector.scale-resolved-radial-falloff"
+                  ? {
+                      readOverrides: {
+                        "event.radial-falloff-multiplier": relation.falloffMultiplier,
+                      },
+                    }
+                  : {}),
+              },
+            ),
+          );
+          decisionSequence += 1;
+          if (execution.outcome === "applied") {
+            appliedRules.push(rule);
+            targetDamage = execution.after.damage;
+            world = replaceEntityState(world, target.id, {
+              health: execution.after.health,
+            });
+          }
+        }
+      }
+    }
+    targetHits.push(
+      Object.freeze({
+        id: `radial-target.${index}`,
+        targetId: target.id,
+        index,
+        damage: targetDamage,
+        healthBefore,
+        healthAfter: readHealth(world, target.id),
+      }),
+    );
+  }
+
+  let aggregateExecution: RuleExecution | undefined;
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-radial-targets",
+    parentEventId: expansionEventId,
+    phases: FIXED_MULTISHOT_AGGREGATION_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeResolvedRadialTargetAggregateRule(rule.id, {
+        initialHealthTotal,
+        hitCount: domain.action.hitCount,
+        targets: targetHits,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          0,
+          {
+            readOverrides: {
+              "radial-target.damage": canonicalizeJson(
+                targetHits.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  damage: { ...target.damage },
+                })),
+              ),
+              "radial-target.health-before": canonicalizeJson(
+                targetHits.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  healthBefore: target.healthBefore,
+                })),
+              ),
+              "radial-target.health-after": canonicalizeJson(
+                targetHits.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  healthAfter: target.healthAfter,
+                })),
+              ),
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        aggregateExecution = execution;
+      }
+    }
+  }
+  if (aggregateExecution?.operationKind !== "damage-vector.aggregate-resolved-radial-targets") {
+    throw new TypeError("Ruleset did not apply resolved multi-target Radial aggregation");
+  }
+
+  metricValues["radial.target-count"] = domain.action.hitCount;
+  metricValues["damage.radial.targets-total"] = aggregateExecution.after.damageTotal;
+  metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
+  metricValues["targets.health.remaining-total"] = aggregateExecution.after.health;
   metricValues["targets.defeated-count"] = targetHits.filter(
     (target) => target.healthAfter === 0,
   ).length;
@@ -1989,17 +2251,19 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     runtime =
       domain.action.kind === "resolved-status-ticks"
         ? evaluateResolvedStatusTicksRuntime(domain, references, ruleset)
-        : domain.action.kind === "resolved-punch-through" ||
-            domain.action.kind === "resolved-ricochet" ||
-            domain.action.kind === "resolved-chain"
-          ? evaluateResolvedTargetPathRuntime(domain, references, ruleset)
-          : domain.action.kind === "radial-hit"
-            ? evaluateFixedRadialRuntime(domain, references, ruleset)
-            : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
-              ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
-              : domain.action.criticalResolution === "expected"
-                ? evaluateExpectedRuntime(domain, references, ruleset)
-                : evaluateDeterministicRuntime(domain, references, ruleset);
+        : domain.action.kind === "resolved-radial-targets"
+          ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset)
+          : domain.action.kind === "resolved-punch-through" ||
+              domain.action.kind === "resolved-ricochet" ||
+              domain.action.kind === "resolved-chain"
+            ? evaluateResolvedTargetPathRuntime(domain, references, ruleset)
+            : domain.action.kind === "radial-hit"
+              ? evaluateFixedRadialRuntime(domain, references, ruleset)
+              : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
+                ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
+                : domain.action.criticalResolution === "expected"
+                  ? evaluateExpectedRuntime(domain, references, ruleset)
+                  : evaluateDeterministicRuntime(domain, references, ruleset);
   } catch (error) {
     if (error instanceof RulesError && error.code === "unsupported-critical-multiplier") {
       const path = attackModeFieldPath(catalog, references, "criticalMultiplier");
@@ -2110,7 +2374,8 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     if (
       domain.action.kind === "resolved-punch-through" ||
       domain.action.kind === "resolved-ricochet" ||
-      domain.action.kind === "resolved-chain"
+      domain.action.kind === "resolved-chain" ||
+      domain.action.kind === "resolved-radial-targets"
     ) {
       try {
         const replayed = await replayTraceTargetStates(

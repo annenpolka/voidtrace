@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, distance-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, resolved multi-target Radial distance/LoS, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, Catalog- or current-game-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -20,7 +20,7 @@ present its values as verified current Warframe mechanics.
 
 The interface supports one action from the finite set below. Every slice uses exactly one target
 except the checked-in resolved punch-through, ricochet, and chain Scenarios, whose one ordered path
-contains three explicit targets:
+contains three explicit targets, and the checked-in four-target resolved Radial Scenario:
 
 - one hitscan Direct Hit using the bundled synthetic Catalog and generated core Ruleset;
 - deterministic mode with any non-negative safe-integer fixed Critical tier through the helper;
@@ -44,6 +44,9 @@ contains three explicit targets:
 - the repository-local resolved chain Scenario through the formal CLI, where one explicit ordered
   path defines A→C→B independently from targets array order and each target receives the same
   fixed-tier Direct Hit through its resolved Armor and Health;
+- the repository-local resolved multi-target Radial Scenario through the formal CLI, where four
+  same-impact relations declare distance and LoS, two targets receive Radial Hits through a
+  synthetic linear falloff and two preserve Health as resolved non-hits;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
@@ -52,15 +55,17 @@ contains three explicit targets:
 
 The helper does not synthesize or vary Critical chance or rolls. The formal CLI can evaluate the
 repository-local explicit-roll, expected, resolved fixed-count Multishot, resolved
-punch-through, resolved ricochet, and resolved chain Scenarios. The helper does not accept a
-Multishot count, pellet count, target path, or per-target override. Generated random rolls, custom Critical
+punch-through, resolved ricochet, resolved chain, and resolved multi-target Radial Scenarios. The
+helper does not accept a Multishot count, pellet count, target path, impact relation, or per-target
+override. Generated random rolls, custom Critical
 chance, probabilistic or custom-count Multishot, custom-count or probabilistic pellets,
 Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, Multishot or pellet
 expected values, hit distribution, Spread, unsafe or unrepresentable tiers, Monte Carlo
 aggregation, mods, headshots, Shield, Overguard, projectiles, real-game imports, and build
-recommendations are unsupported. Distance-derived Radial falloff, physical geometry, Direct and
-Radial sibling composition, Projectile parents, multiple Radial targets, and Radial expected
-values or generated rolls are also unsupported. Status chance, Proc count or type resolution,
+recommendations are unsupported. Catalog- or current-game-derived Radial falloff, physical
+geometry, Direct and Radial sibling composition, Projectile parents, custom multi-target Radial
+inputs through the helper, and Radial expected values or generated rolls are also unsupported.
+Status chance, Proc count or type resolution,
 Status application from Direct or Radial Damage, Critical or Armor derivation of Status Damage,
 stacking, refresh, snapshot rules, defense changes between ticks, expected Status values, and
 generated Status rolls are unsupported. If a request needs any of them, state the unsupported
@@ -69,11 +74,14 @@ supported slice.
 The Scenario Contract contains an explicit resolved `targetGraph`. The current evaluator accepts
 either `relations: []` or exactly one checked-in-style `target-relation.ordered-path` with
 `pathKind: punch-through`, `pathKind: ricochet`, or `pathKind: chain`, referenced by its matching
-resolved action. Impact-distance, more than one relation, geometry or collision derivation, wall
-thickness, reflection angles, target selection, chain candidate search, branching, distance,
-revisit behavior, path derivation, attenuation, per-target Critical variation, and rolls remain
-unsupported. Do not silently reduce another Target Graph to a supported path or infer missing
-effects.
+resolved action. It also accepts the checked-in-style set of 1 to 64
+`target-relation.impact-distance` relations sharing one impact ID when referenced by
+`action.resolved-radial-targets`. The relations supply resolved distance and LoS; the action
+supplies explicit synthetic linear falloff bounds. Geometry or collision derivation, wall
+thickness, reflection angles, target selection, chain candidate search, branching, distance or
+LoS derivation, revisit behavior, path derivation, attenuation, per-target Critical variation,
+and rolls remain unsupported. Do not silently reduce another Target Graph to a supported path or
+infer missing effects.
 
 ## Commands
 
@@ -123,6 +131,10 @@ pnpm exec vt trace data/fixtures/golden/resolved-ricochet.scenario.json \
 pnpm exec vt run data/fixtures/golden/resolved-chain.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-chain.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-radial-targets.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-radial-targets.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -238,6 +250,15 @@ for another agent or script. `--help` lists the finite adapter options.
   relation is A→C→B; preserve the relation order, `path.index`, and `target.id` from Trace. Do not
   infer candidate search, branching, distance, revisit behavior, automatic target choice,
   attenuation, or a roll.
+- Resolved multi-target Radial starts with `rule.radial.expand-resolved-targets`, inspects
+  relations in A→C→B→D order, applies the five-rule Radial pipeline only to A and C, and ends with
+  `rule.radial.aggregate-resolved-targets`. Report `radial.target-count`,
+  `damage.radial.targets-total`, `damage.health.total`, `targets.health.remaining-total`,
+  `targets.defeated-count`, and every target Health. A at distance 0 uses falloff 1; C at distance
+  5 uses 0.7; B is beyond the end distance; D has resolved LoS false. The Golden result is
+  2 / 67.5 / 67.5 / 242.5 / 0 with Health A=70, C=72.5, B=60, D=40 and 12 Trace decisions. Do not
+  infer coordinates, terrain, LoS, distance, Catalog/current-game falloff parameters, a Direct
+  sibling, Projectile parent, or a roll.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
 For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,

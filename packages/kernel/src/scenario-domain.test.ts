@@ -18,6 +18,9 @@ import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-rico
 import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.scenario.json" with {
   type: "json",
 };
+import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
+  type: "json",
+};
 import { parseScenarioDomain } from "./scenario-domain.ts";
 
 type MutableScenarioFixture = {
@@ -119,6 +122,15 @@ async function changedChainScenario(
   change: (scenario: MutableScenarioFixture) => void,
 ): Promise<unknown> {
   const mutable = structuredClone(chainScenarioFixture) as MutableScenarioFixture;
+  change(mutable);
+  const { contentHash: _contentHash, ...withoutHash } = mutable;
+  return attachArtifactContentHash(withoutHash);
+}
+
+async function changedRadialTargetsScenario(
+  change: (scenario: MutableScenarioFixture) => void,
+): Promise<unknown> {
+  const mutable = structuredClone(radialTargetsScenarioFixture) as MutableScenarioFixture;
   change(mutable);
   const { contentHash: _contentHash, ...withoutHash } = mutable;
   return attachArtifactContentHash(withoutHash);
@@ -249,7 +261,7 @@ describe("parseScenarioDomain", () => {
     });
   });
 
-  it("rejects a non-empty resolved Target Graph without silently ignoring it", async () => {
+  it("rejects impact-distance relations without the matching resolved Radial action", async () => {
     const scenario = await changedScenario((mutable) => {
       mutable.targetGraph.relations.push({
         id: "target-relation.impact-1-target",
@@ -262,9 +274,9 @@ describe("parseScenarioDomain", () => {
     });
 
     await expectFailure(scenario, {
-      code: "unsupported-target-graph",
-      path: "/targetGraph/relations/0",
-      mechanicId: "mechanic.target-graph",
+      code: "unsupported-action-kind",
+      path: "/actionPlan/0/kind",
+      mechanicId: "action.direct-hit",
     });
   });
 
@@ -355,6 +367,59 @@ describe("parseScenarioDomain", () => {
       code: "invalid-target-reference",
       path: "/actionPlan/0/parameters/targetPathRelationId",
       mechanicId: "mechanic.chain.resolved-path",
+    });
+  });
+
+  it("accepts resolved multi-target Radial relations in declaration order", async () => {
+    const result = await parseScenarioDomain(structuredClone(radialTargetsScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          kind: "resolved-radial-targets",
+          impactId: "impact.radial-1",
+          pathTargetIds: ["actor.target-a", "actor.target-c", "actor.target-b", "actor.target-d"],
+          hitCount: 2,
+          criticalTier: 0,
+          radialTargetRelations: [
+            { targetId: "actor.target-a", hit: true, falloffMultiplier: 1 },
+            { targetId: "actor.target-c", hit: true, falloffMultiplier: 0.7 },
+            { targetId: "actor.target-b", hit: false, falloffMultiplier: null },
+            { targetId: "actor.target-d", hit: false, falloffMultiplier: null },
+          ],
+        },
+        targets: [
+          { id: "actor.target-a", resolvedArmor: 300, resolvedHealth: 120 },
+          { id: "actor.target-c", resolvedArmor: 900, resolvedHealth: 90 },
+          { id: "actor.target-b", resolvedArmor: 0, resolvedHealth: 60 },
+          { id: "actor.target-d", resolvedArmor: 0, resolvedHealth: 40 },
+        ],
+      },
+    });
+  });
+
+  it("rejects a resolved Radial impact reference mismatch", async () => {
+    const scenario = await changedRadialTargetsScenario((mutable) => {
+      firstAction(mutable).parameters.impactId = "impact.missing";
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-target-reference",
+      path: "/targetGraph/relations/0/impactId",
+      mechanicId: "mechanic.radial.resolved-targets",
+    });
+  });
+
+  it("rejects reversed resolved Radial falloff bounds", async () => {
+    const scenario = await changedRadialTargetsScenario((mutable) => {
+      firstAction(mutable).parameters.falloffEndMeters = 2;
+    });
+
+    await expectFailure(scenario, {
+      code: "unsupported-radial-resolution",
+      path: "/actionPlan/0/parameters/falloffEndMeters",
+      mechanicId: "mechanic.radial.resolved-targets",
     });
   });
 

@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:3fb3598dc7ed9e720577e244a0d77d7ce6295a12287dd4c0fc9fab58f3bf05e3",
+  "sourceFingerprint": "sha256:ee6cc97c9382690c57e6d1ba3dd74be7f666f0006e757cef7ac2002841bec0e5",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -81,6 +81,15 @@
       "activeClauseRefs": [
         "GOL-007",
         "RAD-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.resolved-radial-targets",
+      "status": "supported",
+      "activeClauseRefs": [
+        "GOL-012",
+        "RAD-002"
       ],
       "plannedClauseRefs": []
     },

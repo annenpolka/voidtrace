@@ -3,6 +3,25 @@ module voidtrace.mechanics.radial
 
 import "../rules/model.pkl"
 
+expandResolvedTargetsRule: model.Rule = new {
+  id = "rule.radial.expand-resolved-targets"
+  description =
+    "Expand one explicit resolved impact-distance relation set into bounded target Radial events."
+  phase = "attack.emit"
+  eventKind = "action.resolved-radial-targets"
+  reads {
+    "action.impact-target-count"
+  }
+  writes {
+    "event.radial-target-count"
+  }
+  operation = new model.ExpandResolvedRadialTargets {
+    maximumTargets = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
 constructRule: model.Rule = new {
   id = "rule.radial.construct-hit"
   description = "Copy the Catalog attack mode base Damage Vector into one resolved Radial Hit."
@@ -89,6 +108,26 @@ commitRule: model.Rule = new {
     "target.health"
   }
   operation = new model.CommitHealthDamage {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateResolvedTargetsRule: model.Rule = new {
+  id = "rule.radial.aggregate-resolved-targets"
+  description =
+    "Aggregate terminal Damage and target-specific Health from every target inspected by one resolved Radial impact."
+  phase = "result.aggregate"
+  eventKind = "action.resolved-radial-targets"
+  reads {
+    "radial-target.damage"
+    "radial-target.health-before"
+    "radial-target.health-after"
+  }
+  writes {
+    "event.damage"
+    "targets.health"
+  }
+  operation = new model.AggregateResolvedRadialTargets {}
   evidenceStatus = "experimental"
   evidenceIds = new {}
 }

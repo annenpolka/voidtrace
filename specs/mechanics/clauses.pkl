@@ -57,6 +57,13 @@ resolvedRadialFalloffScalesDamage: base.ResolvedRadialFalloff = new {
   maturity = "active"
 }
 
+resolvedRadialTargetsUseDistanceAndLos: base.ResolvedRadialTargets = new {
+  id = "RAD-002"
+  desc =
+    "action.resolved-radial-targetsは一つのimpactId、有限な非負falloffStartMeters、それより大きいfalloffEndMeters、有限な0以上1以下のminimumFalloffMultiplier、固定Critical tierを受理し、同じimpactIdを持つ1以上64以下のimpact-distance relationを宣言順に検査する。resolved LoS falseまたは終了距離超のtargetは非命中としてHealthを変更せず、開始距離以下の命中targetはfalloff倍率1、開始と終了の間は1からminimumFalloffMultiplierへ線形補間し、各targetのRadial DamageへCritical後かつArmor前に適用する。爆心座標、地形、LoS、距離、現行Warframeのfalloff式、暗黙rollは導出しない"
+  maturity = "active"
+}
+
 resolvedStatusTicksCommitInTimeOrder: base.ResolvedStatusTicks = new {
   id = "STS-001"
   desc =

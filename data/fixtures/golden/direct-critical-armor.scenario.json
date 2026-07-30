@@ -23,10 +23,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.11.0",
+    "schemaVersion": "0.12.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:58ee179184026675d9f66a8843e2c8d5ec5ceeb7e7661102a87f241b6d677669",
+    "contentHash": "sha256:448726631b8f022d7248235f194b00a05bb283c57d35e4aef6641597e0b54146",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -87,5 +87,5 @@
       "description": "This Scenario supplies a fixed Critical tier, so it does not evaluate Critical probability or a roll."
     }
   ],
-  "contentHash": "sha256:c490f9c3d27165c6931f08acef695260f781d94cf9c1779a7d9ef914d904be7b"
+  "contentHash": "sha256:564f41e82cc10e4800d921f367645a44359f04dd81bd2dc011c709c802b2c57b"
 }

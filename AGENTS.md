@@ -27,8 +27,9 @@
 
 The current implemented boundary ends at the synthetic Direct Hit / generalized fixed, explicit
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
-and pellets plus standalone resolved Radial falloff and resolved synthetic Status ticks, backed by
-generated Ruleset `0.11.0` revision `1` and their formal `describe` / `run` / `trace` JSON CLI.
+and pellets plus standalone resolved Radial falloff, resolved multi-target Radial, and resolved
+synthetic Status ticks, backed by generated Ruleset `0.12.0` revision `1` and their formal
+`describe` / `run` / `trace` JSON CLI.
 Fixed Critical input is a non-negative safe-integer tier. Explicit-roll and expected resolution
 accept non-negative Critical chance only while adjacent tiers are safely representable.
 Expected mode evaluates reachable tiers through terminal Health commit before weighting Damage and
@@ -40,33 +41,37 @@ an explicit positive safe-integer pellet count up to 64 in a separate action, us
 Critical tier, and do not compose with Multishot, distribute hits, model Spread, or generate rolls.
 Standalone Radial accepts an explicit finite falloff multiplier in `[0, 1]` and a fixed Critical
 tier, applies falloff after Critical and before Armor, and does not derive distance, model geometry,
-compose a Direct sibling or Projectile parent, or distribute across multiple targets.
+or compose a Direct sibling or Projectile parent. Resolved multi-target Radial accepts 1 to 64
+same-impact distance/LoS relations plus explicit synthetic linear falloff bounds, applies the
+existing Radial pipeline only to in-range clear-LoS targets, and preserves non-hit target Health.
+It does not derive impact coordinates, terrain, LoS, distance, or current-game falloff parameters.
 Resolved Status ticks accept only `status.synthetic-resolved-dot`, explicit final Health damage per
 tick, a positive count up to 64, and a positive interval whose last tick fits within
 `timeLimitMs`. They do not derive Status application, type, damage, Critical, Armor, stack,
 refresh, snapshot, defense changes, expected values, or rolls.
 Scenario Contract `0.2.0` requires an explicit `targetGraph`. It can represent resolved
 impact-distance/LoS and ordered punch-through/chain/ricochet relations. The current runtime
-accepts an empty relation list or one `punch-through`, `ricochet`, or `chain` ordered path
-referenced by the matching resolved action. Each action applies the same fixed-tier Direct Hit
-independently to up to 64 explicit target IDs in path order, records target-specific terminal
-Health in Result `targetStates`, and aggregates Damage, remaining Health, and defeated count. It
-does not derive geometry, collision, wall penetration, attenuation, reflection angles, chain
-candidate search, branching, distance, revisit behavior, target selection, or rolls. Every other
-non-empty Target Graph is rejected without partial Artifacts.
+accepts an empty relation list, one `punch-through`, `ricochet`, or `chain` ordered path referenced
+by the matching resolved action, or 1 to 64 same-impact distance/LoS relations referenced by a
+resolved multi-target Radial action. Target-specific terminal Health is recorded in Result
+`targetStates`, with aggregate Damage, remaining Health, and defeated count. It does not derive
+geometry, collision, wall penetration, attenuation, reflection angles, chain candidate search,
+branching, distance, revisit behavior, target selection, or rolls. Every other non-empty Target
+Graph is rejected without partial Artifacts.
 
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
 repository-local analytic expected preset; it is not the formal CLI boundary and does not
 synthesize Critical chance, rolls, Multishot counts, or pellet counts. The formal CLI can run the
-repository-local resolved fixed-count Multishot, pellet, standalone Radial, and resolved Status
-tick fixtures.
+repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
+and resolved Status tick fixtures.
 Probabilistic Multishot or
 pellets, Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, hit distribution,
-Spread, distance-derived Radial falloff, Direct-plus-Radial or Projectile composition, generated
-random rolls, grouped-hit expected values, and Monte Carlo remain unsupported.
+Spread, Catalog- or current-game-derived Radial falloff, Direct-plus-Radial or Projectile
+composition, generated random rolls, grouped-hit expected values, and Monte Carlo remain
+unsupported.
 Real Status formulas, chance/type resolution, Direct/Radial application, stacking, refresh,
 snapshot behavior, and Status expected values remain unsupported.
-Multiple-target evaluation outside the resolved punch-through, ricochet, and chain ordered-path
-slices remains unsupported.
+Multiple-target evaluation outside the resolved punch-through, ricochet, chain ordered-path, and
+resolved Radial distance/LoS slices remains unsupported.
 Do not add further CLI commands, Lab, API, or MCP implementations until their planned vertical
 slice begins.

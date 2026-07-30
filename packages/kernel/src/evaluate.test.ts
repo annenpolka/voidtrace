@@ -66,6 +66,12 @@ import chainExpectedFixture from "../../../data/fixtures/golden/resolved-chain.e
 import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.scenario.json" with {
   type: "json",
 };
+import radialTargetsExpectedFixture from "../../../data/fixtures/golden/resolved-radial-targets.expected.json" with {
+  type: "json",
+};
+import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
+  type: "json",
+};
 import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
   type: "json",
 };
@@ -170,6 +176,14 @@ async function evaluateRicochetGolden() {
 async function evaluateChainGolden() {
   return evaluateScenario({
     scenario: structuredClone(chainScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateRadialTargetsGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(radialTargetsScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -1280,6 +1294,90 @@ describe("evaluateScenario", () => {
     );
   });
 
+  it("matches the independently authored resolved multi-target Radial golden", async () => {
+    const outcome = await evaluateRadialTargetsGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(radialTargetsExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(radialTargetsExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(radialTargetsExpectedFixture.damageByType);
+    expect(outcome.result.targetStates).toEqual(radialTargetsExpectedFixture.targetStates);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(radialTargetsExpectedFixture.appliedRuleIds);
+    expect(
+      outcome.trace.decisions.flatMap((decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.radial.construct-hit"
+          ? [decision.operations[0]?.parameters["target.id"]]
+          : [],
+      ),
+    ).toEqual(radialTargetsExpectedFixture.targetOrder);
+    expect(outcome.result.coverage.experimental).toContain("mechanic.radial.resolved-targets");
+    expect(
+      await replayTraceTargetStates(outcome.trace, {
+        "actor.target-a": 120,
+        "actor.target-b": 60,
+        "actor.target-c": 90,
+        "actor.target-d": 40,
+      }),
+    ).toEqual({
+      damage: radialTargetsExpectedFixture.damageByType,
+      health: 242.5,
+      healthByTarget: {
+        "actor.target-a": 70,
+        "actor.target-c": 72.5,
+        "actor.target-b": 60,
+        "actor.target-d": 40,
+      },
+    });
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, radialTargetsScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("property-tests resolved Radial linear falloff and LoS gating", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 2, max: 8 }),
+        fc.boolean(),
+        async (distanceMeters, lineOfSightClear) => {
+          const changed = structuredClone(radialTargetsScenarioFixture);
+          const relation = changed.targetGraph.relations[1];
+          if (relation === undefined || relation.kind !== "target-relation.impact-distance") {
+            throw new Error("Resolved Radial golden must contain the C impact relation");
+          }
+          relation.resolvedDistanceMeters = distanceMeters;
+          relation.lineOfSightClear = lineOfSightClear;
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+          const falloff = 0.4 + 0.6 * ((8 - distanceMeters) / 6);
+          const cDamage = lineOfSightClear ? 100 * falloff * 0.25 : 0;
+          expect(first.result.metrics["radial.target-count"]).toBe(lineOfSightClear ? 2 : 1);
+          expect(first.result.metrics["damage.radial.targets-total"]).toBeCloseTo(50 + cDamage, 6);
+          expect(first.result.targetStates["actor.target-c"]?.health).toBeCloseTo(90 - cDamage, 6);
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
   it("matches the independently authored resolved Status tick golden and logical times", async () => {
     const outcome = await evaluateStatusGolden();
 
@@ -1662,6 +1760,8 @@ describe("evaluateScenario", () => {
         metric !== "damage.ricochet.total" &&
         metric !== "chain.target-count" &&
         metric !== "damage.chain.total" &&
+        metric !== "radial.target-count" &&
+        metric !== "damage.radial.targets-total" &&
         metric !== "targets.health.remaining-total" &&
         metric !== "targets.defeated-count",
     );
