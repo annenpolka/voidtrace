@@ -80,6 +80,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 16:42:45Z) empirical-prompt-tuningはfeature commit後に対応・非対応を2回ずつ、破損入力hold-outを1回評価し、全checklist 100%、不明点0を確認した。対応側のtool-useは3回と8回で変動したため、定量的な速度収束は主張しない。
 - [x] (2026-07-30 16:42:45Z) Node 26.0.0とNode 24.18.0で49 Clauses、8 Contracts、生成24ファイル、21テストファイル368テストを含む全ゲートを通した。
 - [x] (2026-07-30 16:44:52Z) Ruleset `0.16.0`マイルストーンをpublic mainへpushし、`db357ae`に対するGitHub Actions `Check` run `30562770873`の成功を確認した。
+- [x] (2026-07-30 23:48:00Z) 元計画の乱数単位とEvent DAG要件を照合し、次の縦切りを一つの明示Critical rollをDirect／Radial childrenで共有するresolved impactへ固定した。
+- [ ] `IMP-004`と`GOL-017`で親impactの共有explicit roll、一回のtier解決、全childへの継承を規定し、Ruleset `0.17.0`を生成する。
+- [ ] Domain／Kernel／Trace／CLI／skillを実装し、Node 26／24の全ゲート、empirical評価、public push、CIを完了する。
 
 ## Surprises & Discoveries
 
@@ -298,6 +301,22 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: relation unionとArtifact wire typeは変わらないが、同じactionが受理する明示parameter集合と評価bindingは増える。Ruleset参照を更新して旧境界と混同しない。
   Date/Author: 2026-07-30 16:32:22Z / Codex
 
+- Decision: 最初のroll共有版は既存 `action.resolved-direct-radial-impact` で `criticalTier` の代わりに一つの `criticalRoll` を受理し、親impactの `critical.roll` phaseでprimary attack modeのCritical chanceからtierを一度だけ解決する。
+  Rationale: 同じ明示rollを各childで再解決すると数値が同じでも共有という因果関係をTraceできない。親decisionを一つにすれば、Directと全Radial childrenが同じ解決済みtierを継承したことをEvent DAG上で検査できる。
+  Date/Author: 2026-07-30 23:48:00Z / Codex
+
+- Decision: Ruleset `0.17.0`のroll共有版はprimary attack modeをDirect／Radialで共有する場合だけ受理し、`radialAttackModeId`、`radialCriticalTier`、子別roll、生成乱数、expected分岐を拒否する。
+  Rationale: 異なるattack modeのCritical chanceへ同じ乱数値を適用する場合、同じrollでも解決tierが異なり得る。その意味論と独立rollを同時に先取りせず、最初の縦切りは一つのchance、一つのroll、一つのresolved tierに閉じる。
+  Date/Author: 2026-07-30 23:48:00Z / Codex
+
+- Decision: 新Goldenはprimary modeのCritical chance `0.25` と明示roll `0.2`からtier 1を解決し、Direct target AのHealthを300とする。Directは100 Damage、RadialはAへ100、Cへ35を与える。
+  Rationale: Aを `300→200→100`、Cを `90→55`、Bを60のまま保てば、Health-zero clampで因果差を隠さず、Direct 100、Radial 135、合計235、残Health合計215をliteral値として検査できる。Traceは親expand、親roll、Direct 4件、Radial 5件×2、aggregateの17 decisionsになる。
+  Date/Author: 2026-07-30 23:48:00Z / Codex
+
+- Decision: `criticalRoll` は既存Scenario Contract `0.3.0` のscalar parameter mapで表し、Scenario schemaは据え置く。新Clause、親roll Rule、受理可能domainはRuleset `0.17.0`で識別する。
+  Rationale: Artifact wire typeは変わらず、既存の `[0, 1)` 明示roll契約を別actionへ適用するだけである。一方、同じactionが受理するresolution modeとRulesetのEvent DAGが増えるため、Ruleset versionで旧境界と区別する。
+  Date/Author: 2026-07-30 23:48:00Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -403,6 +422,8 @@ Resolved Direct＋Radial impactは、targets配列順と異なるrelation順、D
 別attack mode Direct＋Radial impactは、attackerの `attackModeId` をDirectへ、actionの `radialAttackModeId` をRadialへ解決する合成Goldenで受け入れる。Direct decisionはDirect modeのbase Damage、Radial decisionはRadial modeのbase Damageを読み、既存の親子順序と同一target Health連鎖を保つ。未知のRadial mode、別weaponに属するmode、非hitscan delivery、別Critical tier／roll、roll共有規則、Projectile物理は部分Artifactなしで拒否する。`radialAttackModeId` を省略した既存Goldenは共有mode挙動のまま回帰試験に残す。
 
 別固定tier Direct＋Radial impactは、`criticalTier: 1`をDirectへ、`radialCriticalTier: 2`をRadialへbindする合成Goldenで受け入れる。TraceはDirectの `event.critical-tier` 1とRadial二件の2を区別し、Direct Damage 100、Radial Damage 162、合計262、終端Health A=80／C=48／B=60、残Health合計188を再生する。負数、非整数、安全でないtierは部分Artifactなしで拒否する。`radialCriticalTier`を省略した共有mode／別mode既存Goldenは共有tier挙動のまま残す。roll、Critical chance、roll共有規則、expected分岐、Projectile物理は扱わない。
+
+共有explicit-roll Direct＋Radial impactは、`criticalRoll: 0.2`を親impactで一度だけ解決し、primary modeのCritical chance `0.25`から得たtier 1をDirectと全Radial childrenへ継承する合成Goldenで受け入れる。Traceは一つの親roll decisionと各childのtier 1読取を区別し、Direct Damage 100、Radial Damage 135、合計235、終端Health A=100／C=55／B=60、残Health合計215を17 decisionsで再生する。`criticalTier`との併記、範囲外roll、別Radial mode、別Radial tier、子別roll、生成乱数、expected分岐は部分Artifactなしで拒否する。固定tierの既存Goldenは回帰試験に残す。
 
 ## Idempotence and Recovery
 
