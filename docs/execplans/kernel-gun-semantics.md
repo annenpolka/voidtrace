@@ -57,6 +57,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 11:02:00Z) Ruleset `0.11.0`のchain展開／集約Rule、Golden、property、Runtime、formal CLI、installed CLI aliasを追加し、Node 26/24で39 Clauses、8 Contracts、生成24ファイル、21ファイル329テストを通した。
 - [x] (2026-07-30 11:07:00Z) repository-local skillへresolved chain操作例と停止境界を追加した。empirical-prompt-tuningはfeature commit後の第2・第3回で対応7/7・非対応6/6、不明点0を連続達成し、relation/action不一致のhold-outも暗黙修正せず拒否した。
 - [x] (2026-07-30 11:07:00Z) Resolved chainマイルストーンを `abde40d` としてコミットした。
+- [ ] 次の複数target sliceとして、resolved impact-distance／LoS relationsを消費する合成multi-target Radialを実装する。（2026-07-30 11:10:00Z開始。爆心座標・地形・LoS・実ゲームfalloffは導出せず、actionに明示した合成線形falloff境界だけを適用する）
 
 ## Surprises & Discoveries
 
@@ -186,6 +187,18 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: chainもpunch-through／ricochetと別action、Rule ID、operation、capability、aggregate metricを持ち、target別Direct Hit pipelineとTrace replayだけを共有する。
   Rationale: `damage.chain.total` とchain由来RuleをTraceへ残し、同じordered path表現を理由に将来異なる補正点を混同しない。
   Date/Author: 2026-07-30 10:55:00Z / Codex
+
+- Decision: chain後の次のTarget Graph sliceは、既存の `target-relation.impact-distance` を消費する `action.resolved-radial-targets` とする。
+  Rationale: ordered path三種が実行可能になったため、残る既存relation vocabularyを部分Artifactなしのunsupportedから実行可能へ進める。単独RadialのCritical→falloff→Armor→Health pipelineをtarget別に再利用し、物理座標や地形計算は追加しない。
+  Date/Author: 2026-07-30 11:10:00Z / Codex
+
+- Decision: 最初のmulti-target Radialは、actionが `impactId`、非負のfalloff開始距離、それより大きい終了距離、`[0, 1]` の最小倍率、固定Critical tierを明示する合成線形モデルとする。
+  Rationale: 現行Warframe式やCatalog値を未検証のまま埋め込まず、距離が開始以下なら倍率1、開始と終了の間なら1から最小倍率へ線形補間、終了超またはresolved LoS falseなら非命中とする有限な実験契約をGoldenとpropertyで検証できる。
+  Date/Author: 2026-07-30 11:10:00Z / Codex
+
+- Decision: 一つのmulti-target Radial actionは、全relationが同じimpact IDを持つ1〜64件のimpact-distance relationだけを受理し、relation配列順で対象を検査する。
+  Rationale: 複数impact、ordered pathとの混在、重複target、64件超を同時に扱わず、距離／LoSによる非命中targetも終端Healthを変更せずResult `targetStates`へ残す。命中targetだけに既存5-Rule Radial pipelineを適用し、別Ruleで集約する。
+  Date/Author: 2026-07-30 11:10:00Z / Codex
 
 ## Outcomes & Retrospective
 
