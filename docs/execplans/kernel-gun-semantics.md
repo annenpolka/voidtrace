@@ -66,9 +66,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 11:42:00Z) repository-local skillへresolved Pellet allocation操作例と停止境界を追加した。empirical-prompt-tuningはfeature commit後の第1・第2回で対応7/7・非対応6/6・hold-out 6/6、不明点0を連続達成した。
 - [x] (2026-07-30 11:42:00Z) Resolved Pellet allocationマイルストーンを `274d33f` としてコミットした。
 - [x] (2026-07-30 13:18:07Z) 元計画と実装済み依存関係を照合し、次の縦切りを同じresolved impactを親に持つDirect Hitとmulti-target Radialの合成に固定した。
-- [ ] Resolved Direct＋Radial impactのPkl Clause、Rule IR、Golden Scenarioを定義し、生成文書を逆翻訳として確認する。
-- [ ] 一つの親impactからDirect siblingを先に、Radial target childrenを後に同じWorld Stateへcommitし、Result／Trace replayを実装する。
-- [ ] property、Runtime／CLI E2E、repository-local skill評価、Node 26／24の全ゲートを通し、進捗記録を更新して公開mainへpushする。
+- [x] (2026-07-30 13:31:53Z) Resolved Direct＋Radial impactのPkl Clause、Rule IR、Golden Scenarioを定義し、生成文書を逆翻訳として確認した。
+- [x] (2026-07-30 13:31:53Z) 一つの親impactからDirect siblingを先に、Radial target childrenを後に同じWorld Stateへcommitし、Result／Trace replayを実装した。
+- [x] (2026-07-30 13:31:53Z) property、Runtime／CLI E2E、repository-local skill評価、Node 26／24の全ゲートを通し、実装を `6857390` としてコミットした。
 
 ## Surprises & Discoveries
 
@@ -119,6 +119,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: LoS falseや範囲外のRadial targetは子Damage eventを持たないため、従来のpath-target replayだけでは全targetの終端Healthを再構成できない。
   Evidence: Radial aggregate operationは命中2体の子eventに加えて非命中2体のzero Damage、初期Health、終端Healthを列挙する。replayはScenarioのtarget別初期Healthをアンカーに非命中のHealth不変を検査し、4体すべての `healthByTarget` を復元する。
+
+- Observation: 同じtargetへDirectとRadialが連続commitされる因果Traceは、target数とDamage event数が一致しない。
+  Evidence: 3 targetのGoldenはDirect 1件とRadial target event 3件の計4 event slotを使う。Trace replayは親impactの対象数3を検査しつつ、path metadataのcount 4と安定したindexを使い、Aの二つのcommitを `180→130→80` と連続再生する。
+
+- Observation: skillのempirical評価で「checked-in fixture」と実装途中の未追跡状態が一時的に矛盾した。
+  Evidence: feature commit前のexecutorはCLI結果を正しく再現したが、`git ls-files`でcritical項目をpartialとした。`6857390`後のfresh executorはHEAD blob一致、clean worktree、CLI成功を確認し、対応・非対応・hold-outすべて5/5、不明点0となった。
 
 - Observation: target IDだけをTrace replay状態のkeyにすると、同じtargetへ複数Pelletが命中する二発目を「metadata変更」と誤判定する。
   Evidence: resolved Pellet GoldenはAへ2回連続commitする。replay内部はallocationのglobal path indexで各hitを識別し、同一targetの直前commit Healthを次hitの入力として検査した後、終端だけをtarget IDごとに再集約する。
@@ -264,6 +270,8 @@ Resolved chainマイルストーンでは、一つの `pathKind: chain` ordered 
 Resolved multi-target Radialマイルストーンでは、一つの `impactId` を持つ4件のimpact-distance／LoS relationを宣言順A→C→B→Dで検査し、明示された開始2m、終了8m、最小倍率0.4の合成線形falloffを適用する。Aは距離0で倍率1、Cは距離5で倍率0.7となり、Bは範囲外、Dはresolved LoS falseとしてHealth不変である。Resultは命中2、Damage合計67.5、全target残Health合計242.5、撃破0を持つ。爆心座標、地形、LoS、距離、Catalog／現行ゲームfalloff parameter、Direct sibling、Projectile親、rollは引き続き非対応である。
 
 Resolved Pellet allocationマイルストーンでは、総pellet 4をrelation順A=2、C=0、B=1へ解決済み配分し、残る1をmissとして扱う。子Direct HitはA→A→Bの順に固定Critical tier 0とtarget別Armor／Healthを読み、Aを150→100→50、Cを90のまま、Bを80→0へ更新する。Resultは総数4、命中3、miss 1、Damage合計200、全target残Health合計140、撃破1を持つ。Spread、命中判定、確率分布、pellet別Critical roll、Multishot合成は引き続き非対応である。
+
+Resolved Direct＋Radial impactマイルストーンでは、一つの親impactからDirect childとrelation順のRadial target childrenを生成し、同じtarget別World Stateへ順番にcommitできるようになった。Goldenはtargets配列B→A→C、relation順A→C→Bで、DirectがAを180→130、RadialがAを130→80とCを90→72.5へ更新し、範囲外Bを60に保つ。ResultはDirect 50、Radial 67.5、合計117.5、残Health合計212.5、撃破0を分離し、16 decisionsが共通親と順序を保って再生される。Projectile軌道・衝突、複数attack mode、別Critical tier／roll、Status、Multishot、Pellet合成は引き続き非対応である。
 
 ## Context and Orientation
 
@@ -499,6 +507,19 @@ Resolved Pellet allocationマイルストーンの検証記録は次のとおり
     Trace decisions: 14
     empirical skill evaluation: iterations 1/2 supported 100%, unsupported 100%, hold-out accepted, unclear points 0
 
+Resolved Direct＋Radial impactマイルストーンの検証記録は次のとおりである。
+
+    Scenario / Ruleset / Result Contract: 0.3.0 / 0.14.0 / 0.2.0
+    Clauses / Contracts / generated files: 45 / 8 / 24
+    Node.js 26.0.0: 21 files, 353 tests passed
+    Node.js 24.18.0: 21 files, 353 tests passed
+    targets array / relation order / event order: B-A-C / A-C-B / Direct A-Radial A-Radial C
+    Direct / Radial / total Damage: 50 / 67.5 / 117.5
+    target Health: A=80 / C=72.5 / B=60
+    remaining Health / defeated: 212.5 / 0
+    Trace decisions: 16
+    empirical skill evaluation: final supported 5/5, unsupported 5/5, hold-out 5/5, unclear points 0
+
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
 
 Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むローカル基準線は `92019a6 feat: add fixed multishot vertical slice` としてコミット済みである。
@@ -516,6 +537,8 @@ Ruleset `0.11.0` revision `1` とresolved chain target pathを含むローカル
 Ruleset `0.12.0` revision `1` とresolved multi-target Radialを含むローカル基準線は `f96fdb9 feat: add resolved multi-target radial` としてコミット済みである。
 
 Scenario Contract `0.3.0`、Ruleset `0.13.0` revision `1` とresolved Pellet allocationを含むローカル基準線は `274d33f feat: add resolved pellet allocation` としてコミット済みである。
+
+Scenario Contract `0.3.0`、Ruleset `0.14.0` revision `1` とresolved Direct＋Radial impactを含むローカル基準線は `6857390 feat: add resolved direct radial impact` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
