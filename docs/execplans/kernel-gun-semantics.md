@@ -30,9 +30,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 07:57:00Z) Node 24でも21テストファイル268テストを含む全ゲートを通した。
 - [x] (2026-07-30 07:58:00Z) Pelletマイルストーンを `0b43a63` としてコミットした。
 - [x] (2026-07-30 07:58:00Z) 次のRadial縦切りを、解決済みfalloff multiplierを持つ単独Radial Hitとして設計した。
-- [ ] RadialのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義する。（開始: 物理距離式をKernelへ入れない境界を設計）
-- [ ] Radial HitをDirectと別event kindで評価し、Result／Trace／replayを実装する。
-- [ ] 独立oracle、境界/propertyテスト、Runtime/CLI E2E、skill操作例を追加して検証・コミットする。
+- [x] (2026-07-30 08:09:00Z) RadialのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義し、Ruleset `0.7.0`を生成した。
+- [x] (2026-07-30 08:09:00Z) Radial HitをDirectと別event kindで評価し、Critical後・Armor前のresolved falloff、Result／Trace／replayを実装した。
+- [x] (2026-07-30 08:09:00Z) 独立oracle、境界/propertyテスト、Runtime/CLI E2Eを追加し、Node 26/24で21ファイル280テストを通した。
+- [x] (2026-07-30 08:09:00Z) repository-local skillへRadial操作例と停止境界を追加し、empirical-prompt-tuning第2ラウンドで対応・非対応シナリオとも100% checklist達成を確認した。
+- [x] (2026-07-30 08:09:00Z) Radialマイルストーンを `1e7a3ea` としてコミットした。
+- [ ] 元計画の次の領域であるStatusについて、時間・snapshot・stackを混ぜずに検証できる最小縦切りをPklで設計する。
 
 ## Surprises & Discoveries
 
@@ -53,6 +56,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: Kernel側は固定Multishot evaluatorを固定grouped-hit evaluatorへ一般化でき、Direct Hitの意味論を複製せずPelletへ再利用できた。
   Evidence: `evaluateFixedHitGroupRuntime` がaction kindに応じて発生／集約Ruleとmetric名だけを切り替え、Critical、Armor、Health commitは既存Rule列をそのまま使う。
+
+- Observation: 同じcopy、Critical、Armor、Health commit操作をRadialへ再利用しても、Rulesetのevent kind完全一致検査を弱める必要はなかった。
+  Evidence: operation declarationは許可event kindの有限集合を持ち、生成Ruleは引き続き一つの `damage.radial` に厳密束縛される。falloffだけは専用operationと独立executorを持つ。
+
+- Observation: Radial falloffを汎用scaleとしてTrace再生するだけでは、宣言済み入力との一致を検査できない。
+  Evidence: replayはoperationの `factor`、`multiplier`、decision readの `event.radial-falloff-multiplier` が一致しないTraceを構造化エラーとして拒否する。
 
 ## Decision Log
 
@@ -95,6 +104,8 @@ Critical／expectedマイルストーンは、固定の非負safe-integer tier�
 Multishotマイルストーンでは、明示された1〜64の固定hit countを安定した子Direct Hitへ展開し、共通の固定Critical tier、Armor、逐次Health commitを適用した後、終端Damage Vectorを集約できるようになった。Resultは共通の一発値と全hit集約値を分離し、Traceは各hitのID、index、count、親子関係、Health遷移を保持する。65以上は部分Artifactを返さずCLI exit 4の実行上限となる。確率的Multishot、hitごとのCritical roll、Multishot expected valueは引き続き非対応である。
 
 Pelletマイルストーンでは、明示された1〜64の固定pellet countを一回の射撃に属する安定した子Direct Hitへ展開し、Multishotと別のRule、capability、Trace identity、Result aggregateとして扱えるようになった。4-pellet Goldenは共通の固定Critical tierとArmorを各pelletへ適用し、Healthを `350→250→150→50→0` と逐次commitする。Multishotとの合成、命中分配、Spread、pellet別roll、pellet expected valueは非対応である。
+
+Radialマイルストーンでは、有限な `[0, 1]` の解決済みfalloff multiplierを持つ単独Radial Hitを、Directと別のevent kind、Rule ID、capability、Result metricで評価できるようになった。Goldenは `base 100 → Critical後 200 → falloff後 150 → Armor後 75 → Health 925` の5 decisionを固定する。距離式、物理配置、Direct sibling、Projectile親、Multishot／Pellet合成、複数target、Radialのroll／expected valueは非対応である。
 
 ## Context and Orientation
 
@@ -217,11 +228,30 @@ Pelletマイルストーンの検証記録は次のとおりである。
     pellet decisions: 18
     final Health: 0
 
+Radialマイルストーンの検証記録は次のとおりである。
+
+    Node.js 26.0.0
+    Specification is valid, 24 generated files are fresh.
+    Test Files 21 passed
+    Tests 280 passed
+
+    Node.js 24.18.0
+    Specification is valid, 24 generated files are fresh.
+    Test Files 21 passed
+    Tests 280 passed
+
+    mechanics.resolved-radial: supported
+    radial decisions: 5
+    base / post-critical / post-falloff / post-armor: 100 / 200 / 150 / 75
+    final Health: 925
+
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
 
 Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むローカル基準線は `92019a6 feat: add fixed multishot vertical slice` としてコミット済みである。
 
 Ruleset `0.6.0` revision `1` と解決済み固定count Pelletを含むローカル基準線は `0b43a63 feat: add fixed pellet vertical slice` としてコミット済みである。
+
+Ruleset `0.7.0` revision `1` と単独解決済みRadial falloffを含むローカル基準線は `1e7a3ea feat: add resolved radial vertical slice` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
