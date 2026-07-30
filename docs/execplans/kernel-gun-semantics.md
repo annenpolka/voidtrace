@@ -61,6 +61,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 11:17:00Z) Ruleset `0.12.0`のRadial target展開／集約Rule、4-target Golden、線形falloff/LoS property、Trace replay、Runtime、formal CLI、installed CLI aliasを追加し、Node 26/24で41 Clauses、8 Contracts、生成24ファイル、21ファイル339テストを通した。
 - [x] (2026-07-30 11:20:00Z) repository-local skillへresolved multi-target Radial操作例と停止境界を追加した。empirical-prompt-tuningはfeature commit後の第1・第2回で対応7/7・非対応6/6、不明点0を連続達成し、action／relationのimpact ID不一致hold-outも暗黙修正せず拒否した。
 - [x] (2026-07-30 11:20:00Z) Resolved multi-target Radialマイルストーンを `f96fdb9` としてコミットした。
+- [ ] 次のTarget Graph sliceとして、target別の解決済みpellet命中数とmiss数を消費する合成Pellet allocationを実装する。（2026-07-30 11:22:00Z開始。Spread、命中判定、確率分布、pellet別Critical roll、Multishot合成は導出しない）
 
 ## Surprises & Discoveries
 
@@ -206,6 +207,18 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: 複数impact、ordered pathとの混在、重複target、64件超を同時に扱わず、距離／LoSによる非命中targetも終端Healthを変更せずResult `targetStates`へ残す。命中targetだけに既存5-Rule Radial pipelineを適用し、別Ruleで集約する。
   Date/Author: 2026-07-30 11:10:00Z / Codex
 
+- Decision: multi-target Radial後の次のTarget Graph sliceは、`target-relation.pellet-allocation` と `action.resolved-pellet-allocation` による解決済みPellet配分とする。
+  Rationale: 元計画はSpreadの幾何計算ではなくtarget別命中数をScenario入力に置く。既存の固定Pelletと複数target World Stateを結び、同じtargetへの反復命中、別targetへの配分、missを一つの有限Traceで検証できる。
+  Date/Author: 2026-07-30 11:22:00Z / Codex
+
+- Decision: 一つのresolved Pellet allocationは、1〜64の総pellet数、同じallocation IDを持つtarget別0以上のsafe-integer命中数、固定Critical tierを受理し、relation順、次にtarget内pellet index順で評価する。
+  Rationale: target別命中数の合計が総pellet数以下なら差分をmissとして明示できる。全targetに一つずつrelationを要求して非命中targetも `targetStates` に残し、合計超過、重複target、異なるallocation ID、未解決の確率入力は部分Artifactなしで拒否する。
+  Date/Author: 2026-07-30 11:22:00Z / Codex
+
+- Decision: Pellet allocation追加ではScenario Contractを `0.3.0` へ上げ、既存Goldenも新しいschema identifierへ一括移行する。
+  Rationale: 新しいTarget Graph relation variantは受理可能な永続入力集合を変える。actionの自由形式scalar parameters追加だけとは異なりschema unionの変更なので、同じ `0.2.0` 識別子の意味を黙って書き換えない。
+  Date/Author: 2026-07-30 11:22:00Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -247,6 +260,8 @@ Resolved multi-target Radialマイルストーンでは、一つの `impactId` �
 Contractを拡張する必要がある場合は `specs/contracts/` を先に変更する。ただし、将来の全銃器モデルを先取りせず、現在の垂直スライスを表せる最小の入力だけを追加する。Rule IRへ新しい操作が必要なら `specs/contracts/ruleset.pkl` と `specs/rules/model.pkl` で有限操作として宣言し、生成後に `packages/rules/` へ独立executorとoracleを追加する。
 
 Kernelでは、actionをMultishot数だけDirect Hitイベントへ展開し、各イベントを既存のCritical、Armor、Health commitパイプラインへ通す。前の弾で減ったHealthを次の弾が読み、Healthは0未満にならない。各子イベントは安定したID、順序、親actionをTraceへ残す。Resultの集約値は各弾の終端結果から作り、Trace replayも同じ最終状態を再構成する。
+
+Resolved Pellet allocationでは、Pklにtarget別解決済み命中数relation、action、展開／集約Rule、capability、Goldenを追加する。Kernelはrelation順、次にrelation内index順で既存Direct Hit pipelineを実行し、総pellet数との差をmissとして集約する。0-hit targetも初期HealthのままResultとTrace replayへ残し、合計hit数が総pellet数を超える入力は実行前に拒否する。
 
 最後にGolden Scenario、Rule oracle、Kernel property test、Runtime/CLI E2E、skillの操作例を更新する。生成物freshnessとNode 24/26の全ゲートを通した後、本ExecPlanのProgress、発見、結果を更新してコミットする。
 
@@ -291,6 +306,8 @@ Critical／expected基準線は、Node 24とNode 26の `just check` が成功し
 Multishotマイルストーンは、同じScenario、Catalog、Ruleset、seedを二度評価するとResultとTraceがbyte-equivalentなcanonical JSONになることを要求する。Multishot数が2のScenarioでは、Direct HitからHealth commitまでのRule系列が2回現れ、2発目のHealth commitが1発目の残Healthを読む。初期Healthより合計Damageが大きい場合もHealthは0で止まる。
 
 Multishot数が0、負数、非整数、安全に表現できない整数、現在未対応の確率的Multishot入力は、部分的なResultやTraceを返さずContractまたはdomainの構造化エラーになる。既存の単発Golden Scenarioのcontent hash、期待値、CLIのstdout/stderr規律も意図したVersion変更以外では退行しない。
+
+Resolved Pellet allocationは、target配列順と異なるrelation順、同じtargetへの複数hit、0-hit target、一つ以上のmissを含むGoldenで受け入れる。Resultは総pellet数、hit数、miss数、Pellet Damage総和、全targetの終端Healthを持ち、Trace replayが同じDamage Vectorとtarget別Healthを復元する。hit数合計超過、65 pellet以上、重複target、allocation ID不一致、確率分布、Spread、pellet別Critical rollは部分Artifactなしで拒否する。
 
 ## Idempotence and Recovery
 
