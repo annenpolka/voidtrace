@@ -28,7 +28,11 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 07:56:00Z) repository-local skillのPellet操作例をempirical-prompt-tuningで再評価し、2回連続の100% checklist達成を確認した。
 - [x] (2026-07-30 07:56:00Z) Node 26で21テストファイル268テストを含む全ゲートを通した。
 - [x] (2026-07-30 07:57:00Z) Node 24でも21テストファイル268テストを含む全ゲートを通した。
-- [ ] Pelletマイルストーンをコミットし、次のRadial縦切りを設計する。
+- [x] (2026-07-30 07:58:00Z) Pelletマイルストーンを `0b43a63` としてコミットした。
+- [x] (2026-07-30 07:58:00Z) 次のRadial縦切りを、解決済みfalloff multiplierを持つ単独Radial Hitとして設計した。
+- [ ] RadialのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義する。（開始: 物理距離式をKernelへ入れない境界を設計）
+- [ ] Radial HitをDirectと別event kindで評価し、Result／Trace／replayを実装する。
+- [ ] 独立oracle、境界/propertyテスト、Runtime/CLI E2E、skill操作例を追加して検証・コミットする。
 
 ## Surprises & Discoveries
 
@@ -75,6 +79,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: 最初のPellet sliceは明示された正のsafe-integer pellet countと共通固定Critical tierだけを受理し、Multishotとの直積を扱わない。
   Rationale: Pellet単体の親子関係、順序、集約名を独立に固定する。Multishotとの組合せ、pellet別Critical roll、命中分配、Spread、確率的pellet数は後続Clauseに分離する。
   Date/Author: 2026-07-30 07:46:00Z / Codex
+
+- Decision: 最初のRadial sliceは、Scenarioに明示された有限な `0〜1` の解決済みfalloff multiplierと固定Critical tierを持つ単一targetの単独Radial Hitとする。
+  Rationale: 元計画は距離や配置をHitPlan入力としてKernelへ渡し、Kernel自身は物理シミュレーションしない。現在のWarframe距離式を未検証のまま埋め込まず、Radial固有のevent kind、Rule適用位置、Result／Traceを先に検証できる。
+  Date/Author: 2026-07-30 07:58:00Z / Codex
+
+- Decision: 初回RadialではDirect sibling、Projectile親、Multishot、Pellet、複数target、距離からのfalloff解決を扱わない。
+  Rationale: Direct／Radial共有rollや親子DAG、Target Graphは別の構造マイルストーンである。単独RadialのDamage pipelineとresolved input境界を先に固定する。
+  Date/Author: 2026-07-30 07:58:00Z / Codex
 
 ## Outcomes & Retrospective
 
@@ -208,6 +220,8 @@ Pelletマイルストーンの検証記録は次のとおりである。
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
 
 Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むローカル基準線は `92019a6 feat: add fixed multishot vertical slice` としてコミット済みである。
+
+Ruleset `0.6.0` revision `1` と解決済み固定count Pelletを含むローカル基準線は `0b43a63 feat: add fixed pellet vertical slice` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
