@@ -1,0 +1,11 @@
+/// Literal obligation for one impact whose Direct and Radial children share one explicit Critical roll.
+module voidtrace.golden.resolvedSharedRollDirectRadialImpact
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-017"
+  desc =
+    "data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.jsonは共有primary modeのCritical chance 0.25と親impactの明示roll 0.2からtier 1を一度だけ解決し、Directと全Radial childへ継承する。DirectはAを300→200へ更新し、続くRadialはAを200→100、Cを90→55へ更新し、Bは範囲外で60を保つ。Direct Damage 100、Radial Damage 135、合計235、残Health合計215をliteral expected vectorとしてResultおよびTraceと照合し、親roll decisionが一つだけ存在する"
+  maturity = "active"
+}

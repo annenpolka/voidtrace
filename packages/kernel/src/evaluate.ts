@@ -36,7 +36,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.16.0";
+export const KERNEL_ENGINE_VERSION = "0.17.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -114,6 +114,9 @@ const EXPECTED_AGGREGATION_PHASES = ["result.aggregate"] as const satisfies Read
   RuleDefinition["phase"]
 >;
 const FIXED_MULTISHOT_EMISSION_PHASES = ["attack.emit"] as const satisfies ReadonlyArray<
+  RuleDefinition["phase"]
+>;
+const SHARED_IMPACT_ROLL_PHASES = ["critical.roll"] as const satisfies ReadonlyArray<
   RuleDefinition["phase"]
 >;
 const FIXED_MULTISHOT_AGGREGATION_PHASES = ["result.aggregate"] as const satisfies ReadonlyArray<
@@ -1580,18 +1583,22 @@ function evaluateResolvedRadialTargetsRuntime(
   if (
     (domain.action.kind !== "resolved-radial-targets" &&
       domain.action.kind !== "resolved-direct-radial-impact") ||
-    domain.action.criticalResolution !== "fixed" ||
-    domain.action.criticalTier === null ||
+    (domain.action.kind === "resolved-radial-targets" &&
+      (domain.action.criticalResolution !== "fixed" || domain.action.criticalTier === null)) ||
+    (domain.action.kind === "resolved-direct-radial-impact" &&
+      domain.action.criticalResolution !== "fixed" &&
+      domain.action.criticalResolution !== "roll") ||
     domain.action.impactId === null ||
     domain.action.radialTargetRelations.length !== domain.targets.length
   ) {
     throw new TypeError("Invalid input reached resolved multi-target Radial evaluation");
   }
   const isDirectRadialImpact = domain.action.kind === "resolved-direct-radial-impact";
-  const radialCriticalTier =
+  let directCriticalTier = domain.action.criticalTier;
+  let radialCriticalTier =
     isDirectRadialImpact && domain.action.radialCriticalTier !== null
       ? domain.action.radialCriticalTier
-      : domain.action.criticalTier;
+      : directCriticalTier;
   const appliedRules: RuleDefinition[] = [];
   const decisions: Trace["decisions"][number][] = [];
   const metricValues: Record<string, number> = {};
@@ -1663,6 +1670,65 @@ function evaluateResolvedRadialTargetsRuntime(
   ) {
     throw new TypeError("Ruleset did not apply resolved multi-target Radial expansion");
   }
+  let childParentEventId = expansionEventId;
+  if (isDirectRadialImpact && domain.action.criticalResolution === "roll") {
+    let sharedRollExecution: RuleExecution | undefined;
+    for (const event of createPhaseEvents({
+      actionId: domain.action.id,
+      namespace: `${domain.action.id}.shared-critical`,
+      logicalId: `${domain.action.id}.shared-critical`,
+      parentEventId: expansionEventId,
+      kind: "action.resolved-direct-radial-impact",
+      phases: SHARED_IMPACT_ROLL_PHASES,
+    }).drain()) {
+      childParentEventId = event.id;
+      for (const rule of ruleset.snapshot.rules) {
+        if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+          continue;
+        }
+        const execution = ruleset.executeRule(
+          rule.id,
+          ruleContext(
+            references,
+            zeroDamage,
+            null,
+            domain.action.criticalRoll,
+            0,
+            initialHealthTotal,
+          ),
+        );
+        decisions.push(
+          decisionForExecution(
+            decisionSequence,
+            event,
+            rule,
+            execution,
+            references,
+            null,
+            domain.action.criticalRoll,
+            0,
+          ),
+        );
+        decisionSequence += 1;
+        if (execution.outcome === "applied") {
+          appliedRules.push(rule);
+          sharedRollExecution = execution;
+          updateMetricValues(metricValues, execution, null, event.kind);
+        }
+      }
+    }
+    if (
+      sharedRollExecution?.operationKind !== "critical-tier.resolve-tier-roll" ||
+      sharedRollExecution.resolvedCriticalTier === undefined
+    ) {
+      throw new TypeError("Ruleset did not resolve the shared impact Critical roll");
+    }
+    directCriticalTier = sharedRollExecution.resolvedCriticalTier;
+    radialCriticalTier = sharedRollExecution.resolvedCriticalTier;
+  }
+  if (directCriticalTier === null || radialCriticalTier === null) {
+    throw new TypeError("Resolved impact omitted its child Critical tier");
+  }
 
   let directDamage = zeroDamage;
   if (isDirectRadialImpact) {
@@ -1677,7 +1743,7 @@ function evaluateResolvedRadialTargetsRuntime(
       actionId: domain.action.id,
       namespace: `${domain.action.id}.direct`,
       logicalId: `${domain.action.id}.direct.${directTarget.id}`,
-      parentEventId: expansionEventId,
+      parentEventId: childParentEventId,
       kind: "damage.direct",
       phases: FIXED_CRITICAL_PHASES,
     }).drain()) {
@@ -1690,7 +1756,7 @@ function evaluateResolvedRadialTargetsRuntime(
           ruleContext(
             references,
             directDamage,
-            domain.action.criticalTier,
+            directCriticalTier,
             null,
             directTarget.resolvedArmor,
             readHealth(world, directTarget.id),
@@ -1703,7 +1769,7 @@ function evaluateResolvedRadialTargetsRuntime(
             rule,
             execution,
             references,
-            domain.action.criticalTier,
+            directCriticalTier,
             null,
             directTarget.resolvedArmor,
             { pathTarget },
@@ -1743,7 +1809,7 @@ function evaluateResolvedRadialTargetsRuntime(
         actionId: domain.action.id,
         namespace: `${domain.action.id}.radial-target-${index}`,
         logicalId: `${domain.action.id}.${target.id}`,
-        parentEventId: expansionEventId,
+        parentEventId: childParentEventId,
         kind: "damage.radial",
         phases: FIXED_RADIAL_PHASES,
       }).drain()) {

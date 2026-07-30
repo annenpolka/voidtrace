@@ -235,7 +235,8 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       clause.id.startsWith("IMP-") ||
       clause.id === "GOL-014" ||
       clause.id === "GOL-015" ||
-      clause.id === "GOL-016",
+      clause.id === "GOL-016" ||
+      clause.id === "GOL-017",
   );
   const statusClauses = spec.clauses.filter(
     (clause) => clause.id.startsWith("STS-") || clause.id === "GOL-008",

@@ -234,7 +234,7 @@ const OPERATION_DECLARATIONS = {
   },
   "critical-tier.resolve-tier-roll": {
     phase: "critical.roll",
-    eventKind: "damage.direct",
+    eventKind: ["damage.direct", "action.resolved-direct-radial-impact"],
     reads: ["attack.critical-chance", "event.critical-roll"],
     writes: [
       "event.critical-tier",

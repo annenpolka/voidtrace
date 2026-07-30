@@ -632,6 +632,8 @@ async function replayTrace(
   let expectedTickIntervalMs: number | undefined;
   let expectedPathTargetCount: number | undefined;
   let expectedPathId: string | undefined;
+  let sharedImpactCriticalTier: number | undefined;
+  let sharedImpactRollEventId: string | undefined;
   let terminalHealthByTarget: Readonly<Record<string, number>> | undefined;
 
   for (const decision of trace.decisions) {
@@ -985,6 +987,8 @@ async function replayTrace(
           const metadata = operationPathTarget;
           if (
             metadata === undefined ||
+            (sharedImpactRollEventId !== undefined &&
+              decision.parentEventId !== sharedImpactRollEventId) ||
             expectedPathTargetCount === undefined ||
             metadata.count !== expectedPathTargetCount ||
             [...pathTargets.values()].some((target) => target.index === metadata.index) ||
@@ -1096,6 +1100,89 @@ async function replayTrace(
       }
       case "critical-tier.resolve-binary-roll":
       case "critical-tier.resolve-tier-roll":
+        if (decision.ruleId === "rule.impact.resolve-shared-critical-roll") {
+          const criticalChance = operation.parameters.criticalChance;
+          const criticalRoll = operation.parameters.criticalRoll;
+          const baseTier = operation.parameters.baseTier;
+          const nextTier = operation.parameters.nextTier;
+          const fraction = operation.parameters.fraction;
+          const baseTierProbability = operation.parameters.baseTierProbability;
+          const nextTierProbability = operation.parameters.nextTierProbability;
+          const tier0Probability = operation.parameters.tier0Probability;
+          const tier1Probability = operation.parameters.tier1Probability;
+          const resolvedTier = operation.parameters.resolvedTier;
+          if (
+            sharedImpactCriticalTier !== undefined ||
+            typeof criticalChance !== "number" ||
+            !Number.isFinite(criticalChance) ||
+            criticalChance < 0 ||
+            typeof criticalRoll !== "number" ||
+            !Number.isFinite(criticalRoll) ||
+            criticalRoll < 0 ||
+            criticalRoll >= 1
+          ) {
+            invalidParameters("Trace shared impact Critical roll has invalid inputs");
+          }
+          const expectedBaseTier = Math.floor(criticalChance);
+          const expectedFraction = criticalChance - expectedBaseTier;
+          const expectedNextTier = expectedFraction === 0 ? expectedBaseTier : expectedBaseTier + 1;
+          const expectedResolvedTier =
+            criticalRoll < expectedFraction ? expectedNextTier : expectedBaseTier;
+          const expectedTier0Probability =
+            (expectedBaseTier === 0 ? 1 - expectedFraction : 0) +
+            (expectedNextTier === 0 ? expectedFraction : 0);
+          const expectedTier1Probability =
+            (expectedBaseTier === 1 ? 1 - expectedFraction : 0) +
+            (expectedNextTier === 1 ? expectedFraction : 0);
+          if (
+            !Number.isSafeInteger(expectedBaseTier) ||
+            !Number.isSafeInteger(expectedNextTier) ||
+            baseTier !== expectedBaseTier ||
+            nextTier !== expectedNextTier ||
+            fraction !== expectedFraction ||
+            baseTierProbability !== 1 - expectedFraction ||
+            nextTierProbability !== expectedFraction ||
+            tier0Probability !== expectedTier0Probability ||
+            tier1Probability !== expectedTier1Probability ||
+            resolvedTier !== expectedResolvedTier ||
+            operation.parameters.factor !== 1 ||
+            decision.reads["attack.critical-chance"] !== criticalChance ||
+            decision.reads["event.critical-roll"] !== criticalRoll
+          ) {
+            invalidParameters("Trace shared impact Critical roll resolution is inconsistent");
+          }
+          const parentDamage = projectionDamage(
+            decision.before,
+            `Trace decision ${decision.sequence} before`,
+          );
+          const parentHealth = requiredNonNegativeNumber(
+            decision.before,
+            "target.health",
+            `Trace decision ${decision.sequence} before`,
+          );
+          if (sumDamageVector(parentDamage) !== 0) {
+            invalidParameters("Trace shared impact Critical roll does not start at zero Damage");
+          }
+          if (
+            anchoredInitialHealthByTarget !== undefined &&
+            parentHealth !==
+              Object.values(anchoredInitialHealthByTarget).reduce(
+                (total, value) => total + value,
+                0,
+              )
+          ) {
+            invalidParameters("Trace shared impact Critical roll has invalid parent Health");
+          }
+          assertProjection(
+            decision.after,
+            parentDamage,
+            parentHealth,
+            `Trace decision ${decision.sequence} after`,
+          );
+          sharedImpactCriticalTier = expectedResolvedTier;
+          sharedImpactRollEventId = decision.eventId;
+          break;
+        }
         if (currentDamage === undefined || currentHealth === undefined) {
           throw new TraceReplayError(
             "missing-damage-vector",
@@ -1164,6 +1251,13 @@ async function replayTrace(
           `Trace decision ${decision.sequence} before`,
         );
         const factor = scaleFactor(operation.parameters);
+        if (
+          operation.kind === "damage-vector.scale-critical-tier" &&
+          sharedImpactCriticalTier !== undefined &&
+          decision.reads["event.critical-tier"] !== sharedImpactCriticalTier
+        ) {
+          invalidParameters("Trace child Critical tier does not match its shared impact roll");
+        }
         if (
           operation.kind === "damage-vector.scale-resolved-radial-falloff" &&
           (operation.parameters.multiplier !== factor ||

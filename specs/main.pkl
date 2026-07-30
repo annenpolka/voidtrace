@@ -24,6 +24,7 @@ import "golden/resolved-pellet-allocation.pkl"
 import "golden/resolved-punch-through.pkl"
 import "golden/resolved-radial-targets.pkl"
 import "golden/resolved-ricochet.pkl"
+import "golden/resolved-shared-roll-direct-radial-impact.pkl"
 import "golden/resolved-status-ticks.pkl"
 import "golden/tier-2-critical-armor.pkl"
 import "kernel/determinism.pkl"
@@ -68,6 +69,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.resolvedDirectRadialImpactSharesParentAndWorldState
   mechanicsClauses.resolvedDirectRadialImpactCanBindDistinctAttackModes
   mechanicsClauses.resolvedDirectRadialImpactCanBindDistinctFixedCriticalTiers
+  mechanicsClauses.resolvedDirectRadialImpactCanShareExplicitCriticalRoll
   mechanicsClauses.resolvedStatusTicksCommitInTimeOrder
   mechanicsClauses.resolvedPunchThroughVisitsTargetsInPathOrder
   mechanicsClauses.resolvedRicochetVisitsTargetsInPathOrder
@@ -91,6 +93,7 @@ clauses: Listing<base.Clause> = new {
   `resolved-direct-radial-impact`.roundTrip
   `resolved-distinct-mode-direct-radial-impact`.roundTrip
   `resolved-distinct-tier-direct-radial-impact`.roundTrip
+  `resolved-shared-roll-direct-radial-impact`.roundTrip
   `resolved-pellet-allocation`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
@@ -113,7 +116,7 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.16.0"
+  version = "0.17.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
@@ -129,6 +132,7 @@ ruleset: ruleModel.Ruleset = new {
     critical.resolveExpectedBranchesRule
     `direct-hit`.rule
     radial.constructRule
+    impact.resolveSharedCriticalRollRule
     critical.resolveTierRollRule
     critical.scaleTierRule
     radial.scaleCriticalTierRule

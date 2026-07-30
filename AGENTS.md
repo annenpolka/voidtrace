@@ -29,7 +29,7 @@ The current implemented boundary ends at the synthetic Direct Hit / generalized 
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
 and pellets plus resolved target-specific Pellet allocation, standalone resolved Radial falloff,
 resolved multi-target Radial, and resolved synthetic Status ticks, backed by generated Ruleset
-`0.16.0` revision `1` and their formal
+`0.17.0` revision `1` and their formal
 `describe` / `run` / `trace` JSON CLI.
 Fixed Critical input is a non-negative safe-integer tier. Explicit-roll and expected resolution
 accept non-negative Critical chance only while adjacent tiers are safely representable.
@@ -54,7 +54,11 @@ when explicit, Radial uses its own non-negative safe-integer fixed tier. When
 `radialAttackModeId` is omitted, Direct and Radial share the attacker attack mode; when it is
 explicit, Direct and Radial can resolve two attack modes from the same synthetic weapon. It does
 not derive a physical Projectile, collision, arbitrary mode composition, generated tiers or
-rolls, Status, Multishot, or Pellet composition.
+rolls, Status, Multishot, or Pellet composition. As a separate finite slice, `criticalRoll` can
+replace `criticalTier` only while Direct and Radial share the primary attack mode. The parent
+impact resolves that explicit roll once and every child inherits the resolved tier.
+`radialAttackModeId`, `radialCriticalTier`, child-specific rolls, generated randomness, and
+expected branches do not combine with this slice.
 Resolved Status ticks accept only `status.synthetic-resolved-dot`, explicit final Health damage per
 tick, a positive count up to 64, and a positive interval whose last tick fits within
 `timeLimitMs`. They do not derive Status application, type, damage, Critical, Armor, stack,
@@ -77,7 +81,7 @@ repository-local analytic expected preset; it is not the formal CLI boundary and
 synthesize Critical chance, rolls, Multishot counts, or pellet counts. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
 resolved Pellet allocation, resolved Direct-plus-Radial impact, and resolved Status tick fixtures.
-The formal CLI also runs the checked-in distinct-mode and distinct-fixed-tier
+The formal CLI also runs the checked-in distinct-mode, distinct-fixed-tier, and shared-explicit-roll
 Direct-plus-Radial impact fixtures.
 Probabilistic Multishot or
 pellets, Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, probabilistic hit distribution,

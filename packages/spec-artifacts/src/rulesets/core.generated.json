@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.16.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.17.0",
   "kind": "ruleset",
-  "schemaVersion": "0.16.0",
+  "schemaVersion": "0.17.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:3ff9a8da03bf756e46387836cee3ace00bfd9d1328b80fc9f4622b277f7a59c8",
+  "contentHash": "sha256:d0659a1f766ab740d8e6226e090d92fa035c076374627577e508cb687428a1c7",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -224,6 +224,29 @@
       ],
       "operation": {
         "kind": "damage-vector.copy"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.impact.resolve-shared-critical-roll",
+      "description": "Resolve one explicit Critical roll against the shared primary attack mode Critical chance at the parent impact, then expose one fixed tier for every Direct and Radial child.",
+      "phase": "critical.roll",
+      "eventKind": "action.resolved-direct-radial-impact",
+      "reads": [
+        "attack.critical-chance",
+        "event.critical-roll"
+      ],
+      "writes": [
+        "event.critical-tier",
+        "event.critical-base-tier",
+        "event.critical-next-tier",
+        "event.critical-fraction",
+        "event.critical-base-tier-probability",
+        "event.critical-next-tier-probability"
+      ],
+      "operation": {
+        "kind": "critical-tier.resolve-tier-roll"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

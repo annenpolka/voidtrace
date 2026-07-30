@@ -1,0 +1,64 @@
+{
+  "id": "golden.resolved-shared-roll-direct-radial-impact",
+  "scenarioId": "scenario.golden-resolved-shared-roll-direct-radial-impact",
+  "metrics": {
+    "critical.roll": 0.2,
+    "critical.base-tier": 0,
+    "critical.next-tier": 1,
+    "critical.fraction": 0.25,
+    "critical.base-tier.probability": 0.75,
+    "critical.next-tier.probability": 0.25,
+    "critical.tier-0.probability": 0.75,
+    "critical.tier-1.probability": 0.25,
+    "critical.tier": 1,
+    "impact.direct.damage-total": 100,
+    "impact.radial.damage-total": 135,
+    "impact.damage-total": 235,
+    "impact.radial-target-count": 2,
+    "damage.health.total": 235,
+    "targets.health.remaining-total": 215,
+    "targets.defeated-count": 0
+  },
+  "damageBySource": {
+    "action.resolved-shared-roll-direct-radial-impact-1": 235
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 235
+  },
+  "targetStates": {
+    "actor.target-a": {
+      "health": 100
+    },
+    "actor.target-b": {
+      "health": 60
+    },
+    "actor.target-c": {
+      "health": 55
+    }
+  },
+  "appliedRuleIds": [
+    "rule.impact.expand-resolved-direct-radial",
+    "rule.impact.resolve-shared-critical-roll",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.radial.construct-hit",
+    "rule.radial.scale-critical-tier",
+    "rule.radial.apply-resolved-falloff",
+    "rule.radial.standard-armor",
+    "rule.radial.commit-health",
+    "rule.radial.construct-hit",
+    "rule.radial.scale-critical-tier",
+    "rule.radial.apply-resolved-falloff",
+    "rule.radial.standard-armor",
+    "rule.radial.commit-health",
+    "rule.impact.aggregate-resolved-direct-radial"
+  ],
+  "rejectedRules": [],
+  "directTargetId": "actor.target-a",
+  "radialTargetOrder": ["actor.target-a", "actor.target-c"],
+  "sharedCriticalRoll": 0.2,
+  "resolvedCriticalTier": 1,
+  "tolerance": 0.000001
+}

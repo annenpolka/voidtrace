@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:d2437f821925e61e2e2567d4263ac6baa363ab107a47841a81a131978cb5da6d",
+  "sourceFingerprint": "sha256:38919548ff764c0da591e098c22297a7d3929cd55e073623717e86cdb10539ae",
   "activeClauses": [
     {
       "id": "CHN-001",
@@ -260,9 +260,17 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-017",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.jsonは共有primary modeのCritical chance 0.25と親impactの明示roll 0.2からtier 1を一度だけ解決し、Directと全Radial childへ継承する。DirectはAを300→200へ更新し、続くRadialはAを200→100、Cを90→55へ更新し、Bは範囲外で60を保つ。Direct Damage 100、Radial Damage 135、合計235、残Health合計215をliteral expected vectorとしてResultおよびTraceと照合し、親roll decisionが一つだけ存在する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "IMP-001",
       "pattern": "resolved_direct_radial_impact",
-      "desc": "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。radialAttackModeIdを省略した場合はattackerのattackModeIdをDirectとRadialで共有する。Projectile軌道、衝突、爆心、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない",
+      "desc": "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、明示された固定Critical tierまたは共有explicit rollと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。radialAttackModeIdを省略した場合はattackerのattackModeIdをDirectとRadialで共有する。Projectile軌道、衝突、爆心、暗黙または生成roll、Status、Multishot、Pelletは導出しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"
@@ -279,6 +287,14 @@
       "id": "IMP-003",
       "pattern": "resolved_direct_radial_impact",
       "desc": "action.resolved-direct-radial-impactが明示的なradialCriticalTierを持つ場合、DirectはcriticalTier、RadialはradialCriticalTierとしてそれぞれ非負safe-integer固定tierを読み、各attack modeのCritical multiplierを既存の一般化tier倍率Ruleへ適用する。radialCriticalTierを省略した場合はcriticalTierを共有する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。負数、非整数、安全でないtier、別roll、Critical chance、roll共有、expected分岐は受理または導出しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "IMP-004",
+      "pattern": "resolved_direct_radial_impact",
+      "desc": "action.resolved-direct-radial-impactがcriticalTierの代わりに明示的なcriticalRollを持つ場合、共有するprimary attack modeの非負Critical chanceと[0, 1)のrollから親impactで隣接tierを一度だけ解決し、そのtierをDirectと全Radial childへ継承する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。criticalTierとの併記、radialAttackModeId、radialCriticalTier、子別roll、生成乱数、expected分岐、実ゲームのroll共有規則は受理または導出しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"

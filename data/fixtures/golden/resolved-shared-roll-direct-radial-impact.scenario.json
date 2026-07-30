@@ -2,7 +2,7 @@
   "$schema": "urn:voidtrace:schema:scenario:0.3.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.3.0",
-  "id": "scenario.golden-resolved-radial-targets",
+  "id": "scenario.golden-resolved-shared-roll-direct-radial-impact",
   "revision": 0,
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
@@ -40,20 +40,10 @@
       }
     },
     {
-      "id": "actor.target-d",
-      "configuration": {
-        "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 40,
-        "resolvedShield": 0,
-        "resolvedArmor": 0,
-        "resolvedOverguard": 0
-      }
-    },
-    {
       "id": "actor.target-a",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 120,
+        "resolvedHealth": 300,
         "resolvedShield": 0,
         "resolvedArmor": 300,
         "resolvedOverguard": 0
@@ -73,49 +63,42 @@
   "targetGraph": {
     "relations": [
       {
-        "id": "target-relation.radial-a",
+        "id": "target-relation.impact-a-shared-roll",
         "kind": "target-relation.impact-distance",
-        "impactId": "impact.radial-1",
+        "impactId": "impact.direct-radial-shared-roll-1",
         "targetId": "actor.target-a",
         "resolvedDistanceMeters": 0,
         "lineOfSightClear": true
       },
       {
-        "id": "target-relation.radial-c",
+        "id": "target-relation.impact-c-shared-roll",
         "kind": "target-relation.impact-distance",
-        "impactId": "impact.radial-1",
+        "impactId": "impact.direct-radial-shared-roll-1",
         "targetId": "actor.target-c",
         "resolvedDistanceMeters": 5,
         "lineOfSightClear": true
       },
       {
-        "id": "target-relation.radial-b",
+        "id": "target-relation.impact-b-shared-roll",
         "kind": "target-relation.impact-distance",
-        "impactId": "impact.radial-1",
+        "impactId": "impact.direct-radial-shared-roll-1",
         "targetId": "actor.target-b",
         "resolvedDistanceMeters": 12,
         "lineOfSightClear": true
-      },
-      {
-        "id": "target-relation.radial-d",
-        "kind": "target-relation.impact-distance",
-        "impactId": "impact.radial-1",
-        "targetId": "actor.target-d",
-        "resolvedDistanceMeters": 4,
-        "lineOfSightClear": false
       }
     ]
   },
   "initialState": {},
   "actionPlan": [
     {
-      "id": "action.resolved-radial-targets-1",
-      "kind": "action.resolved-radial-targets",
+      "id": "action.resolved-shared-roll-direct-radial-impact-1",
+      "kind": "action.resolved-direct-radial-impact",
       "parameters": {
-        "impactId": "impact.radial-1",
+        "impactId": "impact.direct-radial-shared-roll-1",
+        "directTargetId": "actor.target-a",
         "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
-        "criticalTier": 0,
+        "criticalRoll": 0.2,
         "falloffStartMeters": 2,
         "falloffEndMeters": 8,
         "minimumFalloffMultiplier": 0.4
@@ -127,21 +110,32 @@
     "timeLimitMs": 1
   },
   "metrics": [
-    "radial.target-count",
-    "damage.radial.targets-total",
+    "critical.roll",
+    "critical.base-tier",
+    "critical.next-tier",
+    "critical.fraction",
+    "critical.base-tier.probability",
+    "critical.next-tier.probability",
+    "critical.tier-0.probability",
+    "critical.tier-1.probability",
+    "critical.tier",
+    "impact.direct.damage-total",
+    "impact.radial.damage-total",
+    "impact.damage-total",
+    "impact.radial-target-count",
     "damage.health.total",
     "targets.health.remaining-total",
     "targets.defeated-count"
   ],
   "assumptions": [
     {
-      "id": "assumption.synthetic-resolved-radial-targets",
-      "description": "Synthetic resolved impact distances and LoS with linear falloff; not a verified current-game Warframe rule."
+      "id": "assumption.synthetic-shared-critical-roll",
+      "description": "One explicit synthetic roll is resolved once against the shared primary mode Critical chance; it is not generated randomness or a verified current-game Warframe rule."
     },
     {
-      "id": "assumption.no-radial-geometry",
-      "description": "The fixture does not derive impact coordinates, terrain, LoS, distance, or current-game falloff parameters."
+      "id": "assumption.no-projectile-physics",
+      "description": "The fixture resolves impact, Direct target, distances, LoS, and falloff boundaries without trajectory, collision, terrain, or current-game falloff derivation."
     }
   ],
-  "contentHash": "sha256:44cfa5cfe2ceffe85c61ca77998293522094cabc047ee21e4229de8f63514756"
+  "contentHash": "sha256:b54eeb18c4447f7b67cb107c684d1bb9c4868be842062b8c55b3adae90883681"
 }

@@ -27,6 +27,8 @@ const distinctModeImpactScenarioPath =
   "data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.scenario.json";
 const distinctTierImpactScenarioPath =
   "data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json";
+const sharedRollImpactScenarioPath =
+  "data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.json";
 const catalogPath = "data/fixtures/catalog-mini/catalog.json";
 const tier2CatalogPath = "data/fixtures/catalog-mini/catalog-tier-2.json";
 
@@ -99,6 +101,8 @@ describe("installed VoidTrace CLI aliases", () => {
     ["trace", distinctModeImpactScenarioPath, "--catalog", catalogPath],
     ["run", distinctTierImpactScenarioPath, "--catalog", catalogPath],
     ["trace", distinctTierImpactScenarioPath, "--catalog", catalogPath],
+    ["run", sharedRollImpactScenarioPath, "--catalog", catalogPath],
+    ["trace", sharedRollImpactScenarioPath, "--catalog", catalogPath],
     ["run", "--help"],
     ["unknown"],
   ])("are byte-equivalent for %j", async (...argv) => {

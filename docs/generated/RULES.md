@@ -3,7 +3,7 @@
 # Runtime rules
 
 - Ruleset: `ruleset.synthetic-core`
-- Version: `0.16.0`
+- Version: `0.17.0`
 - Revision: `1`
 - Game build: `synthetic-fixture-0`
 - Generated IR: `packages/spec-artifacts/src/rulesets/core.generated.json`
@@ -24,6 +24,7 @@
 | `rule.critical.resolve-expected-branches` | `critical.expected` | `critical-tier.resolve-expected-branches` | `experimental` | For non-negative Critical chance c, resolve the same safe adjacent-tier probability distribution as explicit-roll resolution without selecting a realized tier. |
 | `rule.damage.direct-hit` | `damage.construct` | `damage-vector.copy` | `experimental` | For a resolved Direct Hit without modifiers, copy the Catalog attack mode base Damage Vector unchanged into event damage. |
 | `rule.radial.construct-hit` | `damage.construct` | `damage-vector.copy` | `experimental` | Copy the Catalog attack mode base Damage Vector into one resolved Radial Hit. |
+| `rule.impact.resolve-shared-critical-roll` | `critical.roll` | `critical-tier.resolve-tier-roll` | `experimental` | Resolve one explicit Critical roll against the shared primary attack mode Critical chance at the parent impact, then expose one fixed tier for every Direct and Radial child. |
 | `rule.critical.resolve-tier-roll` | `critical.roll` | `critical-tier.resolve-tier-roll` | `experimental` | For non-negative Critical chance c, let baseTier = floor(c) and fraction = c - baseTier. baseTier must be a safe integer; nextTier is baseTier when fraction is 0, otherwise baseTier + 1 and must also be safe. Resolve p(baseTier) = 1 - fraction and p(nextTier) = fraction from an explicit roll in [0, 1): nextTier exactly when roll is less than fraction, otherwise baseTier. |
 | `rule.critical.scale-tier` | `critical.resolve` | `damage-vector.scale-critical-tier` | `experimental` | For a resolved non-negative safe-integer Critical tier t and Catalog Critical multiplier M, scale event damage by 1 + t * (M - 1). |
 | `rule.radial.scale-critical-tier` | `critical.resolve` | `damage-vector.scale-critical-tier` | `experimental` | Scale one resolved Radial Hit by the same explicit fixed Critical tier operation as the synthetic Direct Hit slice. |

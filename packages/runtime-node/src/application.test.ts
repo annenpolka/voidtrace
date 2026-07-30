@@ -75,6 +75,12 @@ const distinctTierImpactScenarioPath = fileURLToPath(
     import.meta.url,
   ),
 );
+const sharedRollImpactScenarioPath = fileURLToPath(
+  new URL(
+    "../../../data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.json",
+    import.meta.url,
+  ),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -482,6 +488,31 @@ describe("createNodeApplication", () => {
       "targets.health.remaining-total": 188,
       "targets.defeated-count": 0,
     });
+  });
+
+  it("evaluates one shared Direct and Radial Critical roll through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: sharedRollImpactScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toMatchObject({
+      "critical.roll": 0.2,
+      "critical.tier": 1,
+      "impact.direct.damage-total": 100,
+      "impact.radial.damage-total": 135,
+      "impact.damage-total": 235,
+      "targets.health.remaining-total": 215,
+    });
+    expect(
+      outcome.trace.decisions.filter(
+        (decision) => decision.ruleId === "rule.impact.resolve-shared-critical-roll",
+      ),
+    ).toHaveLength(1);
   });
 
   it("produces the same outcome for file and stdin Scenario sources", async () => {

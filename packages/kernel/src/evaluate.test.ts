@@ -96,6 +96,12 @@ import distinctTierImpactExpectedFixture from "../../../data/fixtures/golden/res
 import distinctTierImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json" with {
   type: "json",
 };
+import sharedRollImpactExpectedFixture from "../../../data/fixtures/golden/resolved-shared-roll-direct-radial-impact.expected.json" with {
+  type: "json",
+};
+import sharedRollImpactScenarioFixture from "../../../data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.json" with {
+  type: "json",
+};
 import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
   type: "json",
 };
@@ -240,6 +246,14 @@ async function evaluateDistinctModeImpactGolden() {
 async function evaluateDistinctTierImpactGolden() {
   return evaluateScenario({
     scenario: structuredClone(distinctTierImpactScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateSharedRollImpactGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(sharedRollImpactScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -1692,6 +1706,200 @@ describe("evaluateScenario", () => {
       });
     },
   );
+
+  it("resolves one parent Critical roll and shares its tier with Direct and Radial children", async () => {
+    const outcome = await evaluateSharedRollImpactGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    expect(outcome.result.metrics).toEqual(sharedRollImpactExpectedFixture.metrics);
+    expect(outcome.result.damageBySource).toEqual(sharedRollImpactExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(sharedRollImpactExpectedFixture.damageByType);
+    expect(outcome.result.targetStates).toEqual(sharedRollImpactExpectedFixture.targetStates);
+    const sharedRollDecisions = outcome.trace.decisions.filter(
+      (decision) => decision.ruleId === "rule.impact.resolve-shared-critical-roll",
+    );
+    expect(sharedRollDecisions).toHaveLength(1);
+    const sharedRollDecision = sharedRollDecisions[0];
+    if (sharedRollDecision?.outcome !== "applied") {
+      throw new Error("Shared-roll Trace omitted its applied parent roll decision");
+    }
+    expect(sharedRollDecision?.reads).toEqual({
+      "attack.critical-chance": 0.25,
+      "event.critical-roll": sharedRollImpactExpectedFixture.sharedCriticalRoll,
+    });
+    expect(sharedRollDecision?.operations[0]?.parameters.resolvedTier).toBe(
+      sharedRollImpactExpectedFixture.resolvedCriticalTier,
+    );
+    const childCriticalDecisions = outcome.trace.decisions.filter(
+      (decision) =>
+        decision.ruleId === "rule.critical.scale-tier" ||
+        decision.ruleId === "rule.radial.scale-critical-tier",
+    );
+    expect(childCriticalDecisions.map((decision) => decision.reads["event.critical-tier"])).toEqual(
+      [1, 1, 1],
+    );
+    const childConstructDecisions = outcome.trace.decisions.filter(
+      (decision) =>
+        decision.ruleId === "rule.damage.direct-hit" ||
+        decision.ruleId === "rule.radial.construct-hit",
+    );
+    expect(childConstructDecisions.map((decision) => decision.parentEventId)).toEqual([
+      sharedRollDecision?.eventId,
+      sharedRollDecision?.eventId,
+      sharedRollDecision?.eventId,
+    ]);
+    expect(outcome.trace.decisions).toHaveLength(17);
+    expect(
+      await replayTraceTargetStates(outcome.trace, {
+        "actor.target-a": 300,
+        "actor.target-b": 60,
+        "actor.target-c": 90,
+      }),
+    ).toEqual({
+      damage: sharedRollImpactExpectedFixture.damageByType,
+      health: 215,
+      healthByTarget: {
+        "actor.target-a": 100,
+        "actor.target-c": 55,
+        "actor.target-b": 60,
+      },
+    });
+  });
+
+  it("property-tests the shared parent roll threshold and deterministic child inheritance", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(fc.integer({ min: 0, max: 999 }), async (rollBasisPoints) => {
+        const criticalRoll = rollBasisPoints / 1000;
+        const changed = structuredClone(sharedRollImpactScenarioFixture);
+        const action = changed.actionPlan[0];
+        if (action === undefined) {
+          throw new Error("Shared-roll impact golden omitted its action");
+        }
+        action.parameters.criticalRoll = criticalRoll;
+        const scenario = await rehash(changed);
+        const first = await evaluateScenario({ scenario, catalog, ruleset });
+        const second = await evaluateScenario({ scenario, catalog, ruleset });
+        expect(first.ok).toBe(true);
+        expect(second.ok).toBe(true);
+        if (!first.ok || !second.ok) {
+          return;
+        }
+        const tier = criticalRoll < 0.25 ? 1 : 0;
+        const directDamage = 50 * (1 + tier);
+        const radialDamage = 67.5 * (1 + tier);
+        expect(first.result.metrics["critical.roll"]).toBe(criticalRoll);
+        expect(first.result.metrics["critical.tier"]).toBe(tier);
+        expect(first.result.metrics["impact.direct.damage-total"]).toBe(directDamage);
+        expect(first.result.metrics["impact.radial.damage-total"]).toBeCloseTo(radialDamage, 6);
+        expect(first.result.metrics["impact.damage-total"]).toBeCloseTo(
+          directDamage + radialDamage,
+          6,
+        );
+        const childTiers = first.trace.decisions
+          .filter(
+            (decision) =>
+              decision.ruleId === "rule.critical.scale-tier" ||
+              decision.ruleId === "rule.radial.scale-critical-tier",
+          )
+          .map((decision) => decision.reads["event.critical-tier"]);
+        expect(childTiers).toEqual([tier, tier, tier]);
+        expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+      }),
+      { numRuns: 50 },
+    );
+  });
+
+  it.each([null, -0.1, 1, 1.1] as const)(
+    "rejects invalid shared impact Critical roll %s without partial Artifacts",
+    async (criticalRoll) => {
+      const changed = structuredClone(sharedRollImpactScenarioFixture);
+      const action = changed.actionPlan[0];
+      if (action === undefined) {
+        throw new Error("Shared-roll impact golden omitted its action");
+      }
+      (action.parameters as Record<string, unknown>).criticalRoll = criticalRoll;
+      const scenario = await rehash(changed);
+      const outcome = await evaluateScenario({
+        scenario,
+        catalog: structuredClone(catalogFixture),
+      });
+
+      expect(outcome).toMatchObject({
+        ok: false,
+        error: {
+          code: "scenario-invalid",
+          causeCode: "invalid-critical-resolution",
+          path: "/actionPlan/0/parameters/criticalRoll",
+        },
+      });
+    },
+  );
+
+  it.each([
+    ["criticalTier", 1],
+    ["radialCriticalTier", 1],
+    ["radialAttackModeId", "attack-mode.synthetic-aperture.radial"],
+  ] as const)("rejects shared impact Critical roll combined with %s", async (parameter, value) => {
+    const changed = structuredClone(sharedRollImpactScenarioFixture);
+    const action = changed.actionPlan[0];
+    if (action === undefined) {
+      throw new Error("Shared-roll impact golden omitted its action");
+    }
+    (action.parameters as Record<string, unknown>)[parameter] = value;
+    const scenario = await rehash(changed);
+    const outcome = await evaluateScenario({
+      scenario,
+      catalog: structuredClone(catalogFixture),
+    });
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: "scenario-invalid",
+        causeCode: "invalid-critical-resolution",
+        path: "/actionPlan/0/parameters",
+      },
+    });
+  });
+
+  it("rejects a rehashed Trace whose shared parent roll tier is inconsistent", async () => {
+    const outcome = await evaluateSharedRollImpactGolden();
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = structuredClone(outcome.trace);
+    const decision = changed.decisions.find(
+      (candidate) => candidate.ruleId === "rule.impact.resolve-shared-critical-roll",
+    );
+    if (decision?.outcome !== "applied") {
+      throw new Error("Shared-roll Trace omitted its applied parent roll decision");
+    }
+    const operation = decision?.operations[0];
+    if (operation === undefined) {
+      throw new Error("Shared-roll Trace omitted its parent roll operation");
+    }
+    (
+      operation.parameters as unknown as Record<string, string | number | boolean | null>
+    ).resolvedTier = 0;
+    const trace = await rehash(changed);
+
+    await expect(
+      replayTraceTargetStates(trace, {
+        "actor.target-a": 300,
+        "actor.target-b": 60,
+        "actor.target-c": 90,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid-operation-parameters",
+    });
+  });
 
   it("property-tests Direct-before-Radial shared World State and deterministic replay", async () => {
     const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));

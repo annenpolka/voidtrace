@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:d2437f821925e61e2e2567d4263ac6baa363ab107a47841a81a131978cb5da6d",
+  "sourceFingerprint": "sha256:38919548ff764c0da591e098c22297a7d3929cd55e073623717e86cdb10539ae",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -109,9 +109,11 @@
         "GOL-014",
         "GOL-015",
         "GOL-016",
+        "GOL-017",
         "IMP-001",
         "IMP-002",
-        "IMP-003"
+        "IMP-003",
+        "IMP-004"
       ],
       "plannedClauseRefs": []
     },

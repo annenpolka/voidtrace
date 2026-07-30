@@ -22,9 +22,9 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.schemaVersion).toBe("0.16.0");
+    expect(loaded.snapshot.schemaVersion).toBe("0.17.0");
     expect(loaded.snapshot.revision).toBe(1);
-    expect(loaded.snapshot.rules).toHaveLength(32);
+    expect(loaded.snapshot.rules).toHaveLength(33);
     expect(loaded.snapshot.rules.map((rule) => rule.id)).toEqual([
       "rule.multishot.emit-fixed-hits",
       "rule.pellet.emit-fixed-hits",
@@ -38,6 +38,7 @@ describe("loadRuleset", () => {
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
       "rule.radial.construct-hit",
+      "rule.impact.resolve-shared-critical-roll",
       "rule.critical.resolve-tier-roll",
       "rule.critical.scale-tier",
       "rule.radial.scale-critical-tier",
@@ -86,6 +87,11 @@ describe("loadRuleset", () => {
         "event.critical-base-tier-probability",
         "event.critical-next-tier-probability",
       ],
+      operation: { kind: "critical-tier.resolve-tier-roll" },
+    });
+    expect(loaded.resolveRule("rule.impact.resolve-shared-critical-roll")).toMatchObject({
+      phase: "critical.roll",
+      eventKind: "action.resolved-direct-radial-impact",
       operation: { kind: "critical-tier.resolve-tier-roll" },
     });
     expect(loaded.resolveRule("rule.critical.scale-tier")).toMatchObject({

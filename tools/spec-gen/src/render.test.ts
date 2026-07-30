@@ -249,6 +249,18 @@ describe("renderGeneratedFiles", () => {
           area: "mechanics",
           maturity: "active",
         },
+        {
+          ...clause,
+          id: "IMP-004",
+          area: "mechanics",
+          maturity: "active",
+        },
+        {
+          ...clause,
+          id: "GOL-017",
+          area: "mechanics",
+          maturity: "active",
+        },
       ],
     });
     const capabilities = generated.find(
@@ -313,7 +325,7 @@ describe("renderGeneratedFiles", () => {
         expect.objectContaining({
           id: "mechanics.resolved-direct-radial-impact",
           status: "supported",
-          activeClauseRefs: ["IMP-002", "GOL-015", "IMP-003", "GOL-016"],
+          activeClauseRefs: ["IMP-002", "GOL-015", "IMP-003", "GOL-016", "IMP-004", "GOL-017"],
         }),
       ]),
     );

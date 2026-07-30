@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.16.0",
+    "schemaVersion": "0.17.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:3ff9a8da03bf756e46387836cee3ace00bfd9d1328b80fc9f4622b277f7a59c8",
+    "contentHash": "sha256:d0659a1f766ab740d8e6226e090d92fa035c076374627577e508cb687428a1c7",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -82,5 +82,5 @@
       "description": "Every emitted pellet uses the same explicit fixed Critical tier; no Critical, Multishot, or pellet roll is generated."
     }
   ],
-  "contentHash": "sha256:eda6ebac854894ac9d39498f965fdef5b38fa49697acfc5381dc263877216460"
+  "contentHash": "sha256:d11ad30549c6d7d837166073de9207897cb7d3f837b5aac203274a3de762b411"
 }

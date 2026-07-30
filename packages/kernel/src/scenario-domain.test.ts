@@ -27,6 +27,9 @@ import distinctModeImpactScenarioFixture from "../../../data/fixtures/golden/res
 import distinctTierImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json" with {
   type: "json",
 };
+import sharedRollImpactScenarioFixture from "../../../data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.json" with {
+  type: "json",
+};
 import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
   type: "json",
 };
@@ -445,6 +448,24 @@ describe("parseScenarioDomain", () => {
           kind: "resolved-direct-radial-impact",
           criticalTier: 1,
           radialCriticalTier: 2,
+        },
+      },
+    });
+  });
+
+  it("binds one explicit parent Critical roll on a resolved impact", async () => {
+    const result = await parseScenarioDomain(structuredClone(sharedRollImpactScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          kind: "resolved-direct-radial-impact",
+          radialAttackModeId: null,
+          criticalResolution: "roll",
+          criticalTier: null,
+          radialCriticalTier: null,
+          criticalRoll: 0.2,
         },
       },
     });

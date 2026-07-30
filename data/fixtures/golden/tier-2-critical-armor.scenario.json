@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.16.0",
+    "schemaVersion": "0.17.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:3ff9a8da03bf756e46387836cee3ace00bfd9d1328b80fc9f4622b277f7a59c8",
+    "contentHash": "sha256:d0659a1f766ab740d8e6226e090d92fa035c076374627577e508cb687428a1c7",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -87,5 +87,5 @@
       "description": "Critical chance 1.25 and literal roll 0.2 resolve tier 2 under the experimental adjacent-tier rule."
     }
   ],
-  "contentHash": "sha256:09c012c9b5f29d8af341b85feb5b3f9dc7a24b60b802379bbf88d4b6403874f1"
+  "contentHash": "sha256:9cfc6c13629100eb402e694a4a652492bffb712956c5cca0a7bac612e4906c67"
 }

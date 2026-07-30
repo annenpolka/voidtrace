@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, resolved target-specific Pellet allocation, standalone or multi-target resolved Radial, shared-mode, checked-in distinct-mode, or checked-in distinct-fixed-tier Direct-plus-Radial impact DAGs, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, projectile physics, arbitrary attack-mode composition, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, Catalog- or current-game-derived Radial falloff, probabilistic Multishot, unresolved pellet allocation, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, resolved target-specific Pellet allocation, standalone or multi-target resolved Radial, shared-mode, checked-in distinct-mode, checked-in distinct-fixed-tier, or checked-in shared-explicit-roll Direct-plus-Radial impact DAGs, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, projectile physics, arbitrary attack-mode composition, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, Catalog- or current-game-derived Radial falloff, probabilistic Multishot, unresolved pellet allocation, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -63,26 +63,31 @@ checked-in three-target Direct-plus-Radial impact Scenarios:
 - the repository-local distinct-tier Direct plus Radial impact Scenario through the formal CLI,
   where Direct uses explicit fixed tier 1, Radial uses explicit fixed tier 2, and both commit to
   the same target-local World State in Direct-before-Radial order;
+- the repository-local shared-roll Direct plus Radial impact Scenario through the formal CLI,
+  where one parent roll 0.2 resolves once against the shared primary mode Critical chance 0.25
+  and all Direct and Radial children inherit fixed tier 1;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
 - neutral body hit against Health;
 - full Result and causal Trace JSON.
 
-Before running a Direct-plus-Radial request, require checked-in resolved impact relations and
-explicit fixed Critical tiers. Use the shared-mode Golden when no separate mode or tier is
-requested, the distinct-mode Golden only when the request matches its explicit primary Direct
+Before running a Direct-plus-Radial request, require checked-in resolved impact relations and one
+supported explicit Critical resolution. Use the shared-mode Golden when no separate mode or tier
+is requested, the distinct-mode Golden only when the request matches its explicit primary Direct
 mode and separate Radial mode, or the distinct-tier Golden only when the request matches its
-explicit Direct tier 1 and Radial tier 2. If the request asks for trajectory, collision,
-arbitrary/custom mode composition, arbitrary/custom/generated Direct and Radial tiers, or rolls,
-stop without asking for missing values and without running a nearby fixture as a substitute.
+explicit Direct tier 1 and Radial tier 2. Use the shared-roll Golden only when the request matches
+its single explicit roll 0.2, shared primary mode, and inherited tier 1. If the request asks for
+trajectory, collision, arbitrary/custom mode composition, arbitrary/custom/generated Direct and
+Radial tiers, a different impact roll, child-specific rolls, or generated rolls, stop without
+asking for missing values and without running a nearby fixture as a substitute.
 
 The helper does not synthesize or vary Critical chance or rolls. The formal CLI can evaluate the
 repository-local explicit-roll, expected, resolved fixed-count Multishot, resolved
 punch-through, resolved ricochet, resolved chain, resolved multi-target Radial, resolved Pellet
 allocation, and resolved Direct plus Radial impact Scenarios. The
-distinct-mode and distinct-tier Direct plus Radial impact Scenarios are also available only
-through the formal CLI.
+distinct-mode, distinct-tier, and shared-roll Direct plus Radial impact Scenarios are also
+available only through the formal CLI.
 The
 helper does not accept a Multishot count, pellet count, target path, impact relation, or per-target
 override. Generated random rolls, custom Critical
@@ -92,7 +97,7 @@ expected values, unresolved or probabilistic hit distribution, Spread, unsafe or
 aggregation, mods, headshots, Shield, Overguard, projectiles, real-game imports, and build
 recommendations are unsupported. Catalog- or current-game-derived Radial falloff, physical
 geometry, Projectile trajectory or collision, arbitrary or custom attack modes, arbitrary or
-custom separate Direct/Radial tiers within one impact, custom Direct-plus-Radial inputs through the helper, custom multi-target
+custom separate Direct/Radial tiers or rolls within one impact, custom Direct-plus-Radial inputs through the helper, custom multi-target
 Radial inputs through the helper, and Radial expected values or generated rolls are also
 unsupported.
 Status chance, Proc count or type resolution,
@@ -113,7 +118,9 @@ the checked-in action commits that Direct child before Radial children and does 
 physical Projectile. It may omit `radialAttackModeId` to share the attacker mode, or explicitly
 name the checked-in same-weapon radial mode; an unknown mode is a Catalog resolution failure. It
 may also omit `radialCriticalTier` to share `criticalTier`, or explicitly name the checked-in
-distinct Radial fixed tier. The helper does not vary either per-impact tier.
+distinct Radial fixed tier. Alternatively, the checked-in shared-roll action omits both tier
+fields and uses one `criticalRoll`; it cannot combine that roll with `radialAttackModeId` or
+`radialCriticalTier`. The helper does not vary any per-impact tier or roll.
 If a proposed mutation names an unknown target or keeps a stale
 `contentHash`, report the invalid reference or Artifact-integrity failure and stop; do not
 silently redirect the target, add one, or rehash solely to manufacture acceptance. It also accepts one
@@ -193,6 +200,10 @@ pnpm exec vt trace data/fixtures/golden/resolved-distinct-mode-direct-radial-imp
 pnpm exec vt run data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -350,6 +361,14 @@ for another agent or script. `--help` lists the finite adapter options.
   tier 2, and all three remain under the common parent event in Direct-before-Radial order. Do not
   infer rolls, Critical chance, roll-sharing, arbitrary tier synthesis, or current-game mechanics
   from these fixed inputs.
+- The shared-roll Direct plus Radial Golden has one parent
+  `rule.impact.resolve-shared-critical-roll` decision. It reads Critical chance 0.25 and explicit
+  roll 0.2, resolves tier 1 once, and parents the Direct and two Radial construct decisions. All
+  three child Critical decisions read tier 1. Report Direct 100, Radial 135, aggregate 235,
+  remaining Health 215, target Health A=100, C=55, B=60, and 17 decisions. This is an explicit
+  synthetic input, not generated randomness or a verified current-game roll-sharing rule. Do not
+  extrapolate to distinct attack-mode chances, child-specific rolls, expected values, or arbitrary
+  roll inputs.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
 For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,

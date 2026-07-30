@@ -74,7 +74,7 @@ resolvedRadialTargetsUseDistanceAndLos: base.ResolvedRadialTargets = new {
 resolvedDirectRadialImpactSharesParentAndWorldState: base.ResolvedDirectRadialImpact = new {
   id = "IMP-001"
   desc =
-    "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。radialAttackModeIdを省略した場合はattackerのattackModeIdをDirectとRadialで共有する。Projectile軌道、衝突、爆心、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない"
+    "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、明示された固定Critical tierまたは共有explicit rollと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。radialAttackModeIdを省略した場合はattackerのattackModeIdをDirectとRadialで共有する。Projectile軌道、衝突、爆心、暗黙または生成roll、Status、Multishot、Pelletは導出しない"
   maturity = "active"
 }
 
@@ -89,6 +89,13 @@ resolvedDirectRadialImpactCanBindDistinctFixedCriticalTiers: base.ResolvedDirect
   id = "IMP-003"
   desc =
     "action.resolved-direct-radial-impactが明示的なradialCriticalTierを持つ場合、DirectはcriticalTier、RadialはradialCriticalTierとしてそれぞれ非負safe-integer固定tierを読み、各attack modeのCritical multiplierを既存の一般化tier倍率Ruleへ適用する。radialCriticalTierを省略した場合はcriticalTierを共有する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。負数、非整数、安全でないtier、別roll、Critical chance、roll共有、expected分岐は受理または導出しない"
+  maturity = "active"
+}
+
+resolvedDirectRadialImpactCanShareExplicitCriticalRoll: base.ResolvedDirectRadialImpact = new {
+  id = "IMP-004"
+  desc =
+    "action.resolved-direct-radial-impactがcriticalTierの代わりに明示的なcriticalRollを持つ場合、共有するprimary attack modeの非負Critical chanceと[0, 1)のrollから親impactで隣接tierを一度だけ解決し、そのtierをDirectと全Radial childへ継承する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。criticalTierとの併記、radialAttackModeId、radialCriticalTier、子別roll、生成乱数、expected分岐、実ゲームのroll共有規則は受理または導出しない"
   maturity = "active"
 }
 

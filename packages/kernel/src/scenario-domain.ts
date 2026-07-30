@@ -250,6 +250,16 @@ const RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS = Object.freeze([
   ...RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
   "directTargetId",
 ] as const);
+const RESOLVED_DIRECT_RADIAL_IMPACT_ROLL_PARAMETER_KEYS = Object.freeze([
+  "impactId",
+  "directTargetId",
+  "hitLocation",
+  "damageLayer",
+  "criticalRoll",
+  "falloffStartMeters",
+  "falloffEndMeters",
+  "minimumFalloffMultiplier",
+] as const);
 const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "multishot.hit-count",
   "damage.multishot.total",
@@ -343,6 +353,13 @@ const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set
   "critical.tier-1.probability",
 ]);
 const EXPLICIT_ROLL_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set(["critical.roll"]);
+const SHARED_ROLL_DIRECT_RADIAL_IMPACT_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> =
+  new Set([
+    ...DIRECT_RADIAL_IMPACT_AVAILABLE_METRIC_IDS,
+    ...DISTRIBUTION_CRITICAL_METRIC_IDS,
+    ...EXPLICIT_ROLL_ONLY_METRIC_IDS,
+    "critical.tier",
+  ]);
 const EXPECTED_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "critical.expected.multiplier",
   "damage.expected.post-critical.total",
@@ -465,6 +482,12 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
     isDirectRadialImpact &&
     candidateAction !== undefined &&
     Object.hasOwn(candidateAction.parameters, "radialCriticalTier");
+  const hasCriticalTier =
+    candidateAction !== undefined && Object.hasOwn(candidateAction.parameters, "criticalTier");
+  const hasSharedCriticalRoll =
+    isDirectRadialImpact &&
+    candidateAction !== undefined &&
+    Object.hasOwn(candidateAction.parameters, "criticalRoll");
   const mechanicId = isDirectRadialImpact
     ? "mechanic.impact.resolved-direct-radial"
     : "mechanic.radial.resolved-targets";
@@ -553,14 +576,32 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       action?.kind ?? "action.missing",
     );
   }
+  if (isDirectRadialImpact && hasCriticalTier === hasSharedCriticalRoll) {
+    return failure(
+      "invalid-critical-resolution",
+      "/actionPlan/0/parameters",
+      "Resolved Direct plus Radial impact requires exactly one of criticalTier or criticalRoll",
+      "mechanic.critical.probability",
+    );
+  }
+  if (hasSharedCriticalRoll && (hasDistinctRadialAttackMode || hasDistinctRadialCriticalTier)) {
+    return failure(
+      "invalid-critical-resolution",
+      "/actionPlan/0/parameters",
+      "Shared impact criticalRoll cannot be combined with radialAttackModeId or radialCriticalTier",
+      "mechanic.critical.probability",
+    );
+  }
   const actionKeyError = exactKeys(
     action.parameters,
     isDirectRadialImpact
-      ? [
-          ...RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS,
-          ...(hasDistinctRadialAttackMode ? ["radialAttackModeId"] : []),
-          ...(hasDistinctRadialCriticalTier ? ["radialCriticalTier"] : []),
-        ]
+      ? hasSharedCriticalRoll
+        ? RESOLVED_DIRECT_RADIAL_IMPACT_ROLL_PARAMETER_KEYS
+        : [
+            ...RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS,
+            ...(hasDistinctRadialAttackMode ? ["radialAttackModeId"] : []),
+            ...(hasDistinctRadialCriticalTier ? ["radialCriticalTier"] : []),
+          ]
       : RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
     "/actionPlan/0/parameters",
   );
@@ -599,8 +640,11 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       "mechanic.damage-layer",
     );
   }
-  const criticalTier = action.parameters.criticalTier;
-  if (typeof criticalTier !== "number" || !Number.isSafeInteger(criticalTier) || criticalTier < 0) {
+  const criticalTier = hasCriticalTier ? action.parameters.criticalTier : null;
+  if (
+    hasCriticalTier &&
+    (typeof criticalTier !== "number" || !Number.isSafeInteger(criticalTier) || criticalTier < 0)
+  ) {
     return failure(
       "unsupported-critical-tier",
       "/actionPlan/0/parameters/criticalTier",
@@ -608,11 +652,26 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       "mechanic.critical.tier-multiplier",
     );
   }
+  const criticalRoll = hasSharedCriticalRoll ? action.parameters.criticalRoll : null;
+  if (
+    hasSharedCriticalRoll &&
+    (typeof criticalRoll !== "number" ||
+      !Number.isFinite(criticalRoll) ||
+      criticalRoll < 0 ||
+      criticalRoll >= 1)
+  ) {
+    return failure(
+      "invalid-critical-resolution",
+      "/actionPlan/0/parameters/criticalRoll",
+      "Shared impact criticalRoll must be a finite number in the half-open interval [0, 1)",
+      "mechanic.critical.probability",
+    );
+  }
   const radialCriticalTier = hasDistinctRadialCriticalTier
     ? action.parameters.radialCriticalTier
     : null;
   if (
-    radialCriticalTier !== null &&
+    hasDistinctRadialCriticalTier &&
     (typeof radialCriticalTier !== "number" ||
       !Number.isSafeInteger(radialCriticalTier) ||
       radialCriticalTier < 0)
@@ -624,6 +683,10 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       "mechanic.critical.tier-multiplier",
     );
   }
+  const parsedCriticalTier = typeof criticalTier === "number" ? criticalTier : null;
+  const parsedCriticalRoll = typeof criticalRoll === "number" ? criticalRoll : null;
+  const parsedRadialCriticalTier =
+    typeof radialCriticalTier === "number" ? radialCriticalTier : null;
   const falloffStartMeters = readNonNegativeFiniteNumber(
     action.parameters,
     "falloffStartMeters",
@@ -835,9 +898,12 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       );
     }
     const supportedMetric = metric as SupportedMetricId;
-    const availableMetrics = isDirectRadialImpact
-      ? DIRECT_RADIAL_IMPACT_AVAILABLE_METRIC_IDS
-      : RADIAL_TARGET_AVAILABLE_METRIC_IDS;
+    const availableMetrics =
+      isDirectRadialImpact && hasSharedCriticalRoll
+        ? SHARED_ROLL_DIRECT_RADIAL_IMPACT_AVAILABLE_METRIC_IDS
+        : isDirectRadialImpact
+          ? DIRECT_RADIAL_IMPACT_AVAILABLE_METRIC_IDS
+          : RADIAL_TARGET_AVAILABLE_METRIC_IDS;
     if (!availableMetrics.has(supportedMetric)) {
       return failure(
         "unsupported-metric",
@@ -903,10 +969,10 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       pelletAllocationRelations: Object.freeze([]),
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
-      criticalResolution: "fixed",
-      criticalTier,
-      radialCriticalTier,
-      criticalRoll: null,
+      criticalResolution: hasSharedCriticalRoll ? "roll" : "fixed",
+      criticalTier: parsedCriticalTier,
+      radialCriticalTier: parsedRadialCriticalTier,
+      criticalRoll: parsedCriticalRoll,
       hitCount: radialTargetRelations.filter((relation) => relation.hit).length,
       resolvedRadialFalloffMultiplier: 1,
       statusId: null,

@@ -4,8 +4,8 @@ module voidtrace.contracts.ruleset
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.16.0"
-local contractVersion = "0.16.0"
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.17.0"
+local contractVersion = "0.17.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
