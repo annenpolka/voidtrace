@@ -9,10 +9,19 @@ import { loadCoreRuleset } from "@voidtrace/rules";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import catalogFixture from "../../../data/fixtures/catalog-mini/catalog.json" with { type: "json" };
+import tier2CatalogFixture from "../../../data/fixtures/catalog-mini/catalog-tier-2.json" with {
+  type: "json",
+};
 import expectedFixture from "../../../data/fixtures/golden/direct-critical-armor.expected.json" with {
   type: "json",
 };
 import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
+  type: "json",
+};
+import expectedExpectedFixture from "../../../data/fixtures/golden/expected-critical-armor.expected.json" with {
+  type: "json",
+};
+import expectedScenarioFixture from "../../../data/fixtures/golden/expected-critical-armor.scenario.json" with {
   type: "json",
 };
 import probabilityExpectedFixture from "../../../data/fixtures/golden/probability-critical-armor.expected.json" with {
@@ -21,9 +30,15 @@ import probabilityExpectedFixture from "../../../data/fixtures/golden/probabilit
 import probabilityScenarioFixture from "../../../data/fixtures/golden/probability-critical-armor.scenario.json" with {
   type: "json",
 };
+import tier2ExpectedFixture from "../../../data/fixtures/golden/tier-2-critical-armor.expected.json" with {
+  type: "json",
+};
+import tier2ScenarioFixture from "../../../data/fixtures/golden/tier-2-critical-armor.scenario.json" with {
+  type: "json",
+};
 import { evaluateScenario } from "./evaluate.ts";
 import { SUPPORTED_METRIC_IDS } from "./scenario-domain.ts";
-import { replayTraceDamage, type TraceReplayError } from "./trace-replay.ts";
+import { replayTraceDamage, replayTraceState, type TraceReplayError } from "./trace-replay.ts";
 
 async function evaluateGolden() {
   return evaluateScenario({
@@ -37,6 +52,22 @@ async function evaluateProbabilityGolden() {
   return evaluateScenario({
     scenario: structuredClone(probabilityScenarioFixture),
     catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateTier2Golden() {
+  return evaluateScenario({
+    scenario: structuredClone(tier2ScenarioFixture),
+    catalog: structuredClone(tier2CatalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateExpectedGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(expectedScenarioFixture),
+    catalog: structuredClone(tier2CatalogFixture),
     productVersion: "0.0.0",
   });
 }
@@ -65,7 +96,7 @@ describe("evaluateScenario", () => {
     expect(outcome.result.coverage).toEqual({
       verified: [],
       experimental: [
-        "mechanic.critical.fixed-tier",
+        "mechanic.critical.tier-multiplier",
         "mechanic.damage.direct-hit",
         "mechanic.damage.health-commit",
         "mechanic.defense.standard-armor",
@@ -87,10 +118,14 @@ describe("evaluateScenario", () => {
       }));
     expect(appliedRuleIds).toEqual(expectedFixture.appliedRuleIds);
     expect(rejectedRules).toEqual(expectedFixture.rejectedRules);
-    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual([0, 1, 2, 3, 4]);
+    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual([0, 1, 2, 3]);
     expect(outcome.trace.decisions.every((decision) => decision.eventTimeMs === 0)).toBe(true);
 
     expect(await replayTraceDamage(outcome.trace)).toEqual(outcome.result.damageByType);
+    expect(await replayTraceState(outcome.trace, 1_000)).toEqual({
+      damage: outcome.result.damageByType,
+      health: 900,
+    });
     expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
     expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
     expect(await verifyResultTraceIntegrity(outcome.result, outcome.trace, scenarioFixture)).toBe(
@@ -117,8 +152,8 @@ describe("evaluateScenario", () => {
     expect(outcome.result.coverage).toEqual({
       verified: [],
       experimental: [
-        "mechanic.critical.fixed-tier",
         "mechanic.critical.probability",
+        "mechanic.critical.tier-multiplier",
         "mechanic.damage.direct-hit",
         "mechanic.damage.health-commit",
         "mechanic.defense.standard-armor",
@@ -140,36 +175,300 @@ describe("evaluateScenario", () => {
       }));
     expect(appliedRuleIds).toEqual(probabilityExpectedFixture.appliedRuleIds);
     expect(rejectedRules).toEqual(probabilityExpectedFixture.rejectedRules);
-    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual([
-      0, 1, 2, 3, 4, 5,
-    ]);
+    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual([0, 1, 2, 3, 4]);
     expect(outcome.trace.decisions[1]).toMatchObject({
       outcome: "applied",
       phase: "critical.roll",
-      ruleId: "rule.critical.resolve-binary-roll",
+      ruleId: "rule.critical.resolve-tier-roll",
       reads: {
         "attack.critical-chance": 0.25,
         "event.critical-roll": 0.2,
       },
       operations: [
         {
-          kind: "critical-tier.resolve-binary-roll",
+          kind: "critical-tier.resolve-tier-roll",
           parameters: {
             criticalChance: 0.25,
             criticalRoll: 0.2,
+            baseTier: 0,
+            nextTier: 1,
+            fraction: 0.25,
+            baseTierProbability: 0.75,
+            nextTierProbability: 0.25,
             tier0Probability: 0.75,
             tier1Probability: 0.25,
             resolvedTier: 1,
+            factor: 1,
           },
         },
       ],
     });
 
     expect(await replayTraceDamage(outcome.trace)).toEqual(outcome.result.damageByType);
+    expect(await replayTraceState(outcome.trace, 1_000)).toEqual({
+      damage: outcome.result.damageByType,
+      health: 900,
+    });
     expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
     expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
     expect(
       await verifyResultTraceIntegrity(outcome.result, outcome.trace, probabilityScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("matches the independently authored tier-2 explicit-roll Critical golden", async () => {
+    const outcome = await evaluateTier2Golden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+
+    for (const [metricId, expected] of Object.entries(tier2ExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(tier2ExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(tier2ExpectedFixture.damageByType);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(tier2ExpectedFixture.appliedRuleIds);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "rejected")
+        .map((decision) => ({
+          ruleId: decision.ruleId,
+          stage: decision.rejectionStage,
+          code: decision.rejectionReason.code,
+        })),
+    ).toEqual(tier2ExpectedFixture.rejectedRules);
+    expect(outcome.result.coverage).toEqual({
+      verified: [],
+      experimental: [
+        "mechanic.critical.probability",
+        "mechanic.critical.tier-multiplier",
+        "mechanic.damage.direct-hit",
+        "mechanic.damage.health-commit",
+        "mechanic.defense.standard-armor",
+      ],
+      disputed: [],
+      unsupported: [],
+      approximated: [],
+    });
+    expect(outcome.trace.decisions[1]).toMatchObject({
+      outcome: "applied",
+      phase: "critical.roll",
+      ruleId: "rule.critical.resolve-tier-roll",
+      reads: {
+        "attack.critical-chance": 1.25,
+        "event.critical-roll": 0.2,
+      },
+      operations: [
+        {
+          kind: "critical-tier.resolve-tier-roll",
+          parameters: {
+            criticalChance: 1.25,
+            criticalRoll: 0.2,
+            baseTier: 1,
+            nextTier: 2,
+            fraction: 0.25,
+            baseTierProbability: 0.75,
+            nextTierProbability: 0.25,
+            tier0Probability: 0,
+            tier1Probability: 0.75,
+            resolvedTier: 2,
+            factor: 1,
+          },
+        },
+      ],
+      before: {
+        "damage.total": 100,
+        "target.health": 1000,
+      },
+      after: {
+        "damage.total": 100,
+        "target.health": 1000,
+      },
+    });
+    expect(outcome.trace.decisions[2]).toMatchObject({
+      outcome: "applied",
+      phase: "critical.resolve",
+      ruleId: "rule.critical.scale-tier",
+      reads: {
+        "attack.critical-multiplier": 2,
+        "event.critical-tier": 2,
+        "event.damage": 100,
+      },
+      operations: [
+        {
+          kind: "damage-vector.scale-critical-tier",
+          parameters: {
+            actualTier: 2,
+            criticalMultiplier: 2,
+            factor: 3,
+          },
+        },
+      ],
+      before: {
+        "damage.total": 100,
+        "target.health": 1000,
+      },
+      after: {
+        "damage.total": 300,
+        "target.health": 1000,
+      },
+    });
+    expect(await replayTraceDamage(outcome.trace)).toEqual(outcome.result.damageByType);
+    expect(await replayTraceState(outcome.trace, 1_000)).toEqual({
+      damage: outcome.result.damageByType,
+      health: 850,
+    });
+    expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
+    expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, tier2ScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("matches terminal-branch expected Critical golden semantics including Health clamp", async () => {
+    const outcome = await evaluateExpectedGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+
+    for (const [metricId, expected] of Object.entries(expectedExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(expectedExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(expectedExpectedFixture.damageByType);
+    expect(outcome.result.metrics).not.toHaveProperty("critical.roll");
+    expect(outcome.result.metrics).not.toHaveProperty("critical.tier");
+    expect(outcome.result.metrics).not.toHaveProperty("critical.multiplier");
+    expect(outcome.result.metrics).not.toHaveProperty("target.health.remaining");
+    expect(outcome.result.coverage).toEqual({
+      verified: [],
+      experimental: [
+        "mechanic.critical.expected-value",
+        "mechanic.critical.tier-multiplier",
+        "mechanic.damage.direct-hit",
+        "mechanic.damage.health-commit",
+        "mechanic.defense.standard-armor",
+      ],
+      disputed: [],
+      unsupported: [],
+      approximated: [],
+    });
+
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(expectedExpectedFixture.appliedRuleIds);
+    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ]);
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      phase: "critical.expected",
+      ruleId: "rule.critical.resolve-expected-branches",
+      reads: {
+        "attack.critical-chance": 1.25,
+      },
+      operations: [
+        {
+          kind: "critical-tier.resolve-expected-branches",
+          parameters: {
+            baseTier: 1,
+            nextTier: 2,
+            baseTierProbability: 0.75,
+            nextTierProbability: 0.25,
+          },
+        },
+      ],
+    });
+    expect(outcome.trace.decisions[4]).toMatchObject({
+      ruleId: "rule.damage.commit-health",
+      operations: [
+        {
+          parameters: {
+            "branch.id": "branch.critical-tier-1",
+            "branch.weight": 0.75,
+            healthAfter: 25,
+          },
+        },
+      ],
+    });
+    expect(outcome.trace.decisions[8]).toMatchObject({
+      ruleId: "rule.damage.commit-health",
+      operations: [
+        {
+          parameters: {
+            "branch.id": "branch.critical-tier-2",
+            "branch.weight": 0.25,
+            healthAfter: 0,
+          },
+        },
+      ],
+    });
+    expect(outcome.trace.decisions[9]).toMatchObject({
+      phase: "result.aggregate",
+      ruleId: "rule.critical.aggregate-expected-branches",
+      reads: {
+        "branch.damage": canonicalizeJson([
+          {
+            id: "branch.critical-tier-1",
+            damage: { "damage.synthetic-kinetic": 100 },
+          },
+          {
+            id: "branch.critical-tier-2",
+            damage: { "damage.synthetic-kinetic": 150 },
+          },
+        ]),
+        "branch.health": canonicalizeJson([
+          { id: "branch.critical-tier-1", health: 25 },
+          { id: "branch.critical-tier-2", health: 0 },
+        ]),
+        "branch.weight": canonicalizeJson([
+          { id: "branch.critical-tier-1", tier: 1, weight: 0.75 },
+          { id: "branch.critical-tier-2", tier: 2, weight: 0.25 },
+        ]),
+      },
+      operations: [
+        {
+          parameters: {
+            "branch.0.damageTotal": 100,
+            "branch.0.health": 25,
+            "branch.0.damage.damage.synthetic-kinetic": 100,
+            "branch.1.damageTotal": 150,
+            "branch.1.health": 0,
+            "branch.1.damage.damage.synthetic-kinetic": 150,
+          },
+        },
+      ],
+      after: {
+        "damage.total": 112.5,
+        "target.health": 18.75,
+      },
+    });
+    expect(outcome.result.metrics["target.health.expected-remaining"]).toBe(18.75);
+    expect(125 - (outcome.result.metrics["damage.expected.health.total"] as number)).toBe(12.5);
+
+    expect(await replayTraceDamage(outcome.trace)).toEqual(outcome.result.damageByType);
+    expect(await replayTraceState(outcome.trace, 125)).toEqual({
+      damage: outcome.result.damageByType,
+      health: 18.75,
+    });
+    await expect(replayTraceState(outcome.trace, 126)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+    expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
+    expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, expectedScenarioFixture),
     ).toBe(true);
   });
 
@@ -182,12 +481,12 @@ describe("evaluateScenario", () => {
     expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
   });
 
-  it("resolves binary Critical probabilities and threshold rolls deterministically", async () => {
+  it("resolves adjacent Critical-tier probabilities and threshold rolls deterministically", async () => {
     const ruleset = await loadCoreRuleset();
 
     await fc.assert(
       fc.asyncProperty(
-        fc.integer({ min: 0, max: 1_000_000 }),
+        fc.integer({ min: 0, max: 100_000_000 }),
         fc.integer({ min: 0, max: 999_999 }),
         async (chanceNumerator, rollNumerator) => {
           const criticalChance = chanceNumerator / 1_000_000;
@@ -218,12 +517,102 @@ describe("evaluateScenario", () => {
             return;
           }
 
-          const tier0 = first.result.metrics["critical.tier-0.probability"];
-          const tier1 = first.result.metrics["critical.tier-1.probability"];
-          expect(tier0).toBeCloseTo(1 - criticalChance, 15);
-          expect(tier1).toBeCloseTo(criticalChance, 15);
-          expect((tier0 as number) + (tier1 as number)).toBeCloseTo(1, 15);
-          expect(first.result.metrics["critical.tier"]).toBe(criticalRoll < criticalChance ? 1 : 0);
+          const baseTier = Math.floor(criticalChance);
+          const fraction = criticalChance - baseTier;
+          const nextTier = fraction === 0 ? baseTier : baseTier + 1;
+          const baseProbability = first.result.metrics["critical.base-tier.probability"];
+          const nextProbability = first.result.metrics["critical.next-tier.probability"];
+          expect(first.result.metrics["critical.base-tier"]).toBe(baseTier);
+          expect(first.result.metrics["critical.next-tier"]).toBe(nextTier);
+          expect(first.result.metrics["critical.fraction"]).toBeCloseTo(fraction, 15);
+          expect(baseProbability).toBeCloseTo(1 - fraction, 15);
+          expect(nextProbability).toBeCloseTo(fraction, 15);
+          expect((baseProbability as number) + (nextProbability as number)).toBeCloseTo(1, 15);
+          expect(first.result.metrics["critical.tier"]).toBe(
+            criticalRoll < fraction ? nextTier : baseTier,
+          );
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+          expect(await replayTraceDamage(first.trace)).toEqual(first.result.damageByType);
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
+  it("property-tests independent terminal-branch expected values and clamp ordering", async () => {
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 0, max: 10_000_000 }),
+        fc.integer({ min: 1_000_000, max: 4_000_000 }),
+        fc.integer({ min: 0, max: 1_000 }),
+        fc.integer({ min: 0, max: 1_000 }),
+        async (chanceNumerator, multiplierNumerator, armor, health) => {
+          const criticalChance = chanceNumerator / 1_000_000;
+          const criticalMultiplier = multiplierNumerator / 1_000_000;
+          const changedCatalog = structuredClone(tier2CatalogFixture);
+          const attackMode = changedCatalog.weapons[0]?.attackModes[0];
+          if (attackMode === undefined) {
+            throw new Error("Tier-2 Catalog must contain an attack mode");
+          }
+          attackMode.criticalChance = criticalChance;
+          attackMode.criticalMultiplier = criticalMultiplier;
+          const catalogArtifact = await rehash(changedCatalog);
+          const catalog = await loadCatalogSnapshot(catalogArtifact);
+
+          const changedScenario = structuredClone(expectedScenarioFixture);
+          const target = changedScenario.targets[0];
+          if (target === undefined) {
+            throw new Error("Expected Scenario must contain a target");
+          }
+          target.configuration.resolvedArmor = armor;
+          target.configuration.resolvedHealth = health;
+          changedScenario.catalogRef.contentHash = catalog.snapshot.contentHash;
+          const scenario = await rehash(changedScenario);
+
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+
+          const baseTier = Math.floor(criticalChance);
+          const fraction = criticalChance - baseTier;
+          const nextTier = fraction === 0 ? baseTier : baseTier + 1;
+          const baseWeight = 1 - fraction;
+          const nextWeight = fraction;
+          const armorFactor = 300 / (armor + 300);
+          const branchDamage = (tier: number) =>
+            100 * (1 + tier * (criticalMultiplier - 1)) * armorFactor;
+          const baseDamage = branchDamage(baseTier);
+          const nextDamage = branchDamage(nextTier);
+          const expectedDamage = baseWeight * baseDamage + nextWeight * nextDamage;
+          const expectedHealth =
+            baseWeight * Math.max(0, health - baseDamage) +
+            nextWeight * Math.max(0, health - nextDamage);
+          const expectedMultiplier =
+            baseWeight * (1 + baseTier * (criticalMultiplier - 1)) +
+            nextWeight * (1 + nextTier * (criticalMultiplier - 1));
+
+          expect(first.result.metrics["critical.expected.multiplier"]).toBeCloseTo(
+            expectedMultiplier,
+            10,
+          );
+          expect(first.result.metrics["damage.expected.health.total"]).toBeCloseTo(
+            expectedDamage,
+            10,
+          );
+          expect(first.result.metrics["target.health.expected-remaining"]).toBeCloseTo(
+            expectedHealth,
+            10,
+          );
+          expect(first.result.damageByType["damage.synthetic-kinetic"]).toBeCloseTo(
+            expectedDamage,
+            10,
+          );
           expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
           expect(await replayTraceDamage(first.trace)).toEqual(first.result.damageByType);
         },
@@ -267,8 +656,17 @@ describe("evaluateScenario", () => {
     const fixedMetricIds = SUPPORTED_METRIC_IDS.filter(
       (metric) =>
         metric !== "critical.roll" &&
+        metric !== "critical.base-tier" &&
+        metric !== "critical.next-tier" &&
+        metric !== "critical.fraction" &&
+        metric !== "critical.base-tier.probability" &&
+        metric !== "critical.next-tier.probability" &&
         metric !== "critical.tier-0.probability" &&
-        metric !== "critical.tier-1.probability",
+        metric !== "critical.tier-1.probability" &&
+        metric !== "critical.expected.multiplier" &&
+        metric !== "damage.expected.post-critical.total" &&
+        metric !== "damage.expected.health.total" &&
+        metric !== "target.health.expected-remaining",
     );
     const metricSubset = fc.uniqueArray(fc.constantFrom(...fixedMetricIds), {
       minLength: 1,
@@ -277,7 +675,7 @@ describe("evaluateScenario", () => {
 
     await fc.assert(
       fc.asyncProperty(
-        fc.constantFrom<0 | 1>(0, 1),
+        fc.integer({ min: 0, max: 1_000 }),
         fc.integer({ min: 0, max: 1_000_000 }),
         fc.integer({ min: 0, max: 1_000_000 }),
         metricSubset,
@@ -307,14 +705,8 @@ describe("evaluateScenario", () => {
           const rejected = first.trace.decisions.filter(
             (decision) => decision.outcome === "rejected",
           );
-          expect(rejected).toHaveLength(1);
-          expect(rejected[0]).toMatchObject({
-            outcome: "rejected",
-            rejectionStage: "predicate",
-            rejectionReason: {
-              code: "predicate.critical-tier-mismatch",
-            },
-          });
+          expect(rejected).toEqual([]);
+          expect(first.trace.decisions).toHaveLength(4);
         },
       ),
       { numRuns: 50 },
@@ -396,7 +788,7 @@ describe("evaluateScenario", () => {
     });
   });
 
-  it("rejects Critical chance above the binary slice without clamping or partial artifacts", async () => {
+  it("rejects Critical chance with unrepresentable tiers without partial artifacts", async () => {
     const changedCatalog = structuredClone(catalogFixture);
     const selectedWeapon = changedCatalog.weapons[0];
     if (selectedWeapon === undefined) {
@@ -412,7 +804,7 @@ describe("evaluateScenario", () => {
     if (attackMode === undefined) {
       throw new Error("Mini Catalog must contain an attack mode");
     }
-    attackMode.criticalChance = 1.25;
+    attackMode.criticalChance = Number.MAX_SAFE_INTEGER + 1;
     const catalogArtifact = await rehash(changedCatalog);
     const catalog = await loadCatalogSnapshot(catalogArtifact);
 
@@ -428,9 +820,45 @@ describe("evaluateScenario", () => {
       error: {
         code: "unsupported-critical-chance",
         message:
-          "Binary Critical roll resolution supports criticalChance from 0 through 1; received 1.25",
+          "Critical distribution resolution requires safely representable tiers; received criticalChance 9007199254740992",
         path: "/weapons/1/attackModes/0/criticalChance",
         mechanicId: "mechanic.critical.probability",
+      },
+    });
+    expect("result" in outcome).toBe(false);
+    expect("trace" in outcome).toBe(false);
+  });
+
+  it("rejects an unrepresentable Critical tier multiplier without partial artifacts", async () => {
+    const changedCatalog = structuredClone(catalogFixture);
+    const attackMode = changedCatalog.weapons[0]?.attackModes[0];
+    if (attackMode === undefined) {
+      throw new Error("Mini Catalog must contain an attack mode");
+    }
+    attackMode.criticalMultiplier = Number.MAX_VALUE;
+    const catalogArtifact = await rehash(changedCatalog);
+    const catalog = await loadCatalogSnapshot(catalogArtifact);
+
+    const changedScenario = structuredClone(scenarioFixture);
+    const action = changedScenario.actionPlan[0];
+    if (action === undefined) {
+      throw new Error("Golden Scenario must contain an action");
+    }
+    action.parameters.criticalTier = 2;
+    changedScenario.catalogRef.contentHash = catalog.snapshot.contentHash;
+    const scenario = await rehash(changedScenario);
+    const ruleset = await loadCoreRuleset();
+
+    const outcome = await evaluateScenario({ scenario, catalog, ruleset });
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: {
+        code: "unsupported-critical-multiplier",
+        message:
+          "Critical tier multiplier is not finitely representable for tier 2 and criticalMultiplier 1.7976931348623157e+308",
+        path: "/weapons/0/attackModes/0/criticalMultiplier",
+        mechanicId: "mechanic.critical.tier-multiplier",
       },
     });
     expect("result" in outcome).toBe(false);
@@ -439,6 +867,229 @@ describe("evaluateScenario", () => {
 });
 
 describe("replayTraceDamage", () => {
+  it("binds branch operation metadata to aggregate topology", async () => {
+    const outcome = await evaluateExpectedGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changedWithStaleHash = {
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) => {
+        if (decision.outcome !== "applied") {
+          return decision;
+        }
+        const isAggregate = decision.operations.some(
+          (operation) => operation.kind === "damage-vector.aggregate-weighted-branches",
+        );
+        return {
+          ...decision,
+          reads: isAggregate
+            ? {
+                ...decision.reads,
+                "branch.weight": canonicalizeJson([
+                  { id: "branch.critical-tier-1", tier: 1, weight: 0.75 },
+                  { id: "branch.critical-tier-2", tier: 20, weight: 0.25 },
+                ]),
+              }
+            : decision.reads,
+          operations: decision.operations.map((operation) => ({
+            ...operation,
+            parameters:
+              operation.kind === "damage-vector.aggregate-weighted-branches"
+                ? { ...operation.parameters, "branch.1.tier": 20 }
+                : operation.parameters["branch.id"] === "branch.critical-tier-2"
+                  ? { ...operation.parameters, "branch.tier": 10 }
+                  : operation.parameters,
+          })),
+        };
+      }),
+    };
+    const changed = await rehash(changedWithStaleHash);
+
+    await expect(replayTraceState(changed, 125)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+  });
+
+  it("rejects aggregate reads that do not describe terminal branches", async () => {
+    const outcome = await evaluateExpectedGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changedWithStaleHash = {
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) =>
+        decision.outcome === "applied" &&
+        decision.operations.some(
+          (operation) => operation.kind === "damage-vector.aggregate-weighted-branches",
+        )
+          ? {
+              ...decision,
+              reads: {
+                ...decision.reads,
+                "branch.damage": "[]",
+              },
+            }
+          : decision,
+      ),
+    };
+    const changed = await rehash(changedWithStaleHash);
+
+    await expect(replayTraceState(changed, 125)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+  });
+
+  it("rejects forged expected Health aggregation against the Scenario anchor", async () => {
+    const outcome = await evaluateExpectedGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changedWithStaleHash = {
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) =>
+        decision.outcome === "applied" &&
+        decision.operations.some(
+          (operation) => operation.kind === "damage-vector.aggregate-weighted-branches",
+        )
+          ? {
+              ...decision,
+              operations: decision.operations.map((operation) =>
+                operation.kind === "damage-vector.aggregate-weighted-branches"
+                  ? {
+                      ...operation,
+                      parameters: {
+                        ...operation.parameters,
+                        expectedHealth: 999,
+                      },
+                    }
+                  : operation,
+              ),
+              after: {
+                ...decision.after,
+                "target.health": 999,
+              },
+            }
+          : decision,
+      ),
+    };
+    const changed = await rehash(changedWithStaleHash);
+
+    await expect(replayTraceState(changed, 125)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+  });
+
+  it("rejects duplicate expected aggregate branch identities", async () => {
+    const outcome = await evaluateExpectedGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changedWithStaleHash = {
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) =>
+        decision.outcome === "applied" &&
+        decision.operations.some(
+          (operation) => operation.kind === "damage-vector.aggregate-weighted-branches",
+        )
+          ? {
+              ...decision,
+              operations: decision.operations.map((operation) =>
+                operation.kind === "damage-vector.aggregate-weighted-branches"
+                  ? {
+                      ...operation,
+                      parameters: {
+                        ...operation.parameters,
+                        "branch.1.id": operation.parameters["branch.0.id"],
+                      },
+                    }
+                  : operation,
+              ),
+            }
+          : decision,
+      ),
+    };
+    const changed = await rehash(changedWithStaleHash);
+
+    await expect(replayTraceDamage(changed)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+  });
+
+  it("rejects expected aggregate branches with different Damage Vector keys", async () => {
+    const outcome = await evaluateExpectedGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changedWithStaleHash = {
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) =>
+        decision.outcome === "applied"
+          ? {
+              ...decision,
+              operations: decision.operations.map((operation) => {
+                if (
+                  operation.kind !== "damage-vector.copy" ||
+                  operation.parameters["branch.id"] !== "branch.critical-tier-2"
+                ) {
+                  return operation;
+                }
+                const { "component.damage.synthetic-kinetic": component, ...otherParameters } =
+                  operation.parameters;
+                return {
+                  ...operation,
+                  parameters: {
+                    ...otherParameters,
+                    "component.damage.synthetic-other": component,
+                  },
+                };
+              }),
+            }
+          : decision,
+      ),
+    };
+    const changed = await rehash(changedWithStaleHash);
+
+    await expect(replayTraceDamage(changed)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+  });
+
+  it("continues replaying the historical fixed-Critical scale operation", async () => {
+    const outcome = await evaluateGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changedWithStaleHash = {
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) =>
+        decision.outcome === "applied"
+          ? {
+              ...decision,
+              operations: decision.operations.map((operation) =>
+                operation.kind === "damage-vector.scale-critical-tier"
+                  ? { ...operation, kind: "damage-vector.scale-fixed-critical" }
+                  : operation,
+              ),
+            }
+          : decision,
+      ),
+    };
+    const changed = await rehash(changedWithStaleHash);
+
+    expect(await replayTraceDamage(changed)).toEqual(outcome.result.damageByType);
+  });
+
   it("rejects an operation outside the finite Trace replay vocabulary", async () => {
     const outcome = await evaluateGolden();
     if (!outcome.ok) {

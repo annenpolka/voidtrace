@@ -18,13 +18,21 @@ damageTotalIsComponentSum: base.DamageTotalEqualsComponents = new {
 criticalProbabilityIsNormalized: base.CriticalTierProbabilitySum = new {
   id = "CRT-001"
   desc =
-    "Critical解決入力はcriticalTierとcriticalRollの厳密に一方だけを持つ。criticalRollを選んだ場合、0以上1以下のCritical chance cはbinary分布p(tier 0)=1-c、p(tier 1)=cを形成し、rollがchance未満のときだけtier 1を解決する"
+    "deterministic modeのCritical解決入力はcriticalTierとcriticalRollの厳密に一方だけを持ち、expected modeは両方を持たない。確率分布を使う場合、非負のCritical chance cについてbase=floor(c)、fraction=c-baseとし、fractionが0ならnext=base、それ以外はnext=base+1とする。baseと到達可能なnextはsafe integerでなければならず、p(base)=1-fraction、p(next)=fractionを形成する。明示rollではrollがfraction未満のときだけnextを、それ以外はbaseを解決する。互換metricのcritical.tier-0.probabilityとcritical.tier-1.probabilityは、この分布を絶対tier 0と1へ射影し、到達不能なtierの確率を0とする"
   maturity = "active"
 }
 
-fixedCriticalTierIsBinary: base.FixedCriticalTier = new {
+criticalTierUsesGeneralScale: base.FixedCriticalTier = new {
   id = "CRT-002"
-  desc = "deterministic固定tierは0または1だけを受理し、tier 0は倍率1、tier 1はCatalogのcriticalMultiplierを適用する"
+  desc =
+    "解決済みCritical tier tは非負safe integerだけを受理し、CatalogのcriticalMultiplier Mに対してDamage Vectorへ倍率1+t*(M-1)を適用する。Resultのcritical.multiplier metricはCatalog入力Mではなく、この解決済みtierへ実際に適用した倍率を表す。適用倍率を有限数として表現できない入力は部分ResultやTraceを返さずunsupportedとする"
+  maturity = "active"
+}
+
+criticalExpectedValueUsesTerminalBranches: base.ExpectedCriticalBranches = new {
+  id = "CRT-003"
+  desc =
+    "expected modeの単発Direct HitはCritical chanceのbase tierと到達可能なnext tierを独立branchとしてCritical倍率、Armor、Health commitまで終端評価し、その後で各branchの確率によりDamage Vector、実適用Critical倍率、post-Critical Damage、Health Damage、残Healthを加重平均する。Health 0 clampは各branch内で行い、平均Damageから残Healthを逆算しない。Resultはcritical.expected.multiplier、damage.expected.post-critical.total、damage.expected.health.total、target.health.expected-remainingを使い、実現値であるcritical.roll、critical.tier、critical.multiplier、damage.post-critical.total、damage.health.total、target.health.remainingを生成しない"
   maturity = "active"
 }
 
@@ -42,12 +50,13 @@ armorThreeHundredHalvesDamage: base.ArmorFormulaExample = new {
 
 traceReconstructsDamage: base.TraceReconstructsResult = new {
   id = "TRC-001"
-  desc = "Traceの順序付きDamage Vector操作を再生するとResultの最終Damage Vectorと一致する"
+  desc =
+    "Scenarioの初期HealthをアンカーとしてTraceの順序付きDamage Vector、Health commit、expected branch集約を再生すると、Resultの最終Damage Vectorとdeterministicまたはexpectedの残Healthに一致する"
   maturity = "active"
 }
 
 rejectedRuleHasReason: base.RejectedRuleHasReason = new {
   id = "TRC-002"
   desc = "不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する"
-  maturity = "active"
+  maturity = "planned"
 }

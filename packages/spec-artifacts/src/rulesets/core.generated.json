@@ -1,12 +1,33 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.2.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.4.0",
   "kind": "ruleset",
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.4.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:2b5b497737616c284a6ab9e94ed690966738a5f2e91df17e76eff30337baf73c",
+  "contentHash": "sha256:731859a274f3bb7f914987e4fd561a62b2faa343787ccee3c0fb962d75bd4264",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
+    {
+      "id": "rule.critical.resolve-expected-branches",
+      "description": "For non-negative Critical chance c, resolve the same safe adjacent-tier probability distribution as explicit-roll resolution without selecting a realized tier.",
+      "phase": "critical.expected",
+      "eventKind": "damage.direct",
+      "reads": [
+        "attack.critical-chance"
+      ],
+      "writes": [
+        "event.critical-base-tier",
+        "event.critical-next-tier",
+        "event.critical-fraction",
+        "event.critical-base-tier-probability",
+        "event.critical-next-tier-probability"
+      ],
+      "operation": {
+        "kind": "critical-tier.resolve-expected-branches"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
     {
       "id": "rule.damage.direct-hit",
       "description": "For a resolved Direct Hit without modifiers, copy the Catalog attack mode base Damage Vector unchanged into event damage.",
@@ -25,8 +46,8 @@
       "evidenceIds": []
     },
     {
-      "id": "rule.critical.resolve-binary-roll",
-      "description": "For Critical chance c in [0, 1], resolve the binary distribution p(tier 0) = 1 - c and p(tier 1) = c from an explicit roll: tier 1 exactly when roll is less than c, otherwise tier 0.",
+      "id": "rule.critical.resolve-tier-roll",
+      "description": "For non-negative Critical chance c, let baseTier = floor(c) and fraction = c - baseTier. baseTier must be a safe integer; nextTier is baseTier when fraction is 0, otherwise baseTier + 1 and must also be safe. Resolve p(baseTier) = 1 - fraction and p(nextTier) = fraction from an explicit roll in [0, 1): nextTier exactly when roll is less than fraction, otherwise baseTier.",
       "phase": "critical.roll",
       "eventKind": "damage.direct",
       "reads": [
@@ -35,18 +56,21 @@
       ],
       "writes": [
         "event.critical-tier",
-        "event.critical-tier-0-probability",
-        "event.critical-tier-1-probability"
+        "event.critical-base-tier",
+        "event.critical-next-tier",
+        "event.critical-fraction",
+        "event.critical-base-tier-probability",
+        "event.critical-next-tier-probability"
       ],
       "operation": {
-        "kind": "critical-tier.resolve-binary-roll"
+        "kind": "critical-tier.resolve-tier-roll"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []
     },
     {
-      "id": "rule.critical.fixed-tier-0",
-      "description": "When deterministic fixed Critical tier is 0, preserve event damage with multiplier 1.",
+      "id": "rule.critical.scale-tier",
+      "description": "For a resolved non-negative safe-integer Critical tier t and Catalog Critical multiplier M, scale event damage by 1 + t * (M - 1).",
       "phase": "critical.resolve",
       "eventKind": "damage.direct",
       "reads": [
@@ -58,28 +82,7 @@
         "event.damage"
       ],
       "operation": {
-        "kind": "damage-vector.scale-fixed-critical",
-        "requiredTier": 0
-      },
-      "evidenceStatus": "experimental",
-      "evidenceIds": []
-    },
-    {
-      "id": "rule.critical.fixed-tier-1",
-      "description": "When deterministic fixed Critical tier is 1, multiply event damage by the Catalog attack critical multiplier.",
-      "phase": "critical.resolve",
-      "eventKind": "damage.direct",
-      "reads": [
-        "event.damage",
-        "event.critical-tier",
-        "attack.critical-multiplier"
-      ],
-      "writes": [
-        "event.damage"
-      ],
-      "operation": {
-        "kind": "damage-vector.scale-fixed-critical",
-        "requiredTier": 1
+        "kind": "damage-vector.scale-critical-tier"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []
@@ -117,6 +120,26 @@
       ],
       "operation": {
         "kind": "damage.commit-health"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.critical.aggregate-expected-branches",
+      "description": "After every reachable adjacent Critical tier branch reaches terminal Health commit, weight its final Damage Vector and remaining Health by the branch probability.",
+      "phase": "result.aggregate",
+      "eventKind": "damage.direct",
+      "reads": [
+        "branch.damage",
+        "branch.health",
+        "branch.weight"
+      ],
+      "writes": [
+        "event.damage",
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-weighted-branches"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

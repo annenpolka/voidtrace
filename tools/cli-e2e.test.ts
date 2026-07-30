@@ -11,7 +11,10 @@ const bins = {
 } as const;
 const scenarioPath = "data/fixtures/golden/direct-critical-armor.scenario.json";
 const probabilityScenarioPath = "data/fixtures/golden/probability-critical-armor.scenario.json";
+const tier2ScenarioPath = "data/fixtures/golden/tier-2-critical-armor.scenario.json";
+const expectedScenarioPath = "data/fixtures/golden/expected-critical-armor.scenario.json";
 const catalogPath = "data/fixtures/catalog-mini/catalog.json";
+const tier2CatalogPath = "data/fixtures/catalog-mini/catalog-tier-2.json";
 
 type ProcessResult = {
   readonly exitCode: number;
@@ -58,6 +61,10 @@ describe("installed VoidTrace CLI aliases", () => {
     ["trace", scenarioPath, "--catalog", catalogPath],
     ["run", probabilityScenarioPath, "--catalog", catalogPath],
     ["trace", probabilityScenarioPath, "--catalog", catalogPath],
+    ["run", tier2ScenarioPath, "--catalog", tier2CatalogPath],
+    ["trace", tier2ScenarioPath, "--catalog", tier2CatalogPath],
+    ["run", expectedScenarioPath, "--catalog", tier2CatalogPath],
+    ["trace", expectedScenarioPath, "--catalog", tier2CatalogPath],
     ["run", "--help"],
     ["unknown"],
   ])("are byte-equivalent for %j", async (...argv) => {
@@ -87,6 +94,11 @@ describe("installed VoidTrace CLI aliases", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       metrics: {
         "critical.roll": 0.2,
+        "critical.base-tier": 0,
+        "critical.next-tier": 1,
+        "critical.fraction": 0.25,
+        "critical.base-tier.probability": 0.75,
+        "critical.next-tier.probability": 0.25,
         "critical.tier-0.probability": 0.75,
         "critical.tier-1.probability": 0.25,
         "critical.tier": 1,
@@ -102,11 +114,106 @@ describe("installed VoidTrace CLI aliases", () => {
       expect.arrayContaining([
         expect.objectContaining({
           outcome: "applied",
-          ruleId: "rule.critical.resolve-binary-roll",
+          ruleId: "rule.critical.resolve-tier-roll",
         }),
       ]),
     );
     expect(validateContract("trace", JSON.parse(trace.stdout)).ok).toBe(true);
+  });
+
+  it("exposes generalized tier-2 Critical metrics through the installed CLI", async () => {
+    const result = await execute("vt", ["run", tier2ScenarioPath, "--catalog", tier2CatalogPath]);
+    const trace = await execute("vt", ["trace", tier2ScenarioPath, "--catalog", tier2CatalogPath]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      metrics: {
+        "critical.roll": 0.2,
+        "critical.base-tier": 1,
+        "critical.next-tier": 2,
+        "critical.fraction": 0.25,
+        "critical.base-tier.probability": 0.75,
+        "critical.next-tier.probability": 0.25,
+        "critical.tier-0.probability": 0,
+        "critical.tier-1.probability": 0.75,
+        "critical.tier": 2,
+        "critical.multiplier": 3,
+        "damage.health.total": 150,
+        "target.health.remaining": 850,
+      },
+    });
+    expect(validateContract("result", JSON.parse(result.stdout)).ok).toBe(true);
+    expect(trace.exitCode).toBe(0);
+    expect(trace.stderr).toBe("");
+    const traceArtifact = JSON.parse(trace.stdout) as {
+      decisions: Array<{ outcome: string; ruleId: string }>;
+    };
+    expect(traceArtifact.decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outcome: "applied",
+          ruleId: "rule.critical.resolve-tier-roll",
+        }),
+        expect.objectContaining({
+          outcome: "applied",
+          ruleId: "rule.critical.scale-tier",
+        }),
+      ]),
+    );
+    expect(validateContract("trace", JSON.parse(trace.stdout)).ok).toBe(true);
+  });
+
+  it("exposes terminal-branch Critical expected values through the installed CLI", async () => {
+    const result = await execute("vt", [
+      "run",
+      expectedScenarioPath,
+      "--catalog",
+      tier2CatalogPath,
+    ]);
+    const trace = await execute("vt", [
+      "trace",
+      expectedScenarioPath,
+      "--catalog",
+      tier2CatalogPath,
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const resultArtifact = JSON.parse(result.stdout);
+    expect(resultArtifact).toMatchObject({
+      metrics: {
+        "critical.base-tier": 1,
+        "critical.next-tier": 2,
+        "critical.expected.multiplier": 2.25,
+        "damage.expected.health.total": 112.5,
+        "target.health.expected-remaining": 18.75,
+      },
+      damageByType: {
+        "damage.synthetic-kinetic": 112.5,
+      },
+    });
+    expect(resultArtifact.metrics).not.toHaveProperty("critical.tier");
+    expect(validateContract("result", resultArtifact).ok).toBe(true);
+
+    expect(trace.exitCode).toBe(0);
+    expect(trace.stderr).toBe("");
+    const traceArtifact = JSON.parse(trace.stdout) as {
+      decisions: Array<{
+        outcome: string;
+        ruleId: string;
+        after?: Record<string, number>;
+      }>;
+    };
+    expect(traceArtifact.decisions.at(-1)).toMatchObject({
+      outcome: "applied",
+      ruleId: "rule.critical.aggregate-expected-branches",
+      after: {
+        "damage.total": 112.5,
+        "target.health": 18.75,
+      },
+    });
+    expect(validateContract("trace", traceArtifact).ok).toBe(true);
   });
 
   it("accepts either input Artifact from stdin without changing the Result", async () => {

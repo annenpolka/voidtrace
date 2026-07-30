@@ -10,6 +10,7 @@ export const KNOWN_PATTERNS = [
   "damage_total_equals_components",
   "critical_tier_probability_sum",
   "fixed_critical_tier",
+  "expected_critical_branches",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -44,11 +45,13 @@ export type Clause = {
 };
 
 export const RULE_PHASES = [
+  "critical.expected",
   "damage.construct",
   "critical.roll",
   "critical.resolve",
   "target.mitigate",
   "damage.commit",
+  "result.aggregate",
 ] as const;
 
 export const RULE_EVIDENCE_STATUSES = [
@@ -67,11 +70,13 @@ export type RuleOperation =
       kind: "damage-vector.copy";
     }
   | {
-      kind: "critical-tier.resolve-binary-roll";
+      kind: "critical-tier.resolve-tier-roll";
     }
   | {
-      kind: "damage-vector.scale-fixed-critical";
-      requiredTier: 0 | 1;
+      kind: "critical-tier.resolve-expected-branches";
+    }
+  | {
+      kind: "damage-vector.scale-critical-tier";
     }
   | {
       kind: "damage-vector.scale-standard-armor";
@@ -79,6 +84,9 @@ export type RuleOperation =
     }
   | {
       kind: "damage.commit-health";
+    }
+  | {
+      kind: "damage-vector.aggregate-weighted-branches";
     };
 
 export type RuleDefinition = {
@@ -120,6 +128,7 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "damage_total_equals_components",
   "critical_tier_probability_sum",
   "fixed_critical_tier",
+  "expected_critical_branches",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -235,21 +244,15 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
     case "damage-vector.copy":
       assertExactKeys(value, ["kind"], path);
       return { kind };
-    case "critical-tier.resolve-binary-roll":
+    case "critical-tier.resolve-tier-roll":
       assertExactKeys(value, ["kind"], path);
       return { kind };
-    case "damage-vector.scale-fixed-critical": {
-      assertExactKeys(value, ["kind", "requiredTier"], path);
-      const requiredTier = requireFiniteNumber(
-        value.requiredTier,
-        `${path}.requiredTier`,
-        (candidate) => candidate === 0 || candidate === 1,
-      );
-      return {
-        kind,
-        requiredTier: requiredTier as 0 | 1,
-      };
-    }
+    case "critical-tier.resolve-expected-branches":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
+    case "damage-vector.scale-critical-tier":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
     case "damage-vector.scale-standard-armor":
       assertExactKeys(value, ["kind", "constant"], path);
       return {
@@ -261,6 +264,9 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
         ),
       };
     case "damage.commit-health":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
+    case "damage-vector.aggregate-weighted-branches":
       assertExactKeys(value, ["kind"], path);
       return { kind };
     default:

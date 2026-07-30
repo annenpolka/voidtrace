@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.2.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.4.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.2.0"
+      "const": "urn:voidtrace:schema:ruleset:0.4.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.2.0"
+      "const": "0.4.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -84,9 +84,11 @@
             "enum": [
               "damage.construct",
               "critical.roll",
+              "critical.expected",
               "critical.resolve",
               "target.mitigate",
-              "damage.commit"
+              "damage.commit",
+              "result.aggregate"
             ]
           },
           "eventKind": {
@@ -134,9 +136,9 @@
                 "type": "object",
                 "properties": {
                   "kind": {
-                    "description": "Resolve Critical tier 0 or 1 from an explicit roll and a normalized binary Critical chance.",
+                    "description": "Resolve safe non-negative Critical tiers from an explicit roll and the fractional part of Critical chance; integer chance keeps next tier equal to base tier.",
                     "type": "string",
-                    "const": "critical-tier.resolve-binary-roll"
+                    "const": "critical-tier.resolve-tier-roll"
                   }
                 },
                 "required": [
@@ -148,20 +150,27 @@
                 "type": "object",
                 "properties": {
                   "kind": {
-                    "description": "Scale by the finite deterministic fixed-tier Critical rule.",
+                    "description": "Resolve the safe non-negative adjacent Critical tiers and their probabilities without selecting a realized tier.",
                     "type": "string",
-                    "const": "damage-vector.scale-fixed-critical"
-                  },
-                  "requiredTier": {
-                    "description": "Fixed Critical tier matched by this Rule.",
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 1
+                    "const": "critical-tier.resolve-expected-branches"
                   }
                 },
                 "required": [
-                  "kind",
-                  "requiredTier"
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Scale by 1 + resolved Critical tier * (Critical multiplier - 1).",
+                    "type": "string",
+                    "const": "damage-vector.scale-critical-tier"
+                  }
+                },
+                "required": [
+                  "kind"
                 ],
                 "additionalProperties": false
               },
@@ -192,6 +201,20 @@
                     "description": "Commit final event damage to the resolved Health layer.",
                     "type": "string",
                     "const": "damage.commit-health"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Aggregate terminal branch Damage Vectors and remaining Health by explicit branch weights.",
+                    "type": "string",
+                    "const": "damage-vector.aggregate-weighted-branches"
                   }
                 },
                 "required": [

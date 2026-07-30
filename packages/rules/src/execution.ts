@@ -7,15 +7,30 @@ export type RuleOperationKind = RuleDefinition["operation"]["kind"];
 
 export type DamageVector = Readonly<Record<string, number>>;
 
+export type RuleParameterValue = number | string;
+
 export type RuleContext = {
   readonly baseDamage: DamageVector;
   readonly currentDamage: DamageVector;
-  readonly criticalTier: 0 | 1 | null;
+  readonly criticalTier: number | null;
   readonly criticalChance: number;
   readonly criticalRoll: number | null;
   readonly criticalMultiplier: number;
   readonly armor: number;
   readonly health: number;
+};
+
+export type ExpectedBranch = {
+  readonly id: string;
+  readonly tier: number;
+  readonly weight: number;
+  readonly damage: DamageVector;
+  readonly health: number;
+};
+
+export type ExpectedAggregateContext = {
+  readonly initialHealth: number;
+  readonly branches: ReadonlyArray<ExpectedBranch>;
 };
 
 export type RuleStateProjection = {
@@ -28,10 +43,10 @@ type RuleExecutionBase = {
   readonly ruleId: string;
   readonly phase: RulePhase;
   readonly operationKind: RuleOperationKind;
-  readonly parameters: Readonly<Record<string, number>>;
+  readonly parameters: Readonly<Record<string, RuleParameterValue>>;
   readonly before: RuleStateProjection;
   readonly after: RuleStateProjection;
-  readonly resolvedCriticalTier?: 0 | 1;
+  readonly resolvedCriticalTier?: number;
 };
 
 export type AppliedRuleExecution = RuleExecutionBase & {
@@ -51,12 +66,17 @@ export type RuleExecution = AppliedRuleExecution | PredicateRejectedRuleExecutio
 type ValidatedRuleContext = {
   readonly baseDamage: DamageVector;
   readonly currentDamage: DamageVector;
-  readonly criticalTier: 0 | 1 | null;
+  readonly criticalTier: number | null;
   readonly criticalChance: number;
   readonly criticalRoll: number | null;
   readonly criticalMultiplier: number;
   readonly armor: number;
   readonly health: number;
+};
+
+type ValidatedExpectedAggregateContext = {
+  readonly initialHealth: number;
+  readonly branches: ReadonlyArray<ExpectedBranch>;
 };
 
 const CONTEXT_FIELDS = [
@@ -154,37 +174,50 @@ function nullableFinite(value: unknown, field: string): number | null {
   return value;
 }
 
-function snapshotContext(value: RuleContext): ValidatedRuleContext {
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function snapshotPlainExactObject(
+  value: unknown,
+  fields: readonly string[],
+  subject: string,
+): object {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    invalidContext("Rule context must be a plain object", "context");
+    invalidContext(`${subject} must be a plain object`, subject);
   }
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) {
-    invalidContext("Rule context must not carry a behavior-bearing prototype", "context");
+    invalidContext(`${subject} must not carry a behavior-bearing prototype`, subject);
   }
   const ownKeys = Reflect.ownKeys(value);
-  const expected = new Set<string>(CONTEXT_FIELDS);
+  const expected = new Set(fields);
   if (
     ownKeys.some((key) => typeof key !== "string" || !expected.has(key)) ||
-    ownKeys.length !== CONTEXT_FIELDS.length
+    ownKeys.length !== fields.length
   ) {
-    invalidContext("Rule context must contain exactly the declared context fields", "context");
+    invalidContext(`${subject} must contain exactly the declared fields`, subject);
   }
+  return value;
+}
 
-  const criticalTier = dataProperty(value, "criticalTier", "context");
-  if (criticalTier !== null && criticalTier !== 0 && criticalTier !== 1) {
-    invalidContext("criticalTier must be the integer tier 0 or 1, or null", "criticalTier");
+function snapshotContext(value: RuleContext): ValidatedRuleContext {
+  const context = snapshotPlainExactObject(value, CONTEXT_FIELDS, "context");
+
+  const criticalTier = dataProperty(context, "criticalTier", "context");
+  if (criticalTier !== null && !isNonNegativeSafeInteger(criticalTier)) {
+    invalidContext("criticalTier must be a non-negative safe integer or null", "criticalTier");
   }
   const criticalChance = nonNegativeFinite(
-    dataProperty(value, "criticalChance", "context"),
+    dataProperty(context, "criticalChance", "context"),
     "criticalChance",
   );
   const criticalRoll = nullableFinite(
-    dataProperty(value, "criticalRoll", "context"),
+    dataProperty(context, "criticalRoll", "context"),
     "criticalRoll",
   );
   const criticalMultiplier = nonNegativeFinite(
-    dataProperty(value, "criticalMultiplier", "context"),
+    dataProperty(context, "criticalMultiplier", "context"),
     "criticalMultiplier",
   );
   if (criticalMultiplier < 1) {
@@ -192,17 +225,81 @@ function snapshotContext(value: RuleContext): ValidatedRuleContext {
   }
 
   return Object.freeze({
-    baseDamage: snapshotDamageVector(dataProperty(value, "baseDamage", "context"), "baseDamage"),
+    baseDamage: snapshotDamageVector(dataProperty(context, "baseDamage", "context"), "baseDamage"),
     currentDamage: snapshotDamageVector(
-      dataProperty(value, "currentDamage", "context"),
+      dataProperty(context, "currentDamage", "context"),
       "currentDamage",
     ),
     criticalTier,
     criticalChance,
     criticalRoll,
     criticalMultiplier,
-    armor: nonNegativeFinite(dataProperty(value, "armor", "context"), "armor"),
-    health: nonNegativeFinite(dataProperty(value, "health", "context"), "health"),
+    armor: nonNegativeFinite(dataProperty(context, "armor", "context"), "armor"),
+    health: nonNegativeFinite(dataProperty(context, "health", "context"), "health"),
+  });
+}
+
+function snapshotExpectedBranches(value: unknown): ReadonlyArray<ExpectedBranch> {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    value.length < 1
+  ) {
+    invalidContext("branches must be a plain non-empty array", "branches");
+  }
+
+  const branches: ExpectedBranch[] = [];
+  const ids = new Set<string>();
+  const tiers = new Set<number>();
+  for (let index = 0; index < value.length; index += 1) {
+    const branchValue = dataProperty(value, String(index), "branches");
+    const subject = `branches[${index}]`;
+    const branch = snapshotPlainExactObject(
+      branchValue,
+      ["id", "tier", "weight", "damage", "health"],
+      subject,
+    );
+    const id = dataProperty(branch, "id", subject);
+    if (typeof id !== "string" || !isStableId(id) || ids.has(id)) {
+      invalidContext(`${subject}.id must be a unique stable ID`, `${subject}.id`);
+    }
+    const tier = dataProperty(branch, "tier", subject);
+    if (!isNonNegativeSafeInteger(tier) || tiers.has(tier)) {
+      invalidContext(
+        `${subject}.tier must be a unique non-negative safe integer`,
+        `${subject}.tier`,
+      );
+    }
+    const weight = dataProperty(branch, "weight", subject);
+    if (typeof weight !== "number" || !Number.isFinite(weight) || weight <= 0) {
+      invalidContext(`${subject}.weight must be a positive finite number`, `${subject}.weight`);
+    }
+
+    ids.add(id);
+    tiers.add(tier);
+    branches.push(
+      Object.freeze({
+        id,
+        tier,
+        weight,
+        damage: snapshotDamageVector(dataProperty(branch, "damage", subject), `${subject}.damage`),
+        health: nonNegativeFinite(dataProperty(branch, "health", subject), `${subject}.health`),
+      }),
+    );
+  }
+  return Object.freeze(branches);
+}
+
+function snapshotExpectedAggregateContext(
+  value: ExpectedAggregateContext,
+): ValidatedExpectedAggregateContext {
+  const context = snapshotPlainExactObject(value, ["initialHealth", "branches"], "context");
+  return Object.freeze({
+    initialHealth: nonNegativeFinite(
+      dataProperty(context, "initialHealth", "context"),
+      "initialHealth",
+    ),
+    branches: snapshotExpectedBranches(dataProperty(context, "branches", "context")),
   });
 }
 
@@ -258,17 +355,19 @@ function stateProjection(damage: DamageVector, health: number): RuleStateProject
   });
 }
 
-function parameters(values: Record<string, number> = {}): Readonly<Record<string, number>> {
+function parameters(
+  values: Record<string, RuleParameterValue> = {},
+): Readonly<Record<string, RuleParameterValue>> {
   return Object.freeze(values);
 }
 
 function applied(
   rule: RuleDefinition,
   factor: number,
-  values: Readonly<Record<string, number>>,
+  values: Readonly<Record<string, RuleParameterValue>>,
   before: RuleStateProjection,
   after: RuleStateProjection,
-  resolvedCriticalTier?: 0 | 1,
+  resolvedCriticalTier?: number,
 ): AppliedRuleExecution {
   return Object.freeze({
     outcome: "applied",
@@ -281,24 +380,6 @@ function applied(
     before,
     after,
     ...(resolvedCriticalTier === undefined ? {} : { resolvedCriticalTier }),
-  });
-}
-
-function predicateRejected(
-  rule: RuleDefinition,
-  values: Readonly<Record<string, number>>,
-  state: RuleStateProjection,
-): PredicateRejectedRuleExecution {
-  return Object.freeze({
-    outcome: "predicate-rejected",
-    matched: false,
-    ruleId: rule.id,
-    phase: rule.phase,
-    operationKind: rule.operation.kind,
-    factor: null,
-    parameters: values,
-    before: state,
-    after: state,
   });
 }
 
@@ -322,13 +403,47 @@ function assertExecutableRule(rule: RuleDefinition): void {
   }
 }
 
+type CriticalDistribution = {
+  readonly baseTier: number;
+  readonly nextTier: number;
+  readonly fraction: number;
+  readonly baseTierProbability: number;
+  readonly nextTierProbability: number;
+  readonly tier0Probability: number;
+  readonly tier1Probability: number;
+};
+
+function resolveCriticalDistribution(criticalChance: number): CriticalDistribution {
+  const baseTier = Math.floor(criticalChance);
+  const fraction = criticalChance - baseTier;
+  const nextTier = fraction === 0 ? baseTier : baseTier + 1;
+  if (!isNonNegativeSafeInteger(baseTier) || !isNonNegativeSafeInteger(nextTier)) {
+    invalidContext(
+      "criticalChance must resolve only to non-negative safe-integer tiers",
+      "criticalChance",
+    );
+  }
+  const baseTierProbability = 1 - fraction;
+  const nextTierProbability = fraction;
+  return Object.freeze({
+    baseTier,
+    nextTier,
+    fraction,
+    baseTierProbability,
+    nextTierProbability,
+    tier0Probability:
+      (baseTier === 0 ? baseTierProbability : 0) + (nextTier === 0 ? nextTierProbability : 0),
+    tier1Probability:
+      (baseTier === 1 ? baseTierProbability : 0) + (nextTier === 1 ? nextTierProbability : 0),
+  });
+}
+
 export function executeRule(rule: RuleDefinition, context: RuleContext): RuleExecution {
   assertExecutableRule(rule);
   const input = snapshotContext(context);
   const before = stateProjection(input.currentDamage, input.health);
   const operation = rule.operation as {
     readonly kind: string;
-    readonly requiredTier?: unknown;
     readonly constant?: unknown;
   };
 
@@ -337,29 +452,35 @@ export function executeRule(rule: RuleDefinition, context: RuleContext): RuleExe
       const after = stateProjection(input.baseDamage, input.health);
       return applied(rule, 1, parameters({ factor: 1 }), before, after);
     }
-    case "critical-tier.resolve-binary-roll": {
-      if (input.criticalChance > 1) {
-        invalidContext(
-          "criticalChance must not exceed 1 for binary Critical resolution",
-          "criticalChance",
-        );
-      }
+    case "critical-tier.resolve-tier-roll": {
       if (input.criticalRoll === null || input.criticalRoll < 0 || input.criticalRoll >= 1) {
         invalidContext(
-          "criticalRoll must be in the half-open interval [0, 1) for binary Critical resolution",
+          "criticalRoll must be in the half-open interval [0, 1) for Critical tier resolution",
           "criticalRoll",
         );
       }
 
-      const tier0Probability = 1 - input.criticalChance;
-      const tier1Probability = input.criticalChance;
-      const resolvedTier = input.criticalRoll < input.criticalChance ? 1 : 0;
+      const {
+        baseTier,
+        nextTier,
+        fraction,
+        baseTierProbability,
+        nextTierProbability,
+        tier0Probability,
+        tier1Probability,
+      } = resolveCriticalDistribution(input.criticalChance);
+      const resolvedTier = input.criticalRoll < fraction ? nextTier : baseTier;
       return applied(
         rule,
         1,
         parameters({
           criticalChance: input.criticalChance,
           criticalRoll: input.criticalRoll,
+          baseTier,
+          nextTier,
+          fraction,
+          baseTierProbability,
+          nextTierProbability,
           tier0Probability,
           tier1Probability,
           resolvedTier,
@@ -370,27 +491,38 @@ export function executeRule(rule: RuleDefinition, context: RuleContext): RuleExe
         resolvedTier,
       );
     }
-    case "damage-vector.scale-fixed-critical": {
-      const requiredTier = operation.requiredTier;
-      if (requiredTier !== 0 && requiredTier !== 1) {
-        throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid fixed Critical tier`, {
-          ruleId: rule.id,
-        });
-      }
+    case "critical-tier.resolve-expected-branches": {
+      const distribution = resolveCriticalDistribution(input.criticalChance);
+      return applied(
+        rule,
+        1,
+        parameters({
+          criticalChance: input.criticalChance,
+          ...distribution,
+          factor: 1,
+        }),
+        before,
+        before,
+      );
+    }
+    case "damage-vector.scale-critical-tier": {
       if (input.criticalTier === null) {
         invalidContext(
-          "criticalTier must be resolved before fixed Critical scaling",
+          "criticalTier must be resolved before Critical tier scaling",
           "criticalTier",
         );
       }
-      const predicateParameters = parameters({
-        actualTier: input.criticalTier,
-        requiredTier,
-      });
-      if (input.criticalTier !== requiredTier) {
-        return predicateRejected(rule, predicateParameters, before);
+      const factor = 1 + input.criticalTier * (input.criticalMultiplier - 1);
+      if (!Number.isFinite(factor) || factor < 1) {
+        throw new RulesError(
+          "unsupported-critical-multiplier",
+          `Critical tier multiplier is not finitely representable for tier ${input.criticalTier} and criticalMultiplier ${input.criticalMultiplier}`,
+          {
+            criticalMultiplier: input.criticalMultiplier,
+            criticalTier: input.criticalTier,
+          },
+        );
       }
-      const factor = requiredTier === 0 ? 1 : input.criticalMultiplier;
       const afterDamage = scaleValidatedDamageVector(input.currentDamage, factor);
       return applied(
         rule,
@@ -399,7 +531,6 @@ export function executeRule(rule: RuleDefinition, context: RuleContext): RuleExe
           actualTier: input.criticalTier,
           criticalMultiplier: input.criticalMultiplier,
           factor,
-          requiredTier,
         }),
         before,
         stateProjection(afterDamage, input.health),
@@ -452,4 +583,92 @@ export function executeRule(rule: RuleDefinition, context: RuleContext): RuleExe
         { ruleId: rule.id },
       );
   }
+}
+
+export function executeExpectedAggregateRule(
+  rule: RuleDefinition,
+  context: ExpectedAggregateContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "damage-vector.aggregate-weighted-branches") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a weighted-branch aggregate operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+
+  const input = snapshotExpectedAggregateContext(context);
+  const expectedDamageKeys = Object.keys(input.branches[0]?.damage ?? {});
+  const aggregateDamage = Object.fromEntries(expectedDamageKeys.map((id) => [id, 0]));
+  const values: Record<string, RuleParameterValue> = {
+    branchCount: input.branches.length,
+  };
+  let weightTotal = 0;
+  let expectedHealth = 0;
+
+  for (const [index, branch] of input.branches.entries()) {
+    const damageKeys = Object.keys(branch.damage);
+    if (
+      damageKeys.length !== expectedDamageKeys.length ||
+      damageKeys.some((id, keyIndex) => id !== expectedDamageKeys[keyIndex])
+    ) {
+      invalidContext("All expected branches must contain the same Damage Vector keys", "branches");
+    }
+
+    weightTotal += branch.weight;
+    if (!Number.isFinite(weightTotal)) {
+      invalidContext("Expected branch weights overflowed finite arithmetic", "branches");
+    }
+    const weightedHealth = branch.health * branch.weight;
+    if (!Number.isFinite(weightedHealth)) {
+      throw new RulesError(
+        "arithmetic-invalid",
+        `Expected branch ${branch.id} Health overflowed weighted arithmetic`,
+        { branchId: branch.id },
+      );
+    }
+    expectedHealth += weightedHealth;
+    if (!Number.isFinite(expectedHealth)) {
+      throw new RulesError("arithmetic-invalid", "Expected Health overflowed finite arithmetic");
+    }
+
+    for (const id of expectedDamageKeys) {
+      const weightedComponent = (branch.damage[id] ?? 0) * branch.weight;
+      const aggregateComponent = (aggregateDamage[id] ?? 0) + weightedComponent;
+      if (!Number.isFinite(weightedComponent) || !Number.isFinite(aggregateComponent)) {
+        throw new RulesError(
+          "arithmetic-invalid",
+          `Expected damage component ${id} overflowed weighted arithmetic`,
+          { branchId: branch.id, id },
+        );
+      }
+      aggregateDamage[id] = aggregateComponent;
+    }
+
+    values[`branch.${index}.id`] = branch.id;
+    values[`branch.${index}.tier`] = branch.tier;
+    values[`branch.${index}.weight`] = branch.weight;
+    values[`branch.${index}.damageTotal`] = sumValidatedDamageVector(branch.damage);
+    values[`branch.${index}.health`] = branch.health;
+    for (const id of expectedDamageKeys) {
+      values[`branch.${index}.damage.${id}`] = branch.damage[id] ?? 0;
+    }
+  }
+
+  const weightTolerance = Number.EPSILON * Math.max(1, input.branches.length);
+  if (Math.abs(weightTotal - 1) > weightTolerance) {
+    invalidContext("Expected branch weights must sum to 1", "branches");
+  }
+  values.weightTotal = weightTotal;
+  values.expectedHealth = expectedHealth;
+
+  const damage = Object.freeze(aggregateDamage);
+  return applied(
+    rule,
+    1,
+    parameters(values),
+    stateProjection(damage, input.initialHealth),
+    stateProjection(damage, expectedHealth),
+  );
 }

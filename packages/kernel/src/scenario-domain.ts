@@ -8,14 +8,23 @@ import {
 export const SUPPORTED_METRIC_IDS = Object.freeze([
   "damage.direct-hit.total",
   "critical.roll",
+  "critical.base-tier",
+  "critical.next-tier",
+  "critical.fraction",
+  "critical.base-tier.probability",
+  "critical.next-tier.probability",
   "critical.tier-0.probability",
   "critical.tier-1.probability",
   "critical.tier",
   "critical.multiplier",
+  "critical.expected.multiplier",
   "damage.post-critical.total",
+  "damage.expected.post-critical.total",
   "armor.remaining-multiplier",
   "damage.health.total",
+  "damage.expected.health.total",
   "target.health.remaining",
+  "target.health.expected-remaining",
 ] as const);
 
 export type SupportedMetricId = (typeof SUPPORTED_METRIC_IDS)[number];
@@ -65,12 +74,12 @@ export type ScenarioDomain = {
     readonly targetId: string;
     readonly hitLocation: "hit-location.neutral-body";
     readonly damageLayer: "health";
-    readonly criticalResolution: "fixed" | "roll";
-    readonly criticalTier: 0 | 1 | null;
+    readonly criticalResolution: "fixed" | "roll" | "expected";
+    readonly criticalTier: number | null;
     readonly criticalRoll: number | null;
   };
   readonly simulation: {
-    readonly mode: "deterministic";
+    readonly mode: "deterministic" | "expected";
     readonly timeLimitMs: number;
   };
   readonly metrics: readonly SupportedMetricId[];
@@ -113,10 +122,34 @@ const ROLLED_CRITICAL_PARAMETER_KEYS = Object.freeze([
   ...ACTION_PARAMETER_COMMON_KEYS,
   "criticalRoll",
 ] as const);
-const ROLLED_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
-  "critical.roll",
+const EXPECTED_CRITICAL_PARAMETER_KEYS = ACTION_PARAMETER_COMMON_KEYS;
+const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "critical.base-tier",
+  "critical.next-tier",
+  "critical.fraction",
+  "critical.base-tier.probability",
+  "critical.next-tier.probability",
   "critical.tier-0.probability",
   "critical.tier-1.probability",
+]);
+const EXPLICIT_ROLL_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set(["critical.roll"]);
+const EXPECTED_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "critical.expected.multiplier",
+  "damage.expected.post-critical.total",
+  "damage.expected.health.total",
+  "target.health.expected-remaining",
+]);
+const REALIZED_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "critical.roll",
+  "critical.tier",
+  "critical.multiplier",
+  "damage.post-critical.total",
+  "damage.health.total",
+  "target.health.remaining",
+]);
+const FIXED_UNAVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  ...EXPLICIT_ROLL_ONLY_METRIC_IDS,
+  ...DISTRIBUTION_CRITICAL_METRIC_IDS,
 ]);
 
 function pointerSegment(value: string): string {
@@ -233,7 +266,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
     );
   }
 
-  if (scenario.simulation.mode !== "deterministic") {
+  if (scenario.simulation.mode === "monte-carlo") {
     return failure(
       "unsupported-simulation-mode",
       "/simulation/mode",
@@ -369,18 +402,28 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
   const hasCriticalTier = Object.hasOwn(action.parameters, "criticalTier");
   const hasCriticalRoll = Object.hasOwn(action.parameters, "criticalRoll");
-  if (hasCriticalTier === hasCriticalRoll) {
+  const criticalResolution =
+    scenario.simulation.mode === "expected" ? "expected" : hasCriticalTier ? "fixed" : "roll";
+  if (
+    (criticalResolution === "expected" && (hasCriticalTier || hasCriticalRoll)) ||
+    (criticalResolution !== "expected" && hasCriticalTier === hasCriticalRoll)
+  ) {
     return failure(
       "invalid-critical-resolution",
       "/actionPlan/0/parameters",
-      "Exactly one of criticalTier or criticalRoll is required",
+      scenario.simulation.mode === "expected"
+        ? "Expected simulation must omit criticalTier and criticalRoll"
+        : "Deterministic simulation requires exactly one of criticalTier or criticalRoll",
       "mechanic.critical.resolution",
     );
   }
-  const criticalResolution = hasCriticalTier ? "fixed" : "roll";
   const actionKeyError = exactKeys(
     action.parameters,
-    criticalResolution === "fixed" ? FIXED_CRITICAL_PARAMETER_KEYS : ROLLED_CRITICAL_PARAMETER_KEYS,
+    criticalResolution === "fixed"
+      ? FIXED_CRITICAL_PARAMETER_KEYS
+      : criticalResolution === "roll"
+        ? ROLLED_CRITICAL_PARAMETER_KEYS
+        : EXPECTED_CRITICAL_PARAMETER_KEYS,
     "/actionPlan/0/parameters",
   );
   if (actionKeyError !== undefined) {
@@ -420,20 +463,20 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       "mechanic.damage-layer",
     );
   }
-  let criticalTier: 0 | 1 | null = null;
+  let criticalTier: number | null = null;
   let criticalRoll: number | null = null;
   if (criticalResolution === "fixed") {
     const candidate = action.parameters.criticalTier;
-    if (!Number.isInteger(candidate) || (candidate !== 0 && candidate !== 1)) {
+    if (typeof candidate !== "number" || !Number.isSafeInteger(candidate) || candidate < 0) {
       return failure(
         "unsupported-critical-tier",
         "/actionPlan/0/parameters/criticalTier",
-        `Unsupported fixed Critical tier: ${String(candidate)}`,
+        `Fixed Critical tier must be a non-negative safe integer; received ${String(candidate)}`,
         "mechanic.critical.fixed-tier",
       );
     }
     criticalTier = candidate;
-  } else {
+  } else if (criticalResolution === "roll") {
     const candidate = action.parameters.criticalRoll;
     if (
       typeof candidate !== "number" ||
@@ -469,14 +512,16 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
         metric,
       );
     }
+    const supportedMetric = metric as SupportedMetricId;
     if (
-      criticalResolution === "fixed" &&
-      ROLLED_CRITICAL_METRIC_IDS.has(metric as SupportedMetricId)
+      (criticalResolution === "fixed" && FIXED_UNAVAILABLE_METRIC_IDS.has(supportedMetric)) ||
+      (criticalResolution !== "expected" && EXPECTED_CRITICAL_METRIC_IDS.has(supportedMetric)) ||
+      (criticalResolution === "expected" && REALIZED_CRITICAL_METRIC_IDS.has(supportedMetric))
     ) {
       return failure(
         "unsupported-metric",
         `/metrics/${index}`,
-        `Metric ${metric} requires criticalRoll resolution`,
+        `Metric ${metric} is unavailable for ${criticalResolution} Critical resolution`,
         metric,
       );
     }
@@ -518,7 +563,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       criticalRoll,
     }),
     simulation: Object.freeze({
-      mode: "deterministic",
+      mode: scenario.simulation.mode === "expected" ? "expected" : "deterministic",
       timeLimitMs: frozenScenario.simulation.timeLimitMs,
     }),
     metrics: Object.freeze(metrics),

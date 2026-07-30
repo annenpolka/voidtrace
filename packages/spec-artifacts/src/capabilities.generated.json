@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:892b1dc0fd05d96f835656d971e785eb33d9c237c658947262ef4226dd2c356c",
+  "sourceFingerprint": "sha256:fdc2e15b32febbec7de247f61b04a5004fbec91f372ad7ca11e3616a53cd6dbd",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -25,17 +25,18 @@
     },
     {
       "id": "kernel.foundation",
-      "status": "supported",
+      "status": "partial",
       "activeClauseRefs": [
         "ENG-001",
         "ENG-002",
         "RNG-001",
         "SCP-001",
         "SCP-002",
-        "TRC-001",
-        "TRC-002"
+        "TRC-001"
       ],
-      "plannedClauseRefs": []
+      "plannedClauseRefs": [
+        "TRC-002"
+      ]
     },
     {
       "id": "mechanics.direct-critical-armor",
@@ -43,12 +44,15 @@
       "activeClauseRefs": [
         "CRT-001",
         "CRT-002",
+        "CRT-003",
         "DEF-001",
         "DEF-002",
         "DMG-001",
         "DMG-002",
         "GOL-001",
-        "GOL-002"
+        "GOL-002",
+        "GOL-003",
+        "GOL-004"
       ],
       "plannedClauseRefs": []
     },

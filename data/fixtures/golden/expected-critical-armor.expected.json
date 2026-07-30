@@ -1,0 +1,39 @@
+{
+  "id": "golden.expected-critical-armor",
+  "scenarioId": "scenario.golden-expected-critical-armor",
+  "metrics": {
+    "damage.direct-hit.total": 100,
+    "critical.base-tier": 1,
+    "critical.next-tier": 2,
+    "critical.fraction": 0.25,
+    "critical.base-tier.probability": 0.75,
+    "critical.next-tier.probability": 0.25,
+    "critical.tier-0.probability": 0,
+    "critical.tier-1.probability": 0.75,
+    "critical.expected.multiplier": 2.25,
+    "damage.expected.post-critical.total": 225,
+    "armor.remaining-multiplier": 0.5,
+    "damage.expected.health.total": 112.5,
+    "target.health.expected-remaining": 18.75
+  },
+  "damageBySource": {
+    "action.direct-hit-1": 112.5
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 112.5
+  },
+  "appliedRuleIds": [
+    "rule.critical.resolve-expected-branches",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.critical.aggregate-expected-branches"
+  ],
+  "rejectedRules": [],
+  "tolerance": 0.000001
+}

@@ -9,6 +9,7 @@ import {
   artifactMatchesRef,
   attachArtifactContentHash,
   attachResultHash,
+  canonicalizeJson,
   type Result,
   type Trace,
   validateContract,
@@ -16,6 +17,7 @@ import {
 } from "@voidtrace/contracts";
 import {
   type DamageVector,
+  type ExpectedBranch,
   type LoadedRuleset,
   loadRuleset,
   type RuleDefinition,
@@ -24,10 +26,15 @@ import {
   sumDamageVector,
 } from "@voidtrace/rules";
 import { EventQueue, type KernelEvent } from "./event-queue.ts";
-import { parseScenarioDomain, type ScenarioDomainError } from "./scenario-domain.ts";
+import {
+  parseScenarioDomain,
+  type ScenarioDomain,
+  type ScenarioDomainError,
+} from "./scenario-domain.ts";
+import { replayTraceState, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.2.0";
+export const KERNEL_ENGINE_VERSION = "0.4.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -39,6 +46,7 @@ export type EvaluationErrorCode =
   | "catalog-resolution-failed"
   | "unsupported-delivery"
   | "unsupported-critical-chance"
+  | "unsupported-critical-multiplier"
   | "rule-execution-failed"
   | "artifact-construction-failed"
   | "integrity-check-failed";
@@ -90,6 +98,18 @@ const ROLLED_CRITICAL_PHASES = [
   "target.mitigate",
   "damage.commit",
 ] as const satisfies ReadonlyArray<RuleDefinition["phase"]>;
+const EXPECTED_RESOLUTION_PHASES = ["critical.expected"] as const satisfies ReadonlyArray<
+  RuleDefinition["phase"]
+>;
+const EXPECTED_AGGREGATION_PHASES = ["result.aggregate"] as const satisfies ReadonlyArray<
+  RuleDefinition["phase"]
+>;
+
+type BranchTraceMetadata = {
+  readonly id: string;
+  readonly tier: number;
+  readonly weight: number;
+};
 
 function failure(
   code: EvaluationErrorCode,
@@ -128,9 +148,10 @@ function suppliedSnapshot(value: unknown): unknown {
   return descriptor?.enumerable && Object.hasOwn(descriptor, "value") ? descriptor.value : value;
 }
 
-function criticalChancePath(
+function attackModeFieldPath(
   catalog: Catalog,
   references: ResolvedCatalogReferences,
+  field: "criticalChance" | "criticalMultiplier",
 ): string | undefined {
   const weaponIndex = catalog.snapshot.weapons.findIndex(
     (weapon) => weapon.id === references.weapon.id,
@@ -144,7 +165,19 @@ function criticalChancePath(
   if (attackModeIndex === undefined || attackModeIndex < 0) {
     return undefined;
   }
-  return `/weapons/${weaponIndex}/attackModes/${attackModeIndex}/criticalChance`;
+  return `/weapons/${weaponIndex}/attackModes/${attackModeIndex}/${field}`;
+}
+
+function criticalChanceHasRepresentableTiers(criticalChance: number): boolean {
+  const baseTier = Math.floor(criticalChance);
+  const fraction = criticalChance - baseTier;
+  const nextTier = fraction === 0 ? baseTier : baseTier + 1;
+  return (
+    Number.isSafeInteger(baseTier) &&
+    baseTier >= 0 &&
+    Number.isSafeInteger(nextTier) &&
+    nextTier >= 0
+  );
 }
 
 function artifactRef<TKind extends string>(artifact: {
@@ -188,9 +221,10 @@ function ruleReads(
   rule: RuleDefinition,
   execution: RuleExecution,
   references: ResolvedCatalogReferences,
-  criticalTier: 0 | 1 | null,
+  criticalTier: number | null,
   criticalRoll: number | null,
   armor: number,
+  overrides: ScalarRecord = {},
 ): ScalarRecord {
   const values: ScalarRecord = {
     "attack.base-damage": sumDamageVector(references.attackMode.baseDamage),
@@ -201,6 +235,7 @@ function ruleReads(
     "target.health": execution.before.health,
     ...(criticalTier === null ? {} : { "event.critical-tier": criticalTier }),
     ...(criticalRoll === null ? {} : { "event.critical-roll": criticalRoll }),
+    ...overrides,
   };
   const reads: Record<string, string | number | boolean | null> = {};
   for (const readId of rule.reads) {
@@ -212,8 +247,17 @@ function ruleReads(
   return Object.freeze(reads);
 }
 
-function operationParameters(execution: RuleExecution): Readonly<Record<string, number>> {
-  const values: Record<string, number> = { ...execution.parameters };
+function operationParameters(execution: RuleExecution, branch?: BranchTraceMetadata): ScalarRecord {
+  const values: Record<string, string | number | boolean | null> = {
+    ...execution.parameters,
+    ...(branch === undefined
+      ? {}
+      : {
+          "branch.id": branch.id,
+          "branch.tier": branch.tier,
+          "branch.weight": branch.weight,
+        }),
+  };
   if (execution.operationKind === "damage-vector.copy") {
     for (const [damageTypeId, value] of Object.entries(execution.after.damage)) {
       values[`component.${damageTypeId}`] = value;
@@ -228,9 +272,13 @@ function decisionForExecution(
   rule: RuleDefinition,
   execution: RuleExecution,
   references: ResolvedCatalogReferences,
-  criticalTier: 0 | 1 | null,
+  criticalTier: number | null,
   criticalRoll: number | null,
   armor: number,
+  options: {
+    readonly branch?: BranchTraceMetadata;
+    readonly readOverrides?: ScalarRecord;
+  } = {},
 ): Trace["decisions"][number] {
   const common = {
     sequence,
@@ -239,7 +287,15 @@ function decisionForExecution(
     eventTimeMs: event.timeMs,
     phase: rule.phase,
     ruleId: rule.id,
-    reads: ruleReads(rule, execution, references, criticalTier, criticalRoll, armor),
+    reads: ruleReads(
+      rule,
+      execution,
+      references,
+      criticalTier,
+      criticalRoll,
+      armor,
+      options.readOverrides,
+    ),
     evidenceStatus: rule.evidenceStatus,
     evidenceIds: rule.evidenceIds,
   } as const;
@@ -250,8 +306,8 @@ function decisionForExecution(
       outcome: "rejected",
       rejectionStage: "predicate",
       rejectionReason: Object.freeze({
-        code: "predicate.critical-tier-mismatch",
-        message: `Rule ${rule.id} requires a different fixed Critical tier`,
+        code: "predicate.rule-mismatch",
+        message: `Rule ${rule.id} predicate did not match the event`,
       }),
       matched: false,
     });
@@ -264,7 +320,7 @@ function decisionForExecution(
     operations: Object.freeze([
       Object.freeze({
         kind: execution.operationKind,
-        parameters: operationParameters(execution),
+        parameters: operationParameters(execution, options.branch),
       }),
     ]),
     before: traceState(execution.before.damage, execution.before.health),
@@ -272,18 +328,21 @@ function decisionForExecution(
   });
 }
 
-function createPhaseEvents(
-  actionId: string,
-  criticalResolution: "fixed" | "roll",
-): EventQueue<PhasePayload> {
+function createPhaseEvents(options: {
+  readonly actionId: string;
+  readonly namespace?: string;
+  readonly logicalId?: string;
+  readonly parentEventId?: string;
+  readonly phases: ReadonlyArray<RuleDefinition["phase"]>;
+}): EventQueue<PhasePayload> {
   const queue = new EventQueue<PhasePayload>();
-  let parentEventId: string | undefined;
-  const phases = criticalResolution === "fixed" ? FIXED_CRITICAL_PHASES : ROLLED_CRITICAL_PHASES;
-  for (const [sequence, phase] of phases.entries()) {
-    const id = `event.${actionId}.${phase}`;
+  let parentEventId = options.parentEventId;
+  const namespace = options.namespace ?? options.actionId;
+  for (const [sequence, phase] of options.phases.entries()) {
+    const id = `event.${namespace}.${phase}`;
     queue.enqueue({
       id,
-      logicalId: actionId,
+      logicalId: options.logicalId ?? options.actionId,
       ...(parentEventId === undefined ? {} : { parentEventId }),
       timeMs: 0,
       sequence,
@@ -306,7 +365,7 @@ function readHealth(world: WorldState, targetId: string): number {
 function updateMetricValues(
   metricValues: Record<string, number>,
   execution: RuleExecution,
-  criticalTier: 0 | 1 | null,
+  criticalTier: number | null,
 ): void {
   if (execution.outcome !== "applied") {
     return;
@@ -315,25 +374,74 @@ function updateMetricValues(
     case "damage-vector.copy":
       metricValues["damage.direct-hit.total"] = execution.after.damageTotal;
       return;
-    case "critical-tier.resolve-binary-roll": {
+    case "critical-tier.resolve-tier-roll": {
       if (execution.resolvedCriticalTier === undefined) {
         throw new TypeError("Critical roll resolver did not produce a tier");
       }
-      const { criticalRoll, tier0Probability, tier1Probability } = execution.parameters;
+      const {
+        criticalRoll,
+        baseTier,
+        nextTier,
+        fraction,
+        baseTierProbability,
+        nextTierProbability,
+        tier0Probability,
+        tier1Probability,
+      } = execution.parameters;
       if (
-        criticalRoll === undefined ||
-        tier0Probability === undefined ||
-        tier1Probability === undefined
+        typeof criticalRoll !== "number" ||
+        typeof baseTier !== "number" ||
+        typeof nextTier !== "number" ||
+        typeof fraction !== "number" ||
+        typeof baseTierProbability !== "number" ||
+        typeof nextTierProbability !== "number" ||
+        typeof tier0Probability !== "number" ||
+        typeof tier1Probability !== "number"
       ) {
         throw new TypeError("Critical roll resolver omitted probability metrics");
       }
       metricValues["critical.roll"] = criticalRoll;
+      metricValues["critical.base-tier"] = baseTier;
+      metricValues["critical.next-tier"] = nextTier;
+      metricValues["critical.fraction"] = fraction;
+      metricValues["critical.base-tier.probability"] = baseTierProbability;
+      metricValues["critical.next-tier.probability"] = nextTierProbability;
       metricValues["critical.tier-0.probability"] = tier0Probability;
       metricValues["critical.tier-1.probability"] = tier1Probability;
       metricValues["critical.tier"] = execution.resolvedCriticalTier;
       return;
     }
-    case "damage-vector.scale-fixed-critical":
+    case "critical-tier.resolve-expected-branches": {
+      const {
+        baseTier,
+        nextTier,
+        fraction,
+        baseTierProbability,
+        nextTierProbability,
+        tier0Probability,
+        tier1Probability,
+      } = execution.parameters;
+      if (
+        typeof baseTier !== "number" ||
+        typeof nextTier !== "number" ||
+        typeof fraction !== "number" ||
+        typeof baseTierProbability !== "number" ||
+        typeof nextTierProbability !== "number" ||
+        typeof tier0Probability !== "number" ||
+        typeof tier1Probability !== "number"
+      ) {
+        throw new TypeError("Expected Critical resolver omitted probability metrics");
+      }
+      metricValues["critical.base-tier"] = baseTier;
+      metricValues["critical.next-tier"] = nextTier;
+      metricValues["critical.fraction"] = fraction;
+      metricValues["critical.base-tier.probability"] = baseTierProbability;
+      metricValues["critical.next-tier.probability"] = nextTierProbability;
+      metricValues["critical.tier-0.probability"] = tier0Probability;
+      metricValues["critical.tier-1.probability"] = tier1Probability;
+      return;
+    }
+    case "damage-vector.scale-critical-tier":
       if (criticalTier === null) {
         throw new TypeError("Fixed Critical rule executed before tier resolution");
       }
@@ -347,6 +455,8 @@ function updateMetricValues(
     case "damage.commit-health":
       metricValues["damage.health.total"] = execution.before.damageTotal;
       metricValues["target.health.remaining"] = execution.after.health;
+      return;
+    case "damage-vector.aggregate-weighted-branches":
       return;
   }
 }
@@ -370,10 +480,13 @@ function mechanicForRule(rule: RuleDefinition): string {
   switch (rule.operation.kind) {
     case "damage-vector.copy":
       return "mechanic.damage.direct-hit";
-    case "critical-tier.resolve-binary-roll":
+    case "critical-tier.resolve-tier-roll":
       return "mechanic.critical.probability";
-    case "damage-vector.scale-fixed-critical":
-      return "mechanic.critical.fixed-tier";
+    case "critical-tier.resolve-expected-branches":
+    case "damage-vector.aggregate-weighted-branches":
+      return "mechanic.critical.expected-value";
+    case "damage-vector.scale-critical-tier":
+      return "mechanic.critical.tier-multiplier";
     case "damage-vector.scale-standard-armor":
       return "mechanic.defense.standard-armor";
     case "damage.commit-health":
@@ -385,7 +498,9 @@ function mechanicForRule(rule: RuleDefinition): string {
 
 function coverageForRules(rules: readonly RuleDefinition[]): Result["coverage"] {
   const probabilityResolved = rules.some(
-    (rule) => rule.operation.kind === "critical-tier.resolve-binary-roll",
+    (rule) =>
+      rule.operation.kind === "critical-tier.resolve-tier-roll" ||
+      rule.operation.kind === "critical-tier.resolve-expected-branches",
   );
   const groups: Record<RuleDefinition["evidenceStatus"], Set<string>> = {
     verified: new Set(),
@@ -443,12 +558,374 @@ function validateBuiltArtifact<TContract extends "result" | "trace">(
   };
 }
 
+type RuntimeEvaluation = {
+  readonly appliedRules: readonly RuleDefinition[];
+  readonly decisions: readonly Trace["decisions"][number][];
+  readonly metricValues: Readonly<Record<string, number>>;
+  readonly damage: DamageVector;
+};
+
+function ruleContext(
+  references: ResolvedCatalogReferences,
+  damage: DamageVector,
+  criticalTier: number | null,
+  criticalRoll: number | null,
+  armor: number,
+  health: number,
+) {
+  return {
+    baseDamage: references.attackMode.baseDamage,
+    currentDamage: damage,
+    criticalTier,
+    criticalChance: references.attackMode.criticalChance,
+    criticalRoll,
+    criticalMultiplier: references.attackMode.criticalMultiplier,
+    armor,
+    health,
+  } as const;
+}
+
+function evaluateDeterministicRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (domain.action.criticalResolution === "expected") {
+    throw new TypeError("Expected Critical resolution reached deterministic evaluation");
+  }
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  let damage = zeroVector(references.attackMode.baseDamage);
+  let world = createWorldState([
+    {
+      id: domain.target.id,
+      values: Object.freeze({ health: domain.target.resolvedHealth }),
+    },
+  ]);
+  let criticalTier = domain.action.criticalTier;
+  let decisionSequence = 0;
+  const phases =
+    domain.action.criticalResolution === "fixed" ? FIXED_CRITICAL_PHASES : ROLLED_CRITICAL_PHASES;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    phases,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase) {
+        continue;
+      }
+      const execution = ruleset.executeRule(
+        rule.id,
+        ruleContext(
+          references,
+          damage,
+          criticalTier,
+          domain.action.criticalRoll,
+          domain.target.resolvedArmor,
+          readHealth(world, domain.target.id),
+        ),
+      );
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          criticalTier,
+          domain.action.criticalRoll,
+          domain.target.resolvedArmor,
+        ),
+      );
+      decisionSequence += 1;
+      updateMetricValues(metricValues, execution, criticalTier);
+      if (execution.resolvedCriticalTier !== undefined) {
+        criticalTier = execution.resolvedCriticalTier;
+      }
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        damage = execution.after.damage;
+        world = replaceEntityState(world, domain.target.id, {
+          health: execution.after.health,
+        });
+      }
+    }
+  }
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage,
+  });
+}
+
+function requiredNumber(
+  parameters: Readonly<Record<string, string | number>>,
+  key: string,
+): number {
+  const value = parameters[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new TypeError(`Expected Rule execution omitted finite parameter ${key}`);
+  }
+  return value;
+}
+
+function evaluateExpectedRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (domain.action.criticalResolution !== "expected") {
+    throw new TypeError("Deterministic Critical resolution reached expected evaluation");
+  }
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  const initialDamage = zeroVector(references.attackMode.baseDamage);
+  let decisionSequence = 0;
+  let distributionExecution: RuleExecution | undefined;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    phases: EXPECTED_RESOLUTION_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase) {
+        continue;
+      }
+      const execution = ruleset.executeRule(
+        rule.id,
+        ruleContext(
+          references,
+          initialDamage,
+          null,
+          null,
+          domain.target.resolvedArmor,
+          domain.target.resolvedHealth,
+        ),
+      );
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          null,
+          null,
+          domain.target.resolvedArmor,
+        ),
+      );
+      decisionSequence += 1;
+      updateMetricValues(metricValues, execution, null);
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        distributionExecution = execution;
+      }
+    }
+  }
+  if (
+    distributionExecution === undefined ||
+    distributionExecution.operationKind !== "critical-tier.resolve-expected-branches"
+  ) {
+    throw new TypeError("Ruleset did not apply expected Critical branch resolution");
+  }
+
+  const baseTier = requiredNumber(distributionExecution.parameters, "baseTier");
+  const nextTier = requiredNumber(distributionExecution.parameters, "nextTier");
+  const baseTierProbability = requiredNumber(
+    distributionExecution.parameters,
+    "baseTierProbability",
+  );
+  const nextTierProbability = requiredNumber(
+    distributionExecution.parameters,
+    "nextTierProbability",
+  );
+  const branchInputs = [
+    { tier: baseTier, weight: baseTierProbability },
+    { tier: nextTier, weight: nextTierProbability },
+  ].filter((branch, index, branches) => {
+    if (branch.weight <= 0) {
+      return false;
+    }
+    return branches.findIndex((candidate) => candidate.tier === branch.tier) === index;
+  });
+
+  const branches: ExpectedBranch[] = [];
+  let expectedCriticalMultiplier = 0;
+  let expectedPostCriticalDamage = 0;
+  let armorRemainingMultiplier: number | undefined;
+  const distributionEventId = `event.${domain.action.id}.critical.expected`;
+
+  for (const branchInput of branchInputs) {
+    const branch: BranchTraceMetadata = Object.freeze({
+      id: `branch.critical-tier-${branchInput.tier}`,
+      tier: branchInput.tier,
+      weight: branchInput.weight,
+    });
+    let branchDamage = zeroVector(references.attackMode.baseDamage);
+    let branchWorld = createWorldState([
+      {
+        id: domain.target.id,
+        values: Object.freeze({ health: domain.target.resolvedHealth }),
+      },
+    ]);
+
+    for (const event of createPhaseEvents({
+      actionId: domain.action.id,
+      namespace: `${domain.action.id}.${branch.id}`,
+      logicalId: `${domain.action.id}.${branch.id}`,
+      parentEventId: distributionEventId,
+      phases: FIXED_CRITICAL_PHASES,
+    }).drain()) {
+      for (const rule of ruleset.snapshot.rules) {
+        if (rule.phase !== event.payload.phase) {
+          continue;
+        }
+        const execution = ruleset.executeRule(
+          rule.id,
+          ruleContext(
+            references,
+            branchDamage,
+            branch.tier,
+            null,
+            domain.target.resolvedArmor,
+            readHealth(branchWorld, domain.target.id),
+          ),
+        );
+        decisions.push(
+          decisionForExecution(
+            decisionSequence,
+            event,
+            rule,
+            execution,
+            references,
+            branch.tier,
+            null,
+            domain.target.resolvedArmor,
+            { branch },
+          ),
+        );
+        decisionSequence += 1;
+        if (execution.outcome === "applied") {
+          appliedRules.push(rule);
+          if (execution.operationKind === "damage-vector.copy") {
+            metricValues["damage.direct-hit.total"] = execution.after.damageTotal;
+          } else if (execution.operationKind === "damage-vector.scale-critical-tier") {
+            expectedCriticalMultiplier += branch.weight * execution.factor;
+            expectedPostCriticalDamage += branch.weight * execution.after.damageTotal;
+          } else if (execution.operationKind === "damage-vector.scale-standard-armor") {
+            armorRemainingMultiplier = execution.factor;
+          }
+          branchDamage = execution.after.damage;
+          branchWorld = replaceEntityState(branchWorld, domain.target.id, {
+            health: execution.after.health,
+          });
+        }
+      }
+    }
+
+    branches.push(
+      Object.freeze({
+        id: branch.id,
+        tier: branch.tier,
+        weight: branch.weight,
+        damage: branchDamage,
+        health: readHealth(branchWorld, domain.target.id),
+      }),
+    );
+  }
+
+  if (branches.length === 0 || armorRemainingMultiplier === undefined) {
+    throw new TypeError("Expected Critical evaluation produced no reachable terminal branch");
+  }
+
+  let aggregateExecution: RuleExecution | undefined;
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    parentEventId: distributionEventId,
+    phases: EXPECTED_AGGREGATION_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase) {
+        continue;
+      }
+      const execution = ruleset.executeExpectedAggregateRule(rule.id, {
+        initialHealth: domain.target.resolvedHealth,
+        branches,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          null,
+          null,
+          domain.target.resolvedArmor,
+          {
+            readOverrides: {
+              "branch.damage": canonicalizeJson(
+                branches.map((branch) => ({
+                  id: branch.id,
+                  damage: { ...branch.damage },
+                })),
+              ),
+              "branch.health": canonicalizeJson(
+                branches.map((branch) => ({
+                  id: branch.id,
+                  health: branch.health,
+                })),
+              ),
+              "branch.weight": canonicalizeJson(
+                branches.map((branch) => ({
+                  id: branch.id,
+                  tier: branch.tier,
+                  weight: branch.weight,
+                })),
+              ),
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        aggregateExecution = execution;
+      }
+    }
+  }
+  if (
+    aggregateExecution === undefined ||
+    aggregateExecution.operationKind !== "damage-vector.aggregate-weighted-branches"
+  ) {
+    throw new TypeError("Ruleset did not apply expected terminal branch aggregation");
+  }
+
+  metricValues["critical.expected.multiplier"] = expectedCriticalMultiplier;
+  metricValues["damage.expected.post-critical.total"] = expectedPostCriticalDamage;
+  metricValues["armor.remaining-multiplier"] = armorRemainingMultiplier;
+  metricValues["damage.expected.health.total"] = aggregateExecution.after.damageTotal;
+  metricValues["target.health.expected-remaining"] = aggregateExecution.after.health;
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage: aggregateExecution.after.damage,
+  });
+}
+
 /**
- * Evaluates the deterministic Direct Hit / fixed-or-explicit-roll Critical / Armor slice.
+ * Evaluates the Direct Hit / generalized Critical / Armor slice.
  *
- * The function is pure with respect to external state: it rebuilds executable
- * handles from the supplied content-addressed snapshots and consults no clock,
- * I/O, or random source.
+ * Deterministic mode resolves a fixed tier or explicit roll. Expected mode
+ * evaluates each reachable adjacent Critical tier through terminal Health
+ * commit before weighting branch Damage Vectors and remaining Health.
  */
 export async function evaluateScenario(request: EvaluationRequest): Promise<EvaluationOutcome> {
   const parsed = await parseScenarioDomain(request.scenario);
@@ -525,11 +1002,14 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       },
     );
   }
-  if (domain.action.criticalResolution === "roll" && references.attackMode.criticalChance > 1) {
-    const path = criticalChancePath(catalog, references);
+  if (
+    domain.action.criticalResolution !== "fixed" &&
+    !criticalChanceHasRepresentableTiers(references.attackMode.criticalChance)
+  ) {
+    const path = attackModeFieldPath(catalog, references, "criticalChance");
     return failure(
       "unsupported-critical-chance",
-      `Binary Critical roll resolution supports criticalChance from 0 through 1; received ${references.attackMode.criticalChance}`,
+      `Critical distribution resolution requires safely representable tiers; received criticalChance ${references.attackMode.criticalChance}`,
       {
         ...(path === undefined ? {} : { path }),
         mechanicId: "mechanic.critical.probability",
@@ -537,65 +1017,20 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     );
   }
 
-  const appliedRules: RuleDefinition[] = [];
-  const decisions: Trace["decisions"][number][] = [];
-  const metricValues: Record<string, number> = {};
-  let damage = zeroVector(references.attackMode.baseDamage);
-  let world = createWorldState([
-    {
-      id: domain.target.id,
-      values: Object.freeze({ health: domain.target.resolvedHealth }),
-    },
-  ]);
-  let criticalTier = domain.action.criticalTier;
-
+  let runtime: RuntimeEvaluation;
   try {
-    let decisionSequence = 0;
-    for (const event of createPhaseEvents(
-      domain.action.id,
-      domain.action.criticalResolution,
-    ).drain()) {
-      for (const rule of ruleset.snapshot.rules) {
-        if (rule.phase !== event.payload.phase) {
-          continue;
-        }
-        const execution = ruleset.executeRule(rule.id, {
-          baseDamage: references.attackMode.baseDamage,
-          currentDamage: damage,
-          criticalTier,
-          criticalChance: references.attackMode.criticalChance,
-          criticalRoll: domain.action.criticalRoll,
-          criticalMultiplier: references.attackMode.criticalMultiplier,
-          armor: domain.target.resolvedArmor,
-          health: readHealth(world, domain.target.id),
-        });
-        decisions.push(
-          decisionForExecution(
-            decisionSequence,
-            event,
-            rule,
-            execution,
-            references,
-            criticalTier,
-            domain.action.criticalRoll,
-            domain.target.resolvedArmor,
-          ),
-        );
-        decisionSequence += 1;
-        updateMetricValues(metricValues, execution, criticalTier);
-        if (execution.resolvedCriticalTier !== undefined) {
-          criticalTier = execution.resolvedCriticalTier;
-        }
-        if (execution.outcome === "applied") {
-          appliedRules.push(rule);
-          damage = execution.after.damage;
-          world = replaceEntityState(world, domain.target.id, {
-            health: execution.after.health,
-          });
-        }
-      }
-    }
+    runtime =
+      domain.action.criticalResolution === "expected"
+        ? evaluateExpectedRuntime(domain, references, ruleset)
+        : evaluateDeterministicRuntime(domain, references, ruleset);
   } catch (error) {
+    if (error instanceof RulesError && error.code === "unsupported-critical-multiplier") {
+      const path = attackModeFieldPath(catalog, references, "criticalMultiplier");
+      return failure("unsupported-critical-multiplier", error.message, {
+        ...(path === undefined ? {} : { path }),
+        mechanicId: "mechanic.critical.tier-multiplier",
+      });
+    }
     return failure(
       "rule-execution-failed",
       error instanceof Error ? error.message : "Rule execution failed",
@@ -626,7 +1061,7 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       scenarioRef,
       fingerprint,
       level: "full",
-      decisions,
+      decisions: runtime.decisions,
     } as const);
     const validatedTrace = validateBuiltArtifact("trace", traceWithHash);
     if (!validatedTrace.ok) {
@@ -634,7 +1069,7 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     }
     const trace = validatedTrace.value;
 
-    const finalDamageTotal = sumDamageVector(damage);
+    const finalDamageTotal = sumDamageVector(runtime.damage);
     const resultWithHash = await attachArtifactContentHash({
       $schema: "urn:voidtrace:schema:result:0.1.0",
       kind: "voidtrace.result",
@@ -644,12 +1079,12 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       gameBuild: domain.scenario.gameBuild,
       scenarioRef,
       fingerprint,
-      coverage: coverageForRules(appliedRules),
-      metrics: projectRequestedMetrics(domain.metrics, metricValues),
+      coverage: coverageForRules(runtime.appliedRules),
+      metrics: projectRequestedMetrics(domain.metrics, runtime.metricValues),
       damageBySource: {
         [domain.action.id]: finalDamageTotal,
       },
-      damageByType: damage,
+      damageByType: runtime.damage,
       resolvedDefaults: {
         "fingerprint.seed": domain.fingerprintSeed,
         "trace.level": "full",
@@ -679,6 +1114,36 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       return failure(
         "integrity-check-failed",
         "Result, Trace, and Scenario failed cross-Artifact integrity verification",
+      );
+    }
+    let replayedHealth: number;
+    try {
+      const replayed = await replayTraceState(trace, domain.target.resolvedHealth);
+      if (canonicalizeJson(replayed.damage) !== canonicalizeJson(runtime.damage)) {
+        return failure(
+          "integrity-check-failed",
+          "Trace replay Damage Vector does not match the evaluated Result",
+        );
+      }
+      replayedHealth = replayed.health;
+    } catch (error) {
+      return failure(
+        "integrity-check-failed",
+        error instanceof Error ? error.message : "Trace semantic replay failed",
+        {
+          causeCode: error instanceof TraceReplayError ? error.code : "unknown",
+        },
+      );
+    }
+    const terminalHealthMetricId =
+      domain.action.criticalResolution === "expected"
+        ? "target.health.expected-remaining"
+        : "target.health.remaining";
+    const evaluatedHealth = runtime.metricValues[terminalHealthMetricId];
+    if (typeof evaluatedHealth !== "number" || replayedHealth !== evaluatedHealth) {
+      return failure(
+        "integrity-check-failed",
+        "Trace replay terminal Health does not match the evaluated Result",
       );
     }
 

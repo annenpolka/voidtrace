@@ -1,12 +1,12 @@
-/// Conservative binary Critical resolution for explicit deterministic rolls and fixed tiers.
+/// Experimental generalized Critical tier resolution for explicit deterministic rolls and tiers.
 module voidtrace.mechanics.critical
 
 import "../rules/model.pkl"
 
-binaryRollRule: model.Rule = new {
-  id = "rule.critical.resolve-binary-roll"
+resolveTierRollRule: model.Rule = new {
+  id = "rule.critical.resolve-tier-roll"
   description =
-    "For Critical chance c in [0, 1], resolve the binary distribution p(tier 0) = 1 - c and p(tier 1) = c from an explicit roll: tier 1 exactly when roll is less than c, otherwise tier 0."
+    "For non-negative Critical chance c, let baseTier = floor(c) and fraction = c - baseTier. baseTier must be a safe integer; nextTier is baseTier when fraction is 0, otherwise baseTier + 1 and must also be safe. Resolve p(baseTier) = 1 - fraction and p(nextTier) = fraction from an explicit roll in [0, 1): nextTier exactly when roll is less than fraction, otherwise baseTier."
   phase = "critical.roll"
   eventKind = "damage.direct"
   reads {
@@ -15,18 +15,42 @@ binaryRollRule: model.Rule = new {
   }
   writes {
     "event.critical-tier"
-    "event.critical-tier-0-probability"
-    "event.critical-tier-1-probability"
+    "event.critical-base-tier"
+    "event.critical-next-tier"
+    "event.critical-fraction"
+    "event.critical-base-tier-probability"
+    "event.critical-next-tier-probability"
   }
-  operation = new model.ResolveBinaryCriticalRoll {}
+  operation = new model.ResolveCriticalTierRoll {}
   evidenceStatus = "experimental"
   evidenceIds = new {}
 }
 
-nonCriticalRule: model.Rule = new {
-  id = "rule.critical.fixed-tier-0"
+resolveExpectedBranchesRule: model.Rule = new {
+  id = "rule.critical.resolve-expected-branches"
   description =
-    "When deterministic fixed Critical tier is 0, preserve event damage with multiplier 1."
+    "For non-negative Critical chance c, resolve the same safe adjacent-tier probability distribution as explicit-roll resolution without selecting a realized tier."
+  phase = "critical.expected"
+  eventKind = "damage.direct"
+  reads {
+    "attack.critical-chance"
+  }
+  writes {
+    "event.critical-base-tier"
+    "event.critical-next-tier"
+    "event.critical-fraction"
+    "event.critical-base-tier-probability"
+    "event.critical-next-tier-probability"
+  }
+  operation = new model.ResolveExpectedCriticalBranches {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+scaleTierRule: model.Rule = new {
+  id = "rule.critical.scale-tier"
+  description =
+    "For a resolved non-negative safe-integer Critical tier t and Catalog Critical multiplier M, scale event damage by 1 + t * (M - 1)."
   phase = "critical.resolve"
   eventKind = "damage.direct"
   reads {
@@ -37,30 +61,27 @@ nonCriticalRule: model.Rule = new {
   writes {
     "event.damage"
   }
-  operation = new model.ScaleFixedCritical {
-    requiredTier = 0
-  }
+  operation = new model.ScaleCriticalTier {}
   evidenceStatus = "experimental"
   evidenceIds = new {}
 }
 
-criticalRule: model.Rule = new {
-  id = "rule.critical.fixed-tier-1"
+aggregateExpectedBranchesRule: model.Rule = new {
+  id = "rule.critical.aggregate-expected-branches"
   description =
-    "When deterministic fixed Critical tier is 1, multiply event damage by the Catalog attack critical multiplier."
-  phase = "critical.resolve"
+    "After every reachable adjacent Critical tier branch reaches terminal Health commit, weight its final Damage Vector and remaining Health by the branch probability."
+  phase = "result.aggregate"
   eventKind = "damage.direct"
   reads {
-    "event.damage"
-    "event.critical-tier"
-    "attack.critical-multiplier"
+    "branch.damage"
+    "branch.health"
+    "branch.weight"
   }
   writes {
     "event.damage"
+    "target.health"
   }
-  operation = new model.ScaleFixedCritical {
-    requiredTier = 1
-  }
+  operation = new model.AggregateWeightedBranches {}
   evidenceStatus = "experimental"
   evidenceIds = new {}
 }

@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:892b1dc0fd05d96f835656d971e785eb33d9c237c658947262ef4226dd2c356c`
+- Source fingerprint: `sha256:fdc2e15b32febbec7de247f61b04a5004fbec91f372ad7ca11e3616a53cd6dbd`
 - Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -24,8 +24,9 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `CLI-004` | `cli` | `cli_alias_equivalence` | `example-tested` | `active` | voidtraceとvtは同一引数に対してstdout、stderr、exit codeがbyte単位で一致する |
 | `CLI-005` | `cli` | `cli_application_boundary` | `example-tested` | `active` | CLIは引数解析、Artifact入出力、表示選択だけを担当し、評価意味論と能力記述をApplication APIへ委譲する |
 | `CLI-006` | `cli` | `cli_input_surface` | `example-tested` | `active` | describeはArtifact入力を取らず、runとtraceは<scenario-source>と必須--catalog <catalog-source>を取り、各sourceはJSONファイルpathまたはstdinを表す「-」とする。両sourceを同時に「-」にはできず、評価はApplication APIが生成core Rulesetを選択し、暗黙fixtureを使わない |
-| `CRT-001` | `mechanics` | `critical_tier_probability_sum` | `property-tested` | `active` | Critical解決入力はcriticalTierとcriticalRollの厳密に一方だけを持つ。criticalRollを選んだ場合、0以上1以下のCritical chance cはbinary分布p(tier 0)=1-c、p(tier 1)=cを形成し、rollがchance未満のときだけtier 1を解決する |
-| `CRT-002` | `mechanics` | `fixed_critical_tier` | `property-tested` | `active` | deterministic固定tierは0または1だけを受理し、tier 0は倍率1、tier 1はCatalogのcriticalMultiplierを適用する |
+| `CRT-001` | `mechanics` | `critical_tier_probability_sum` | `property-tested` | `active` | deterministic modeのCritical解決入力はcriticalTierとcriticalRollの厳密に一方だけを持ち、expected modeは両方を持たない。確率分布を使う場合、非負のCritical chance cについてbase=floor(c)、fraction=c-baseとし、fractionが0ならnext=base、それ以外はnext=base+1とする。baseと到達可能なnextはsafe integerでなければならず、p(base)=1-fraction、p(next)=fractionを形成する。明示rollではrollがfraction未満のときだけnextを、それ以外はbaseを解決する。互換metricのcritical.tier-0.probabilityとcritical.tier-1.probabilityは、この分布を絶対tier 0と1へ射影し、到達不能なtierの確率を0とする |
+| `CRT-002` | `mechanics` | `fixed_critical_tier` | `property-tested` | `active` | 解決済みCritical tier tは非負safe integerだけを受理し、CatalogのcriticalMultiplier Mに対してDamage Vectorへ倍率1+t*(M-1)を適用する。Resultのcritical.multiplier metricはCatalog入力Mではなく、この解決済みtierへ実際に適用した倍率を表す。適用倍率を有限数として表現できない入力は部分ResultやTraceを返さずunsupportedとする |
+| `CRT-003` | `mechanics` | `expected_critical_branches` | `property-tested` | `active` | expected modeの単発Direct HitはCritical chanceのbase tierと到達可能なnext tierを独立branchとしてCritical倍率、Armor、Health commitまで終端評価し、その後で各branchの確率によりDamage Vector、実適用Critical倍率、post-Critical Damage、Health Damage、残Healthを加重平均する。Health 0 clampは各branch内で行い、平均Damageから残Healthを逆算しない。Resultはcritical.expected.multiplier、damage.expected.post-critical.total、damage.expected.health.total、target.health.expected-remainingを使い、実現値であるcritical.roll、critical.tier、critical.multiplier、damage.post-critical.total、damage.health.total、target.health.remainingを生成しない |
 | `DEF-001` | `mechanics` | `armor_monotonic` | `property-tested` | `active` | 標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない |
 | `DEF-002` | `mechanics` | `armor_formula_example` | `example-tested` | `active` | golden.direct-critical-armorにおいて、標準Armor 300では許容誤差0.000001以内でHealth Damage倍率が0.5となる |
 | `DMG-001` | `mechanics` | `damage_vector_identity` | `property-tested` | `active` | ModifierなしのDirect Hitでは、damage.construct直後のDamage VectorがCatalog入力と一致する |
@@ -33,9 +34,11 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `ENG-001` | `kernel` | `deterministic_replay` | `property-tested` | `active` | 同一Catalog、Ruleset、Scenario、seedは同一のcanonical Resultを返す |
 | `ENG-002` | `kernel` | `event_time_monotonic` | `property-tested` | `active` | Event Queueから処理されるイベント時刻は後退しない |
 | `GOL-001` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/direct-critical-armor.scenario.jsonは独立literal expected vectorと一致するResultおよびTraceを生成する |
-| `GOL-002` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/probability-critical-armor.scenario.jsonは明示Critical rollからbinary tierを解決し、独立literal expected vectorと一致するResultおよびTraceを生成する |
+| `GOL-002` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/probability-critical-armor.scenario.jsonは明示Critical rollから隣接tierを解決し、独立literal expected vectorと一致するResultおよびTraceを生成する |
+| `GOL-003` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/tier-2-critical-armor.scenario.jsonはCritical chance 1.25と明示roll 0.2からtier 2を解決し、Critical multiplier 2、base Damage 100、Armor 300に対する最終Health Damage 150と残Health 850を独立literal expected vectorとしてResultおよびTraceと照合する |
+| `GOL-004` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/expected-critical-armor.scenario.jsonはCritical chance 1.25のtier 1 branchを確率0.75、tier 2 branchを確率0.25でCritical倍率、Armor 300、Health commitまで別々に評価する。初期Health 125に対してraw expected Health Damage 112.5、branch clamp後のexpected残Health 18.75を独立literal expected vectorとしてResultおよびTraceと照合する |
 | `RNG-001` | `kernel` | `same_logical_random` | `property-tested` | `active` | 同一seed、論理Event ID、roll purposeは同一乱数を返す |
 | `SCP-001` | `scope` | `scope_boundary` | `manual` | `active` | 物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない |
 | `SCP-002` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | 非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す |
-| `TRC-001` | `kernel` | `trace_reconstructs_result` | `property-tested` | `active` | Traceの順序付きDamage Vector操作を再生するとResultの最終Damage Vectorと一致する |
-| `TRC-002` | `kernel` | `rejected_rule_has_reason` | `property-tested` | `active` | 不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する |
+| `TRC-001` | `kernel` | `trace_reconstructs_result` | `property-tested` | `active` | Scenarioの初期HealthをアンカーとしてTraceの順序付きDamage Vector、Health commit、expected branch集約を再生すると、Resultの最終Damage Vectorとdeterministicまたはexpectedの残Healthに一致する |
+| `TRC-002` | `kernel` | `rejected_rule_has_reason` | `property-tested` | `planned` | 不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する |

@@ -12,9 +12,10 @@ import { evaluateScenario } from "../../../../packages/sdk/src/index.ts";
 type Options = {
   scenarioPath: string;
   catalogPath: string;
-  criticalTier?: 0 | 1;
+  criticalTier?: number;
   armor?: number;
   health?: number;
+  expected: boolean;
   pretty: boolean;
   checkGolden: boolean;
   help: boolean;
@@ -32,6 +33,18 @@ const expectedPath = resolve(
   repositoryRoot,
   "data/fixtures/golden/direct-critical-armor.expected.json",
 );
+const expectedScenarioPath = resolve(
+  repositoryRoot,
+  "data/fixtures/golden/expected-critical-armor.scenario.json",
+);
+const expectedCatalogPath = resolve(
+  repositoryRoot,
+  "data/fixtures/catalog-mini/catalog-tier-2.json",
+);
+const expectedExpectedPath = resolve(
+  repositoryRoot,
+  "data/fixtures/golden/expected-critical-armor.expected.json",
+);
 
 const HELP = `VoidTrace repository-local synthetic-slice helper
 
@@ -41,11 +54,12 @@ Usage:
 Options:
   --scenario PATH       Contract-valid Scenario JSON (default: bundled golden Scenario)
   --catalog PATH        Contract-valid CatalogSnapshot JSON (default: bundled mini Catalog)
-  --critical-tier 0|1   Override the deterministic fixed Critical tier
+  --critical-tier TIER  Override with a non-negative safe-integer fixed Critical tier
   --armor NUMBER        Override non-negative resolved Armor
   --health NUMBER       Override non-negative resolved Health
+  --expected            Use the bundled analytic expected-Critical Scenario and matching Catalog
   --pretty              Pretty-print JSON instead of canonical single-line JSON
-  --check-golden        Assert the unmodified bundled scenario against literal expectations
+  --check-golden        Assert the selected unmodified bundled scenario against literal expectations
   --help                Show this help
 `;
 
@@ -78,10 +92,22 @@ function nonNegativeNumber(value: string, option: string): number {
   return number;
 }
 
+function nonNegativeSafeInteger(value: string, option: string): number {
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < 0) {
+    throw new AdapterError(
+      "adapter.invalid-argument",
+      `${option} must be a non-negative safe integer`,
+    );
+  }
+  return number;
+}
+
 function parseOptions(argv: readonly string[]): Options {
   const options: Options = {
     scenarioPath: defaultScenarioPath,
     catalogPath: defaultCatalogPath,
+    expected: false,
     pretty: false,
     checkGolden: false,
     help: false,
@@ -100,13 +126,7 @@ function parseOptions(argv: readonly string[]): Options {
         break;
       case "--critical-tier": {
         const value = nextValue(argv, index, option);
-        if (value !== "0" && value !== "1") {
-          throw new AdapterError(
-            "adapter.invalid-argument",
-            "--critical-tier must be exactly 0 or 1",
-          );
-        }
-        options.criticalTier = Number(value) as 0 | 1;
+        options.criticalTier = nonNegativeSafeInteger(value, option);
         index += 1;
         break;
       }
@@ -117,6 +137,9 @@ function parseOptions(argv: readonly string[]): Options {
       case "--health":
         options.health = nonNegativeNumber(nextValue(argv, index, option), option);
         index += 1;
+        break;
+      case "--expected":
+        options.expected = true;
         break;
       case "--pretty":
         options.pretty = true;
@@ -130,6 +153,19 @@ function parseOptions(argv: readonly string[]): Options {
       default:
         throw new AdapterError("adapter.invalid-argument", `Unknown option: ${String(option)}`);
     }
+  }
+  if (options.expected) {
+    if (
+      options.scenarioPath !== defaultScenarioPath ||
+      options.catalogPath !== defaultCatalogPath
+    ) {
+      throw new AdapterError(
+        "adapter.invalid-argument",
+        "--expected cannot be combined with --scenario or --catalog",
+      );
+    }
+    options.scenarioPath = expectedScenarioPath;
+    options.catalogPath = expectedCatalogPath;
   }
   return options;
 }
@@ -326,11 +362,19 @@ async function main(): Promise<void> {
     options.criticalTier !== undefined ||
     options.armor !== undefined ||
     options.health !== undefined;
+  if (options.expected && options.criticalTier !== undefined) {
+    throw new AdapterError(
+      "adapter.invalid-argument",
+      "--critical-tier is a realized outcome and cannot be combined with --expected",
+    );
+  }
+  const selectedDefaultScenarioPath = options.expected ? expectedScenarioPath : defaultScenarioPath;
+  const selectedDefaultCatalogPath = options.expected ? expectedCatalogPath : defaultCatalogPath;
   if (
     options.checkGolden &&
     (hasOverrides ||
-      options.scenarioPath !== defaultScenarioPath ||
-      options.catalogPath !== defaultCatalogPath)
+      options.scenarioPath !== selectedDefaultScenarioPath ||
+      options.catalogPath !== selectedDefaultCatalogPath)
   ) {
     throw new AdapterError(
       "adapter.invalid-argument",
@@ -351,7 +395,11 @@ async function main(): Promise<void> {
   }
 
   if (options.checkGolden) {
-    const goldenId = assertGolden(outcome.result, outcome.trace, await readJson(expectedPath));
+    const goldenId = assertGolden(
+      outcome.result,
+      outcome.trace,
+      await readJson(options.expected ? expectedExpectedPath : expectedPath),
+    );
     emit(
       {
         ...outcome,

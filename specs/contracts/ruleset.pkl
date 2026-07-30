@@ -4,8 +4,8 @@ module voidtrace.contracts.ruleset
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.2.0"
-local contractVersion = "0.2.0"
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.4.0"
+local contractVersion = "0.4.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -38,37 +38,42 @@ function copyDamageVector(): model.ObjectNode = new model.ObjectNode {
   }
 }
 
-function resolveBinaryCriticalRoll(): model.ObjectNode = new model.ObjectNode {
+function resolveCriticalTierRoll(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
       name = "kind"
       description =
-        "Resolve Critical tier 0 or 1 from an explicit roll and a normalized binary Critical chance."
+        "Resolve safe non-negative Critical tiers from an explicit roll and the fractional part of Critical chance; integer chance keeps next tier equal to base tier."
       required = true
       schema = new model.LiteralNode {
-        value = "critical-tier.resolve-binary-roll"
+        value = "critical-tier.resolve-tier-roll"
       }
     }
   }
 }
 
-function scaleFixedCritical(): model.ObjectNode = new model.ObjectNode {
+function resolveExpectedCriticalBranches(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
       name = "kind"
-      description = "Scale by the finite deterministic fixed-tier Critical rule."
+      description =
+        "Resolve the safe non-negative adjacent Critical tiers and their probabilities without selecting a realized tier."
       required = true
       schema = new model.LiteralNode {
-        value = "damage-vector.scale-fixed-critical"
+        value = "critical-tier.resolve-expected-branches"
       }
     }
+  }
+}
+
+function scaleCriticalTier(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
     new model.Field {
-      name = "requiredTier"
-      description = "Fixed Critical tier matched by this Rule."
+      name = "kind"
+      description = "Scale by 1 + resolved Critical tier * (Critical multiplier - 1)."
       required = true
-      schema = new model.IntegerNode {
-        minimum = 0
-        maximum = 1
+      schema = new model.LiteralNode {
+        value = "damage-vector.scale-critical-tier"
       }
     }
   }
@@ -108,6 +113,20 @@ function commitHealthDamage(): model.ObjectNode = new model.ObjectNode {
   }
 }
 
+function aggregateWeightedBranches(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Aggregate terminal branch Damage Vectors and remaining Health by explicit branch weights."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.aggregate-weighted-branches"
+      }
+    }
+  }
+}
+
 function rule(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
@@ -130,9 +149,11 @@ function rule(): model.ObjectNode = new model.ObjectNode {
         values = new Listing<String> {
           "damage.construct"
           "critical.roll"
+          "critical.expected"
           "critical.resolve"
           "target.mitigate"
           "damage.commit"
+          "result.aggregate"
         }
       }
     }
@@ -161,10 +182,12 @@ function rule(): model.ObjectNode = new model.ObjectNode {
       schema = new model.UnionNode {
         variants = new {
           copyDamageVector()
-          resolveBinaryCriticalRoll()
-          scaleFixedCritical()
+          resolveCriticalTierRoll()
+          resolveExpectedCriticalBranches()
+          scaleCriticalTier()
           scaleStandardArmor()
           commitHealthDamage()
+          aggregateWeightedBranches()
         }
       }
     }

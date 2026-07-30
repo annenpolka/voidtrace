@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
   type: "json",
 };
+import expectedScenarioFixture from "../../../data/fixtures/golden/expected-critical-armor.scenario.json" with {
+  type: "json",
+};
 import { parseScenarioDomain } from "./scenario-domain.ts";
 
 type MutableScenarioFixture = {
@@ -56,6 +59,15 @@ async function changedScenario(
   change: (scenario: MutableScenarioFixture) => void,
 ): Promise<unknown> {
   const mutable = structuredClone(scenarioFixture) as MutableScenarioFixture;
+  change(mutable);
+  const { contentHash: _contentHash, ...withoutHash } = mutable;
+  return attachArtifactContentHash(withoutHash);
+}
+
+async function changedExpectedScenario(
+  change: (scenario: MutableScenarioFixture) => void,
+): Promise<unknown> {
+  const mutable = structuredClone(expectedScenarioFixture) as MutableScenarioFixture;
   change(mutable);
   const { contentHash: _contentHash, ...withoutHash } = mutable;
   return attachArtifactContentHash(withoutHash);
@@ -147,21 +159,40 @@ describe("parseScenarioDomain", () => {
     });
   });
 
-  it.each([
-    ["expected", "simulation.expected"],
-    ["monte-carlo", "simulation.monte-carlo"],
-  ] as const)("rejects the unsupported %s simulation mode", async (mode, mechanicId) => {
+  it("rejects the unsupported monte-carlo simulation mode", async () => {
     const scenario = await changedScenario((mutable) => {
-      mutable.simulation =
-        mode === "expected"
-          ? { mode, timeLimitMs: 1 }
-          : { mode, seed: 42, iterations: 10, timeLimitMs: 1 };
+      mutable.simulation = {
+        mode: "monte-carlo",
+        seed: 42,
+        iterations: 10,
+        timeLimitMs: 1,
+      };
     });
 
     await expectFailure(scenario, {
       code: "unsupported-simulation-mode",
       path: "/simulation/mode",
-      mechanicId,
+      mechanicId: "simulation.monte-carlo",
+    });
+  });
+
+  it("accepts expected mode only without a realized Critical input", async () => {
+    const result = await parseScenarioDomain(structuredClone(expectedScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          criticalResolution: "expected",
+          criticalTier: null,
+          criticalRoll: null,
+        },
+        simulation: {
+          mode: "expected",
+          timeLimitMs: 1,
+        },
+        metrics: expectedScenarioFixture.metrics,
+      },
     });
   });
 
@@ -377,21 +408,24 @@ describe("parseScenarioDomain", () => {
     });
   });
 
-  it.each([2, -1, 0.5])("rejects unsupported fixed Critical tier %s", async (tier) => {
+  it.each([-1, 0.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects unsupported fixed Critical tier %s",
+    async (tier) => {
+      const scenario = await changedScenario((mutable) => {
+        firstAction(mutable).parameters.criticalTier = tier;
+      });
+
+      await expectFailure(scenario, {
+        code: "unsupported-critical-tier",
+        path: "/actionPlan/0/parameters/criticalTier",
+        mechanicId: "mechanic.critical.fixed-tier",
+      });
+    },
+  );
+
+  it.each([0, 2, Number.MAX_SAFE_INTEGER])("accepts fixed Critical tier %s", async (tier) => {
     const scenario = await changedScenario((mutable) => {
       firstAction(mutable).parameters.criticalTier = tier;
-    });
-
-    await expectFailure(scenario, {
-      code: "unsupported-critical-tier",
-      path: "/actionPlan/0/parameters/criticalTier",
-      mechanicId: "mechanic.critical.fixed-tier",
-    });
-  });
-
-  it("accepts fixed Critical tier zero", async () => {
-    const scenario = await changedScenario((mutable) => {
-      firstAction(mutable).parameters.criticalTier = 0;
     });
 
     const result = await parseScenarioDomain(scenario);
@@ -400,7 +434,7 @@ describe("parseScenarioDomain", () => {
       value: {
         action: {
           criticalResolution: "fixed",
-          criticalTier: 0,
+          criticalTier: tier,
           criticalRoll: null,
         },
       },
@@ -461,6 +495,26 @@ describe("parseScenarioDomain", () => {
     });
   });
 
+  it("rejects realized Critical inputs in expected mode", async () => {
+    const withTier = await changedExpectedScenario((mutable) => {
+      firstAction(mutable).parameters.criticalTier = 1;
+    });
+    await expectFailure(withTier, {
+      code: "invalid-critical-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.critical.resolution",
+    });
+
+    const withRoll = await changedExpectedScenario((mutable) => {
+      firstAction(mutable).parameters.criticalRoll = 0.25;
+    });
+    await expectFailure(withRoll, {
+      code: "invalid-critical-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.critical.resolution",
+    });
+  });
+
   it("requires rolled Critical metrics to use criticalRoll resolution", async () => {
     const fixed = await changedScenario((mutable) => {
       mutable.metrics = ["critical.roll"];
@@ -477,6 +531,11 @@ describe("parseScenarioDomain", () => {
       parameters.criticalRoll = 0.25;
       mutable.metrics = [
         "critical.roll",
+        "critical.base-tier",
+        "critical.next-tier",
+        "critical.fraction",
+        "critical.base-tier.probability",
+        "critical.next-tier.probability",
         "critical.tier-0.probability",
         "critical.tier-1.probability",
       ];
@@ -485,8 +544,37 @@ describe("parseScenarioDomain", () => {
     expect(result).toMatchObject({
       ok: true,
       value: {
-        metrics: ["critical.roll", "critical.tier-0.probability", "critical.tier-1.probability"],
+        metrics: [
+          "critical.roll",
+          "critical.base-tier",
+          "critical.next-tier",
+          "critical.fraction",
+          "critical.base-tier.probability",
+          "critical.next-tier.probability",
+          "critical.tier-0.probability",
+          "critical.tier-1.probability",
+        ],
       },
+    });
+  });
+
+  it("keeps realized and expected Critical metric namespaces separate", async () => {
+    const expectedWithRealizedMetric = await changedExpectedScenario((mutable) => {
+      mutable.metrics = ["critical.tier"];
+    });
+    await expectFailure(expectedWithRealizedMetric, {
+      code: "unsupported-metric",
+      path: "/metrics/0",
+      mechanicId: "critical.tier",
+    });
+
+    const deterministicWithExpectedMetric = await changedScenario((mutable) => {
+      mutable.metrics = ["critical.expected.multiplier"];
+    });
+    await expectFailure(deterministicWithExpectedMetric, {
+      code: "unsupported-metric",
+      path: "/metrics/0",
+      mechanicId: "critical.expected.multiplier",
     });
   });
 

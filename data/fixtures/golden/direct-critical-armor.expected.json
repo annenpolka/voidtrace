@@ -18,16 +18,10 @@
   },
   "appliedRuleIds": [
     "rule.damage.direct-hit",
-    "rule.critical.fixed-tier-1",
+    "rule.critical.scale-tier",
     "rule.defense.standard-armor",
     "rule.damage.commit-health"
   ],
-  "rejectedRules": [
-    {
-      "ruleId": "rule.critical.fixed-tier-0",
-      "stage": "predicate",
-      "code": "predicate.critical-tier-mismatch"
-    }
-  ],
+  "rejectedRules": [],
   "tolerance": 0.000001
 }

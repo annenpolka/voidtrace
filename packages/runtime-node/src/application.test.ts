@@ -24,6 +24,15 @@ const scenarioPath = fileURLToPath(
 const catalogPath = fileURLToPath(
   new URL("../../../data/fixtures/catalog-mini/catalog.json", import.meta.url),
 );
+const tier2ScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/tier-2-critical-armor.scenario.json", import.meta.url),
+);
+const tier2CatalogPath = fileURLToPath(
+  new URL("../../../data/fixtures/catalog-mini/catalog-tier-2.json", import.meta.url),
+);
+const expectedScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/expected-critical-armor.scenario.json", import.meta.url),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -84,6 +93,75 @@ describe("createNodeApplication", () => {
     }
     expect(outcome.result.kind).toBe("voidtrace.result");
     expect(outcome.trace.kind).toBe("voidtrace.trace");
+  });
+
+  it("evaluates generalized tier-2 Critical metrics from files", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: tier2ScenarioPath,
+      catalogSource: tier2CatalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toMatchObject({
+      "critical.roll": 0.2,
+      "critical.base-tier": 1,
+      "critical.next-tier": 2,
+      "critical.fraction": 0.25,
+      "critical.base-tier.probability": 0.75,
+      "critical.next-tier.probability": 0.25,
+      "critical.tier-0.probability": 0,
+      "critical.tier-1.probability": 0.75,
+      "critical.tier": 2,
+      "critical.multiplier": 3,
+      "damage.health.total": 150,
+      "target.health.remaining": 850,
+    });
+    expect(outcome.trace.decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outcome: "applied",
+          ruleId: "rule.critical.resolve-tier-roll",
+        }),
+        expect.objectContaining({
+          outcome: "applied",
+          ruleId: "rule.critical.scale-tier",
+        }),
+      ]),
+    );
+  });
+
+  it("evaluates terminal-branch Critical expected metrics from files", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: expectedScenarioPath,
+      catalogSource: tier2CatalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toMatchObject({
+      "critical.base-tier": 1,
+      "critical.next-tier": 2,
+      "critical.base-tier.probability": 0.75,
+      "critical.next-tier.probability": 0.25,
+      "critical.expected.multiplier": 2.25,
+      "damage.expected.post-critical.total": 225,
+      "damage.expected.health.total": 112.5,
+      "target.health.expected-remaining": 18.75,
+    });
+    expect(outcome.result.metrics).not.toHaveProperty("critical.tier");
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      outcome: "applied",
+      ruleId: "rule.critical.aggregate-expected-branches",
+      after: {
+        "damage.total": 112.5,
+        "target.health": 18.75,
+      },
+    });
   });
 
   it("produces the same outcome for file and stdin Scenario sources", async () => {
@@ -263,11 +341,11 @@ describe("createNodeApplication", () => {
     });
   });
 
-  it("maps unsupported binary Critical chance to the Catalog source", async () => {
+  it("maps an unrepresentable Critical chance to the Catalog source", async () => {
     const outcome = await createNodeApplication({
       sdk: sdkFailure({
         code: "unsupported-critical-chance",
-        message: "Critical chance exceeds the binary slice",
+        message: "Critical chance cannot produce safely representable tiers",
         path: "/weapons/0/attackModes/0/criticalChance",
         mechanicId: "mechanic.critical.probability",
       }),
@@ -283,6 +361,34 @@ describe("createNodeApplication", () => {
         classification: "unsupported",
         pointer: "/weapons/0/attackModes/0/criticalChance",
         mechanicId: "mechanic.critical.probability",
+        source: catalogPath,
+      },
+    });
+    if (!outcome.ok) {
+      expect(exitCodeForProblem(outcome.problem)).toBe(3);
+    }
+  });
+
+  it("maps an unrepresentable Critical multiplier to the Catalog source", async () => {
+    const outcome = await createNodeApplication({
+      sdk: sdkFailure({
+        code: "unsupported-critical-multiplier",
+        message: "Critical tier multiplier cannot be represented finitely",
+        path: "/weapons/0/attackModes/0/criticalMultiplier",
+        mechanicId: "mechanic.critical.tier-multiplier",
+      }),
+    }).evaluate({
+      scenarioSource: scenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      problem: {
+        code: "unsupported-critical-multiplier",
+        classification: "unsupported",
+        pointer: "/weapons/0/attackModes/0/criticalMultiplier",
+        mechanicId: "mechanic.critical.tier-multiplier",
         source: catalogPath,
       },
     });

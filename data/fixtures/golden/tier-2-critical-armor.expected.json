@@ -1,28 +1,28 @@
 {
-  "id": "golden.probability-critical-armor",
-  "scenarioId": "scenario.golden-probability-critical-armor",
+  "id": "golden.tier-2-critical-armor",
+  "scenarioId": "scenario.golden-tier-2-critical-armor",
   "metrics": {
     "damage.direct-hit.total": 100,
     "critical.roll": 0.2,
-    "critical.base-tier": 0,
-    "critical.next-tier": 1,
+    "critical.base-tier": 1,
+    "critical.next-tier": 2,
     "critical.fraction": 0.25,
     "critical.base-tier.probability": 0.75,
     "critical.next-tier.probability": 0.25,
-    "critical.tier-0.probability": 0.75,
-    "critical.tier-1.probability": 0.25,
-    "critical.tier": 1,
-    "critical.multiplier": 2,
-    "damage.post-critical.total": 200,
+    "critical.tier-0.probability": 0,
+    "critical.tier-1.probability": 0.75,
+    "critical.tier": 2,
+    "critical.multiplier": 3,
+    "damage.post-critical.total": 300,
     "armor.remaining-multiplier": 0.5,
-    "damage.health.total": 100,
-    "target.health.remaining": 900
+    "damage.health.total": 150,
+    "target.health.remaining": 850
   },
   "damageBySource": {
-    "action.direct-hit-1": 100
+    "action.direct-hit-1": 150
   },
   "damageByType": {
-    "damage.synthetic-kinetic": 100
+    "damage.synthetic-kinetic": 150
   },
   "appliedRuleIds": [
     "rule.damage.direct-hit",

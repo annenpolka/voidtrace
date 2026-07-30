@@ -22,22 +22,75 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.rules).toHaveLength(6);
+    expect(loaded.snapshot.schemaVersion).toBe("0.4.0");
+    expect(loaded.snapshot.revision).toBe(1);
+    expect(loaded.snapshot.rules).toHaveLength(7);
+    expect(loaded.snapshot.rules.map((rule) => rule.id)).toEqual([
+      "rule.critical.resolve-expected-branches",
+      "rule.damage.direct-hit",
+      "rule.critical.resolve-tier-roll",
+      "rule.critical.scale-tier",
+      "rule.defense.standard-armor",
+      "rule.damage.commit-health",
+      "rule.critical.aggregate-expected-branches",
+    ]);
     expect(Object.isFrozen(loaded)).toBe(true);
     expect(Object.isFrozen(loaded.snapshot)).toBe(true);
     expect(Object.isFrozen(loaded.snapshot.rules)).toBe(true);
     expect(Object.isFrozen(loaded.snapshot.rules[0]?.operation)).toBe(true);
-    expect(loaded.resolveRule("rule.critical.resolve-binary-roll")).toMatchObject({
+    expect(loaded.resolveRule("rule.critical.resolve-tier-roll")).toMatchObject({
       phase: "critical.roll",
       reads: ["attack.critical-chance", "event.critical-roll"],
       writes: [
         "event.critical-tier",
-        "event.critical-tier-0-probability",
-        "event.critical-tier-1-probability",
+        "event.critical-base-tier",
+        "event.critical-next-tier",
+        "event.critical-fraction",
+        "event.critical-base-tier-probability",
+        "event.critical-next-tier-probability",
       ],
-      operation: { kind: "critical-tier.resolve-binary-roll" },
+      operation: { kind: "critical-tier.resolve-tier-roll" },
+    });
+    expect(loaded.resolveRule("rule.critical.scale-tier")).toMatchObject({
+      phase: "critical.resolve",
+      operation: { kind: "damage-vector.scale-critical-tier" },
+    });
+    expect(loaded.resolveRule("rule.critical.resolve-expected-branches")).toMatchObject({
+      phase: "critical.expected",
+      reads: ["attack.critical-chance"],
+      operation: { kind: "critical-tier.resolve-expected-branches" },
+    });
+    expect(loaded.resolveRule("rule.critical.aggregate-expected-branches")).toMatchObject({
+      phase: "result.aggregate",
+      reads: ["branch.damage", "branch.health", "branch.weight"],
+      operation: { kind: "damage-vector.aggregate-weighted-branches" },
     });
     expect(loaded.resolveRule("rule.defense.standard-armor").phase).toBe("target.mitigate");
+  });
+
+  it("exposes the separate expected aggregate executor without weakening executeRule context", async () => {
+    const loaded = await loadRuleset();
+    const result = loaded.executeExpectedAggregateRule(
+      "rule.critical.aggregate-expected-branches",
+      {
+        initialHealth: 100,
+        branches: [
+          {
+            id: "branch.critical-tier-0",
+            tier: 0,
+            weight: 1,
+            damage: { "damage.synthetic": 25 },
+            health: 75,
+          },
+        ],
+      },
+    );
+
+    expect(result.after).toEqual({
+      damage: { "damage.synthetic": 25 },
+      damageTotal: 25,
+      health: 75,
+    });
   });
 
   it("rejects generated-contract and content-hash failures with structured codes", async () => {
@@ -99,7 +152,7 @@ describe("loadRuleset", () => {
     const rollDeclarationMismatch = await attachArtifactContentHash({
       ...withoutHash,
       rules: coreRuleset.rules.map((rule) =>
-        rule.id === "rule.critical.resolve-binary-roll"
+        rule.id === "rule.critical.resolve-tier-roll"
           ? {
               ...rule,
               phase: "critical.resolve" as const,
@@ -109,6 +162,22 @@ describe("loadRuleset", () => {
     });
 
     await expect(loadRuleset(rollDeclarationMismatch)).rejects.toThrowError(
+      expect.objectContaining({ code: "operation-declaration-invalid" }),
+    );
+
+    const aggregateDeclarationMismatch = await attachArtifactContentHash({
+      ...withoutHash,
+      rules: coreRuleset.rules.map((rule) =>
+        rule.id === "rule.critical.aggregate-expected-branches"
+          ? {
+              ...rule,
+              writes: ["event.damage"],
+            }
+          : rule,
+      ),
+    });
+
+    await expect(loadRuleset(aggregateDeclarationMismatch)).rejects.toThrowError(
       expect.objectContaining({ code: "operation-declaration-invalid" }),
     );
   });

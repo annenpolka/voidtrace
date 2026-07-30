@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for terminal-branch Critical expected values.
+module voidtrace.golden.expectedCriticalArmor
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-004"
+  desc =
+    "data/fixtures/golden/expected-critical-armor.scenario.jsonはCritical chance 1.25のtier 1 branchを確率0.75、tier 2 branchを確率0.25でCritical倍率、Armor 300、Health commitまで別々に評価する。初期Health 125に対してraw expected Health Damage 112.5、branch clamp後のexpected残Health 18.75を独立literal expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

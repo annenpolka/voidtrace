@@ -1,0 +1,42 @@
+{
+  "$schema": "urn:voidtrace:schema:catalog-snapshot:0.1.0",
+  "kind": "catalog-snapshot",
+  "schemaVersion": "0.1.0",
+  "id": "catalog.synthetic-tier-2",
+  "revision": 0,
+  "contentHash": "sha256:c0c7ea81d51f767079587f47d2a492ebac06960ca379c762eee416566ec4af87",
+  "gameBuild": "synthetic-fixture-0",
+  "source": {
+    "kind": "fixture",
+    "description": "Synthetic tier-2 Critical golden data only; all names and values are invented and are not verified Warframe data or mechanics claims."
+  },
+  "weapons": [
+    {
+      "id": "weapon.synthetic-aperture",
+      "label": "Synthetic Aperture Tier-2 Fixture",
+      "attackModes": [
+        {
+          "id": "attack-mode.synthetic-aperture.primary",
+          "label": "Synthetic Tier-2 Primary Hitscan Fixture",
+          "delivery": "hitscan",
+          "baseDamage": {
+            "damage.synthetic-kinetic": 100
+          },
+          "criticalChance": 1.25,
+          "criticalMultiplier": 2
+        }
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "id": "target.synthetic-calibration",
+      "label": "Synthetic Calibration Target Fixture",
+      "baseHealth": 1000,
+      "baseShield": 0,
+      "baseArmor": 300,
+      "baseOverguard": 0
+    }
+  ],
+  "mods": []
+}

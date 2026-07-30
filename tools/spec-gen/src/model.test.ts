@@ -155,19 +155,32 @@ describe("validateSpecDocument", () => {
     ).toBe("active");
   });
 
-  it("accepts the finite binary Critical roll phase and operation", () => {
-    const binaryRule = {
+  it("accepts the generalized Critical tier roll and scale operations", () => {
+    const tierRollRule = {
       ...validSpec.ruleset.rules[0],
-      id: "rule.critical.resolve-binary-roll",
+      id: "rule.critical.resolve-tier-roll",
       phase: "critical.roll",
       reads: ["attack.critical-chance", "event.critical-roll"],
       writes: [
         "event.critical-tier",
-        "event.critical-tier-0-probability",
-        "event.critical-tier-1-probability",
+        "event.critical-base-tier",
+        "event.critical-next-tier",
+        "event.critical-fraction",
+        "event.critical-base-tier-probability",
+        "event.critical-next-tier-probability",
       ],
       operation: {
-        kind: "critical-tier.resolve-binary-roll",
+        kind: "critical-tier.resolve-tier-roll",
+      },
+    };
+    const scaleTierRule = {
+      ...validSpec.ruleset.rules[0],
+      id: "rule.critical.scale-tier",
+      phase: "critical.resolve",
+      reads: ["event.damage", "event.critical-tier", "attack.critical-multiplier"],
+      writes: ["event.damage"],
+      operation: {
+        kind: "damage-vector.scale-critical-tier",
       },
     };
 
@@ -176,10 +189,49 @@ describe("validateSpecDocument", () => {
         ...validSpec,
         ruleset: {
           ...validSpec.ruleset,
-          rules: [validSpec.ruleset.rules[0], binaryRule],
+          rules: [validSpec.ruleset.rules[0], tierRollRule, scaleTierRule],
         },
-      }).ruleset.rules[1],
-    ).toEqual(binaryRule);
+      }).ruleset.rules.slice(1),
+    ).toEqual([tierRollRule, scaleTierRule]);
+  });
+
+  it("accepts expected Critical branch resolution and terminal weighted aggregation", () => {
+    const expectedBranchRule = {
+      ...validSpec.ruleset.rules[0],
+      id: "rule.critical.resolve-expected-branches",
+      phase: "critical.expected",
+      reads: ["attack.critical-chance"],
+      writes: [
+        "event.critical-base-tier",
+        "event.critical-next-tier",
+        "event.critical-fraction",
+        "event.critical-base-tier-probability",
+        "event.critical-next-tier-probability",
+      ],
+      operation: {
+        kind: "critical-tier.resolve-expected-branches",
+      },
+    };
+    const aggregateRule = {
+      ...validSpec.ruleset.rules[0],
+      id: "rule.critical.aggregate-expected-branches",
+      phase: "result.aggregate",
+      reads: ["branch.damage", "branch.health", "branch.weight"],
+      writes: ["event.damage", "target.health"],
+      operation: {
+        kind: "damage-vector.aggregate-weighted-branches",
+      },
+    };
+
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        ruleset: {
+          ...validSpec.ruleset,
+          rules: [expectedBranchRule, validSpec.ruleset.rules[0], aggregateRule],
+        },
+      }).ruleset.rules,
+    ).toEqual([expectedBranchRule, validSpec.ruleset.rules[0], aggregateRule]);
   });
 
   it.each([-1, 0.5, "1"])("rejects invalid Ruleset revision %s", (revision) => {

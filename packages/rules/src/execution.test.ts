@@ -1,6 +1,13 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { executeRule, type RuleContext, scaleDamageVector, sumDamageVector } from "./execution.ts";
+import {
+  executeExpectedAggregateRule,
+  executeRule,
+  type ExpectedAggregateContext,
+  type RuleContext,
+  scaleDamageVector,
+  sumDamageVector,
+} from "./execution.ts";
 import { loadRuleset } from "./ruleset.ts";
 
 const damageVectorArbitrary = fc
@@ -34,6 +41,11 @@ function context(
   };
 }
 
+function expectFloatingEqual(actual: number, expected: number): void {
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(actual), Math.abs(expected)) * 64;
+  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tolerance);
+}
+
 describe("DamageVector operations", () => {
   it("sums components and scales every component without mutating input", () => {
     fc.assert(
@@ -46,9 +58,9 @@ describe("DamageVector operations", () => {
           const expectedTotal = Object.values(damage).reduce((total, value) => total + value, 0);
 
           expect(sumDamageVector(damage)).toBe(expectedTotal);
-          expect(sumDamageVector(scaled)).toBeCloseTo(expectedTotal * factor, 7);
+          expectFloatingEqual(sumDamageVector(scaled), expectedTotal * factor);
           for (const [id, value] of Object.entries(damage)) {
-            expect(scaled[id]).toBeCloseTo(value * factor, 10);
+            expectFloatingEqual(scaled[id] ?? Number.NaN, value * factor);
           }
           expect(damage).toEqual(original);
           expect(Object.isFrozen(scaled)).toBe(true);
@@ -73,11 +85,12 @@ describe("DamageVector operations", () => {
 describe("generated core Rule execution", async () => {
   const loaded = await loadRuleset();
   const directHit = loaded.resolveRule("rule.damage.direct-hit");
-  const criticalRoll = loaded.resolveRule("rule.critical.resolve-binary-roll");
-  const criticalTier0 = loaded.resolveRule("rule.critical.fixed-tier-0");
-  const criticalTier1 = loaded.resolveRule("rule.critical.fixed-tier-1");
+  const criticalRoll = loaded.resolveRule("rule.critical.resolve-tier-roll");
+  const expectedCritical = loaded.resolveRule("rule.critical.resolve-expected-branches");
+  const criticalScale = loaded.resolveRule("rule.critical.scale-tier");
   const armorRule = loaded.resolveRule("rule.defense.standard-armor");
   const commitHealth = loaded.resolveRule("rule.damage.commit-health");
+  const aggregateExpected = loaded.resolveRule("rule.critical.aggregate-expected-branches");
 
   it("copies base damage and exposes trace-ready scalar before/after values", () => {
     fc.assert(
@@ -98,55 +111,57 @@ describe("generated core Rule execution", async () => {
     );
   });
 
-  it("applies only the fixed Critical tier candidate whose predicate matches", () => {
+  it("scales every non-negative Critical tier by 1 + tier * (multiplier - 1)", () => {
     fc.assert(
       fc.property(
         damageVectorArbitrary,
         fc.integer({ min: 10, max: 100 }).map((value) => value / 10),
-        (damage, criticalMultiplier) => {
-          const tier0Applied = executeRule(criticalTier0, context(damage, { criticalTier: 0 }));
-          const tier1Rejected = executeRule(criticalTier1, context(damage, { criticalTier: 0 }));
-          const tier0Rejected = executeRule(criticalTier0, context(damage, { criticalTier: 1 }));
-          const tier1Applied = executeRule(
-            criticalTier1,
+        fc.integer({ min: 0, max: 100 }),
+        (damage, criticalMultiplier, criticalTier) => {
+          const result = executeRule(
+            criticalScale,
             context(damage, {
-              criticalTier: 1,
+              criticalTier,
               criticalMultiplier,
             }),
           );
+          const expectedFactor = 1 + criticalTier * (criticalMultiplier - 1);
 
-          expect(tier0Applied).toMatchObject({ outcome: "applied", factor: 1, matched: true });
-          expect(tier1Rejected).toMatchObject({
-            outcome: "predicate-rejected",
-            factor: null,
-            matched: false,
-          });
-          expect(tier0Rejected).toMatchObject({
-            outcome: "predicate-rejected",
-            factor: null,
-            matched: false,
-          });
-          expect(tier1Applied).toMatchObject({
+          expect(result).toMatchObject({
             outcome: "applied",
-            factor: criticalMultiplier,
+            factor: expectedFactor,
             matched: true,
           });
-          expect(tier0Applied.resolvedCriticalTier).toBeUndefined();
-          expect(tier1Applied.resolvedCriticalTier).toBeUndefined();
+          expectFloatingEqual(result.after.damageTotal, sumDamageVector(damage) * expectedFactor);
+          expect(result.parameters).toEqual({
+            actualTier: criticalTier,
+            criticalMultiplier,
+            factor: expectedFactor,
+          });
+          expect(result.resolvedCriticalTier).toBeUndefined();
         },
       ),
     );
   });
 
-  it("resolves a binary Critical tier and its probabilities from an explicit roll", () => {
+  it("resolves adjacent Critical tiers and normalized probabilities from an explicit roll", () => {
     fc.assert(
       fc.property(
         damageVectorArbitrary,
-        fc.integer({ min: 0, max: 1_000_000 }),
+        fc.integer({ min: 0, max: 100_000_000 }),
         fc.integer({ min: 0, max: 999_999 }),
         (damage, chanceNumerator, rollNumerator) => {
           const criticalChance = chanceNumerator / 1_000_000;
           const explicitRoll = rollNumerator / 1_000_000;
+          const baseTier = Math.floor(criticalChance);
+          const fraction = criticalChance - baseTier;
+          const nextTier = fraction === 0 ? baseTier : baseTier + 1;
+          const baseTierProbability = 1 - fraction;
+          const nextTierProbability = fraction;
+          const tier0Probability =
+            (baseTier === 0 ? baseTierProbability : 0) + (nextTier === 0 ? nextTierProbability : 0);
+          const tier1Probability =
+            (baseTier === 1 ? baseTierProbability : 0) + (nextTier === 1 ? nextTierProbability : 0);
           const result = executeRule(
             criticalRoll,
             context(damage, {
@@ -155,7 +170,7 @@ describe("generated core Rule execution", async () => {
               criticalRoll: explicitRoll,
             }),
           );
-          const expectedTier = explicitRoll < criticalChance ? 1 : 0;
+          const expectedTier = explicitRoll < fraction ? nextTier : baseTier;
 
           expect(result).toMatchObject({
             outcome: "applied",
@@ -167,20 +182,27 @@ describe("generated core Rule execution", async () => {
           expect(result.parameters).toEqual({
             criticalChance,
             criticalRoll: explicitRoll,
-            tier0Probability: 1 - criticalChance,
-            tier1Probability: criticalChance,
+            baseTier,
+            nextTier,
+            fraction,
+            baseTierProbability,
+            nextTierProbability,
+            tier0Probability,
+            tier1Probability,
             resolvedTier: expectedTier,
             factor: 1,
           });
           expect(
-            Number(result.parameters.tier0Probability) + Number(result.parameters.tier1Probability),
+            Number(result.parameters.baseTierProbability) +
+              Number(result.parameters.nextTierProbability),
           ).toBeCloseTo(1, 15);
+          expect([baseTier, nextTier]).toContain(result.resolvedCriticalTier);
         },
       ),
     );
   });
 
-  it("uses strict roll comparison at the binary Critical boundaries", () => {
+  it("preserves binary probabilities and uses strict comparison at tier boundaries", () => {
     const damage = { "damage.synthetic": 1 };
     const resolve = (criticalChance: number, explicitRoll: number) =>
       executeRule(
@@ -192,13 +214,100 @@ describe("generated core Rule execution", async () => {
         }),
       );
 
-    expect(resolve(0, 0).resolvedCriticalTier).toBe(0);
+    expect(resolve(0, 0)).toMatchObject({
+      resolvedCriticalTier: 0,
+      parameters: {
+        baseTier: 0,
+        nextTier: 0,
+        tier0Probability: 1,
+        tier1Probability: 0,
+      },
+    });
+    expect(resolve(0.25, 0.2)).toMatchObject({
+      resolvedCriticalTier: 1,
+      parameters: {
+        baseTier: 0,
+        nextTier: 1,
+        tier0Probability: 0.75,
+        tier1Probability: 0.25,
+      },
+    });
     expect(resolve(0.5, 0.5).resolvedCriticalTier).toBe(0);
     expect(resolve(0.5, 0.5 - Number.EPSILON).resolvedCriticalTier).toBe(1);
     expect(resolve(1, 1 - Number.EPSILON).resolvedCriticalTier).toBe(1);
+    expect(resolve(1.25, 0.2)).toMatchObject({
+      resolvedCriticalTier: 2,
+      parameters: {
+        baseTier: 1,
+        nextTier: 2,
+        baseTierProbability: 0.75,
+        nextTierProbability: 0.25,
+        tier0Probability: 0,
+        tier1Probability: 0.75,
+      },
+    });
+    expect(resolve(2, 0).resolvedCriticalTier).toBe(2);
   });
 
-  it("rejects out-of-domain binary Critical chance and rolls without clamping", () => {
+  it("resolves expected adjacent Critical branches without selecting a realized tier", () => {
+    const damage = { "damage.synthetic": 1 };
+
+    expect(
+      executeRule(
+        expectedCritical,
+        context(damage, {
+          criticalTier: null,
+          criticalChance: 1.25,
+          criticalRoll: null,
+        }),
+      ),
+    ).toMatchObject({
+      outcome: "applied",
+      factor: 1,
+      matched: true,
+      parameters: {
+        criticalChance: 1.25,
+        baseTier: 1,
+        nextTier: 2,
+        fraction: 0.25,
+        baseTierProbability: 0.75,
+        nextTierProbability: 0.25,
+        tier0Probability: 0,
+        tier1Probability: 0.75,
+        factor: 1,
+      },
+    });
+    expect(
+      executeRule(
+        expectedCritical,
+        context(damage, {
+          criticalTier: null,
+          criticalChance: 2,
+          criticalRoll: null,
+        }),
+      ),
+    ).toMatchObject({
+      parameters: {
+        baseTier: 2,
+        nextTier: 2,
+        fraction: 0,
+        baseTierProbability: 1,
+        nextTierProbability: 0,
+      },
+    });
+    expect(
+      executeRule(
+        expectedCritical,
+        context(damage, {
+          criticalTier: null,
+          criticalChance: 1.25,
+          criticalRoll: null,
+        }),
+      ).resolvedCriticalTier,
+    ).toBeUndefined();
+  });
+
+  it("rejects unrepresentable Critical chance and invalid rolls without clamping", () => {
     const damage = { "damage.synthetic": 1 };
     const resolve = (criticalChance: number, explicitRoll: number | null) =>
       executeRule(
@@ -210,7 +319,7 @@ describe("generated core Rule execution", async () => {
         }),
       );
 
-    expect(() => resolve(1 + Number.EPSILON, 0.5)).toThrowError(
+    expect(() => resolve(Number.MAX_SAFE_INTEGER + 1, 0.5)).toThrowError(
       expect.objectContaining({ code: "invalid-context" }),
     );
     expect(() => resolve(0.5, null)).toThrowError(
@@ -227,29 +336,44 @@ describe("generated core Rule execution", async () => {
     );
   });
 
-  it("scales tier 1 damage by the declared Critical multiplier", () => {
-    fc.assert(
-      fc.property(
-        damageVectorArbitrary,
-        fc.integer({ min: 10, max: 100 }).map((value) => value / 10),
-        (damage, criticalMultiplier) => {
-          const result = executeRule(
-            criticalTier1,
-            context(damage, {
-              criticalTier: 1,
-              criticalMultiplier,
-            }),
-          );
+  it("keeps all tiers at factor 1 when the Critical multiplier is 1", () => {
+    const damage = { "damage.synthetic": 10 };
+    for (const criticalTier of [0, 1, 2, 100, Number.MAX_SAFE_INTEGER]) {
+      const result = executeRule(
+        criticalScale,
+        context(damage, { criticalTier, criticalMultiplier: 1 }),
+      );
+      expect(result.factor).toBe(1);
+      expect(result.after.damage).toEqual(damage);
+    }
+  });
 
-          expect(result.outcome).toBe("applied");
-          expect(result.factor).toBe(criticalMultiplier);
-          expect(result.after.damageTotal).toBeCloseTo(
-            sumDamageVector(damage) * criticalMultiplier,
-            7,
-          );
-        },
+  it("rejects an unrepresentable Critical multiplier and scaled-damage overflow", () => {
+    expect(() =>
+      executeRule(
+        criticalScale,
+        context(
+          { "damage.synthetic": 1 },
+          {
+            criticalTier: Number.MAX_SAFE_INTEGER,
+            criticalMultiplier: Number.MAX_VALUE,
+          },
+        ),
       ),
-    );
+    ).toThrowError(expect.objectContaining({ code: "unsupported-critical-multiplier" }));
+
+    expect(() =>
+      executeRule(
+        criticalScale,
+        context(
+          { "damage.synthetic": Number.MAX_VALUE },
+          {
+            criticalTier: 2,
+            criticalMultiplier: 2,
+          },
+        ),
+      ),
+    ).toThrowError(expect.objectContaining({ code: "arithmetic-invalid" }));
   });
 
   it("is monotonic in Armor and gives factor 0.5 at Armor 300", () => {
@@ -299,12 +423,213 @@ describe("generated core Rule execution", async () => {
     );
   });
 
+  it("aggregates terminal expected branches after per-branch Health commit", () => {
+    const branches = [
+      {
+        id: "branch.critical-tier-1",
+        tier: 1,
+        weight: 0.75,
+        damage: {
+          "damage.impact": 50,
+          "damage.puncture": 25,
+        },
+        health: 925,
+      },
+      {
+        id: "branch.critical-tier-2",
+        tier: 2,
+        weight: 0.25,
+        damage: {
+          "damage.impact": 100,
+          "damage.puncture": 50,
+        },
+        health: 850,
+      },
+    ] satisfies ExpectedAggregateContext["branches"];
+    const original = structuredClone(branches);
+    const result = executeExpectedAggregateRule(aggregateExpected, {
+      initialHealth: 1_000,
+      branches,
+    });
+
+    expect(result).toMatchObject({
+      outcome: "applied",
+      matched: true,
+      factor: 1,
+      parameters: {
+        branchCount: 2,
+        weightTotal: 1,
+        expectedHealth: 906.25,
+        "branch.0.id": "branch.critical-tier-1",
+        "branch.0.tier": 1,
+        "branch.0.weight": 0.75,
+        "branch.0.damageTotal": 75,
+        "branch.0.health": 925,
+        "branch.0.damage.damage.impact": 50,
+        "branch.0.damage.damage.puncture": 25,
+        "branch.1.id": "branch.critical-tier-2",
+        "branch.1.tier": 2,
+        "branch.1.weight": 0.25,
+        "branch.1.damageTotal": 150,
+        "branch.1.health": 850,
+        "branch.1.damage.damage.impact": 100,
+        "branch.1.damage.damage.puncture": 50,
+      },
+      before: {
+        damage: {
+          "damage.impact": 62.5,
+          "damage.puncture": 31.25,
+        },
+        damageTotal: 93.75,
+        health: 1_000,
+      },
+      after: {
+        damage: {
+          "damage.impact": 62.5,
+          "damage.puncture": 31.25,
+        },
+        damageTotal: 93.75,
+        health: 906.25,
+      },
+    });
+    expect(branches).toEqual(original);
+    expect(Object.isFrozen(result.after.damage)).toBe(true);
+  });
+
+  it("accepts one certain expected branch without inventing a duplicate tier", () => {
+    const result = executeExpectedAggregateRule(aggregateExpected, {
+      initialHealth: 100,
+      branches: [
+        {
+          id: "branch.critical-tier-2",
+          tier: 2,
+          weight: 1,
+          damage: { "damage.synthetic": 80 },
+          health: 20,
+        },
+      ],
+    });
+
+    expect(result.after).toEqual({
+      damage: { "damage.synthetic": 80 },
+      damageTotal: 80,
+      health: 20,
+    });
+    expect(result.parameters.branchCount).toBe(1);
+  });
+
+  it("rejects malformed, ambiguous, or non-normalized expected branches", () => {
+    const branch = {
+      id: "branch.critical-tier-1",
+      tier: 1,
+      weight: 1,
+      damage: { "damage.synthetic": 10 },
+      health: 90,
+    };
+    const aggregate = (overrides: Partial<ExpectedAggregateContext>) =>
+      executeExpectedAggregateRule(aggregateExpected, {
+        initialHealth: 100,
+        branches: [branch],
+        ...overrides,
+      });
+
+    expect(() => aggregate({ branches: [] })).toThrowError(
+      expect.objectContaining({ code: "invalid-context" }),
+    );
+    expect(() =>
+      aggregate({
+        branches: [{ ...branch, tier: Number.MAX_SAFE_INTEGER + 1 }],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    expect(() =>
+      aggregate({
+        branches: [{ ...branch, weight: 0 }],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    expect(() =>
+      aggregate({
+        branches: [
+          { ...branch, weight: 0.5 },
+          { ...branch, weight: 0.5 },
+        ],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    expect(() =>
+      aggregate({
+        branches: [
+          { ...branch, weight: 0.5 },
+          {
+            ...branch,
+            id: "branch.same-tier",
+            weight: 0.5,
+          },
+        ],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    expect(() =>
+      aggregate({
+        branches: [{ ...branch, weight: 0.75 }],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    expect(() =>
+      aggregate({
+        branches: [
+          { ...branch, weight: 0.5 },
+          {
+            ...branch,
+            id: "branch.critical-tier-2",
+            tier: 2,
+            weight: 0.5,
+            damage: { "damage.other": 10 },
+          },
+        ],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+  });
+
+  it("rejects non-finite weighted aggregate arithmetic and the wrong executor surface", () => {
+    expect(() =>
+      executeExpectedAggregateRule(aggregateExpected, {
+        initialHealth: Number.MAX_VALUE,
+        branches: [
+          {
+            id: "branch.critical-tier-1",
+            tier: 1,
+            weight: 2,
+            damage: { "damage.synthetic": Number.MAX_VALUE },
+            health: Number.MAX_VALUE,
+          },
+        ],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "arithmetic-invalid" }));
+    expect(() =>
+      executeExpectedAggregateRule(directHit, {
+        initialHealth: 100,
+        branches: [
+          {
+            id: "branch.critical-tier-0",
+            tier: 0,
+            weight: 1,
+            damage: { "damage.synthetic": 10 },
+            health: 90,
+          },
+        ],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-rule" }));
+  });
+
   it("rejects invalid context and unknown operations with structured errors", () => {
     const damage = { "damage.synthetic": 1 };
+    expect(() => executeRule(criticalScale, context(damage, { criticalTier: -1 }))).toThrowError(
+      expect.objectContaining({ code: "invalid-context" }),
+    );
+    expect(() => executeRule(criticalScale, context(damage, { criticalTier: 0.5 }))).toThrowError(
+      expect.objectContaining({ code: "invalid-context" }),
+    );
     expect(() =>
-      executeRule(criticalTier0, context(damage, { criticalTier: 2 as never })),
+      executeRule(criticalScale, context(damage, { criticalTier: Number.MAX_SAFE_INTEGER + 1 })),
     ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
-    expect(() => executeRule(criticalTier0, context(damage, { criticalTier: null }))).toThrowError(
+    expect(() => executeRule(criticalScale, context(damage, { criticalTier: null }))).toThrowError(
       expect.objectContaining({ code: "invalid-context" }),
     );
     expect(() => executeRule(armorRule, context(damage, { armor: -1 }))).toThrowError(

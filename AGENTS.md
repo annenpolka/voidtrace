@@ -25,7 +25,17 @@
 4. Implement the handwritten code or oracle.
 5. Run `just check`.
 
-The current implemented boundary ends at the synthetic Direct Hit / fixed-or-explicit-binary-roll
-Critical / Armor vertical slices, their formal `describe` / `run` / `trace` JSON CLI, and the
-repository-local fixed-tier fixture-variation skill. Do not add further CLI commands, Lab, API, or
-MCP implementations until their planned vertical slice begins.
+The current implemented boundary ends at the synthetic Direct Hit / generalized fixed, explicit
+roll, or analytic expected Critical / Armor vertical slices backed by generated Ruleset `0.4.0`
+revision `1`, and their formal `describe` / `run` / `trace` JSON CLI. Fixed Critical input is a
+non-negative safe-integer tier. Explicit-roll and expected resolution accept non-negative Critical
+chance only while adjacent tiers are safely representable. Expected mode evaluates reachable
+tiers through terminal Health commit before weighting Damage and remaining Health; it does not
+emit a realized roll or tier. These Rules remain `experimental` evidence, not verified
+current-Warframe claims.
+
+The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
+repository-local analytic expected preset; it is not the formal CLI boundary and does not
+synthesize Critical chance or rolls. Generated random rolls and Monte Carlo remain unsupported.
+Do not add further CLI commands, Lab, API, or MCP implementations until their planned vertical
+slice begins.

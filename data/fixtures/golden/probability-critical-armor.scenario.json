@@ -3,8 +3,16 @@
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.1.0",
   "id": "scenario.golden-probability-critical-armor",
-  "revision": 0,
-  "contentHash": "sha256:f60252aa6b6a496d6c42ca78e99e63397218e52e6a580291ba61117ebea5b639",
+  "revision": 1,
+  "createdFrom": {
+    "kind": "voidtrace.scenario",
+    "schemaVersion": "0.1.0",
+    "id": "scenario.golden-probability-critical-armor",
+    "revision": 0,
+    "contentHash": "sha256:f60252aa6b6a496d6c42ca78e99e63397218e52e6a580291ba61117ebea5b639",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "contentHash": "sha256:ef7f2da47d28606df46082f5ff935b2c9e6e6aaaaf713ac714908a1da26bf0ab",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +24,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.2.0",
+    "schemaVersion": "0.4.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:2b5b497737616c284a6ab9e94ed690966738a5f2e91df17e76eff30337baf73c",
+    "contentHash": "sha256:731859a274f3bb7f914987e4fd561a62b2faa343787ccee3c0fb962d75bd4264",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -61,6 +69,11 @@
   "metrics": [
     "damage.direct-hit.total",
     "critical.roll",
+    "critical.base-tier",
+    "critical.next-tier",
+    "critical.fraction",
+    "critical.base-tier.probability",
+    "critical.next-tier.probability",
     "critical.tier-0.probability",
     "critical.tier-1.probability",
     "critical.tier",
@@ -77,7 +90,7 @@
     },
     {
       "id": "assumption.explicit-critical-roll",
-      "description": "A literal roll resolves the supported binary Critical distribution; generated randomness, expected values, and Critical chance above 1 are unsupported."
+      "description": "This explicit-roll Scenario does not generate randomness or perform expected-value aggregation."
     }
   ]
 }

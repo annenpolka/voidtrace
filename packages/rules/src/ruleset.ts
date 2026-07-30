@@ -8,7 +8,9 @@ import {
 import coreRuleset from "@voidtrace/spec-artifacts/rulesets/core" with { type: "json" };
 import { RulesError } from "./errors.ts";
 import {
+  type ExpectedAggregateContext,
   executeRule,
+  executeExpectedAggregateRule,
   type RuleContext,
   type RuleDefinition,
   type RuleExecution,
@@ -20,6 +22,7 @@ export type LoadedRuleset = {
   readonly snapshot: Ruleset;
   resolveRule(id: string): RuleDefinition;
   executeRule(id: string, context: RuleContext): RuleExecution;
+  executeExpectedAggregateRule(id: string, context: ExpectedAggregateContext): RuleExecution;
 };
 
 export type EmptyRuleset = {
@@ -42,11 +45,13 @@ type OperationDeclaration = {
 };
 
 const PHASES = [
+  "critical.expected",
   "damage.construct",
   "critical.roll",
   "critical.resolve",
   "target.mitigate",
   "damage.commit",
+  "result.aggregate",
 ] as const satisfies ReadonlyArray<RulePhase>;
 
 const PHASE_ORDER = new Map<RulePhase, number>(PHASES.map((phase, index) => [phase, index]));
@@ -58,17 +63,32 @@ const OPERATION_DECLARATIONS = {
     reads: ["attack.base-damage"],
     writes: ["event.damage"],
   },
-  "critical-tier.resolve-binary-roll": {
+  "critical-tier.resolve-tier-roll": {
     phase: "critical.roll",
     eventKind: "damage.direct",
     reads: ["attack.critical-chance", "event.critical-roll"],
     writes: [
       "event.critical-tier",
-      "event.critical-tier-0-probability",
-      "event.critical-tier-1-probability",
+      "event.critical-base-tier",
+      "event.critical-next-tier",
+      "event.critical-fraction",
+      "event.critical-base-tier-probability",
+      "event.critical-next-tier-probability",
     ],
   },
-  "damage-vector.scale-fixed-critical": {
+  "critical-tier.resolve-expected-branches": {
+    phase: "critical.expected",
+    eventKind: "damage.direct",
+    reads: ["attack.critical-chance"],
+    writes: [
+      "event.critical-base-tier",
+      "event.critical-next-tier",
+      "event.critical-fraction",
+      "event.critical-base-tier-probability",
+      "event.critical-next-tier-probability",
+    ],
+  },
+  "damage-vector.scale-critical-tier": {
     phase: "critical.resolve",
     eventKind: "damage.direct",
     reads: ["event.damage", "event.critical-tier", "attack.critical-multiplier"],
@@ -85,6 +105,12 @@ const OPERATION_DECLARATIONS = {
     eventKind: "damage.direct",
     reads: ["event.damage", "target.health"],
     writes: ["target.health"],
+  },
+  "damage-vector.aggregate-weighted-branches": {
+    phase: "result.aggregate",
+    eventKind: "damage.direct",
+    reads: ["branch.damage", "branch.health", "branch.weight"],
+    writes: ["event.damage", "target.health"],
   },
 } as const satisfies Record<RuleOperationKind, OperationDeclaration>;
 
@@ -125,19 +151,16 @@ function assertNoDuplicateValues(
 function assertFiniteOperation(rule: RuleDefinition): void {
   const operation = rule.operation as {
     readonly kind: string;
-    readonly requiredTier?: unknown;
     readonly constant?: unknown;
   };
   switch (operation.kind) {
     case "damage-vector.copy":
-    case "critical-tier.resolve-binary-roll":
+    case "critical-tier.resolve-tier-roll":
+    case "critical-tier.resolve-expected-branches":
+    case "damage-vector.scale-critical-tier":
     case "damage.commit-health":
+    case "damage-vector.aggregate-weighted-branches":
       return;
-    case "damage-vector.scale-fixed-critical":
-      if (operation.requiredTier === 0 || operation.requiredTier === 1) {
-        return;
-      }
-      break;
     case "damage-vector.scale-standard-armor":
       if (
         typeof operation.constant === "number" &&
@@ -233,6 +256,8 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
     resolveRule,
     executeRule: (id: string, context: RuleContext): RuleExecution =>
       executeRule(resolveRule(id), context),
+    executeExpectedAggregateRule: (id: string, context: ExpectedAggregateContext): RuleExecution =>
+      executeExpectedAggregateRule(resolveRule(id), context),
   });
 }
 

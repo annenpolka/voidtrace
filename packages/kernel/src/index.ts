@@ -22,6 +22,8 @@ export {
 } from "./scenario-domain.ts";
 export {
   replayTraceDamage,
+  replayTraceState,
+  type ReplayedTraceState,
   TraceReplayError,
   type TraceReplayErrorCode,
 } from "./trace-replay.ts";

@@ -9,6 +9,7 @@ export type RulesErrorCode =
   | "invalid-context"
   | "invalid-damage-vector"
   | "unsupported-rule"
+  | "unsupported-critical-multiplier"
   | "unknown-operation"
   | "arithmetic-invalid";
 

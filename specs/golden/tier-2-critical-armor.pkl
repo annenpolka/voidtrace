@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for generalized tier-2 Critical resolution from an explicit roll.
+module voidtrace.golden.tier2CriticalArmor
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-003"
+  desc =
+    "data/fixtures/golden/tier-2-critical-armor.scenario.jsonはCritical chance 1.25と明示roll 0.2からtier 2を解決し、Critical multiplier 2、base Damage 100、Armor 300に対する最終Health Damage 150と残Health 850を独立literal expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}
