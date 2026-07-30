@@ -208,11 +208,11 @@ export type Result = {
 /** Generated finite Rule IR interpreted by the Kernel-facing Rules package. */
 export type Ruleset = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:ruleset:0.5.0";
+  readonly "$schema": "urn:voidtrace:schema:ruleset:0.6.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "ruleset";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.5.0";
+  readonly "schemaVersion": "0.6.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -244,6 +244,11 @@ export type Ruleset = {
       /** Positive safe execution bound for one resolved Multishot action. */
       readonly "maximumHits": number;
     } | {
+      /** Expand one resolved pellet action into an explicit bounded count of ordered Direct Hit events. */
+      readonly "kind": "event.expand-fixed-pellets";
+      /** Positive safe execution bound for one resolved pellet action. */
+      readonly "maximumPellets": number;
+    } | {
       /** Copy the input base Damage Vector into event damage. */
       readonly "kind": "damage-vector.copy";
     } | {
@@ -269,6 +274,9 @@ export type Ruleset = {
     } | {
       /** Aggregate ordered terminal Direct Hit Damage Vectors and preserve the final sequential Health state. */
       readonly "kind": "damage-vector.aggregate-sequential-hits";
+    } | {
+      /** Aggregate ordered terminal pellet Damage Vectors and preserve the final sequential Health state. */
+      readonly "kind": "damage-vector.aggregate-sequential-pellets";
     };
     /** Game-mechanics evidence status, independent of implementation maturity. */
     readonly "evidenceStatus": "verified" | "experimental" | "disputed" | "unsupported" | "approximated";

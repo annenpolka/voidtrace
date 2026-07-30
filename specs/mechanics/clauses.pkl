@@ -43,6 +43,13 @@ fixedMultishotEmitsOrderedHits: base.FixedMultishotExpansion = new {
   maturity = "active"
 }
 
+fixedPelletActionEmitsOrderedHits: base.FixedPelletExpansion = new {
+  id = "PLT-001"
+  desc =
+    "action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない"
+  maturity = "active"
+}
+
 armorDoesNotIncreaseDamage: base.ArmorMonotonic = new {
   id = "DEF-001"
   desc = "標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない"

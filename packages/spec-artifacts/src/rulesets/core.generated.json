@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.5.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.6.0",
   "kind": "ruleset",
-  "schemaVersion": "0.5.0",
+  "schemaVersion": "0.6.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:a3b84464735cca2dbbe8ee3c169abc38cdbc5e54e31810cb29cd712c92ff765f",
+  "contentHash": "sha256:e66d73f7b47f365bebc7f4bf888fb1e3c804cc7094d179b53788a9ae697b7fb3",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -21,6 +21,24 @@
       "operation": {
         "kind": "event.expand-fixed-multishot",
         "maximumHits": 64
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.pellet.emit-fixed-hits",
+      "description": "Expand one action with an explicit positive safe-integer pellet count into that many stable ordered Direct Hit child events, bounded by the operation execution limit.",
+      "phase": "attack.emit",
+      "eventKind": "action.pellet-direct-hit",
+      "reads": [
+        "action.pellet-count"
+      ],
+      "writes": [
+        "event.direct-hit-count"
+      ],
+      "operation": {
+        "kind": "event.expand-fixed-pellets",
+        "maximumPellets": 64
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []
@@ -178,6 +196,26 @@
       ],
       "operation": {
         "kind": "damage-vector.aggregate-sequential-hits"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.pellet.aggregate-fixed-hits",
+      "description": "After every emitted pellet Direct Hit reaches terminal Health commit in stable index order, sum the hit Damage Vectors and preserve the final sequential remaining Health.",
+      "phase": "result.aggregate",
+      "eventKind": "action.pellet-direct-hit",
+      "reads": [
+        "hit.damage",
+        "hit.health-before",
+        "hit.health-after"
+      ],
+      "writes": [
+        "event.damage",
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-sequential-pellets"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

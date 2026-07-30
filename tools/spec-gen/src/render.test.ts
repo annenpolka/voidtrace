@@ -177,6 +177,12 @@ describe("renderGeneratedFiles", () => {
           area: "mechanics",
           maturity: "planned",
         },
+        {
+          ...clause,
+          id: "PLT-001",
+          area: "mechanics",
+          maturity: "active",
+        },
       ],
     });
     const capabilities = generated.find(
@@ -197,6 +203,11 @@ describe("renderGeneratedFiles", () => {
           id: "mechanics.fixed-multishot",
           status: "unsupported",
           plannedClauseRefs: ["MSH-001"],
+        }),
+        expect.objectContaining({
+          id: "mechanics.fixed-pellets",
+          status: "supported",
+          activeClauseRefs: ["PLT-001"],
         }),
       ]),
     );

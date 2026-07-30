@@ -8,6 +8,8 @@ export {
   executeExpectedAggregateRule,
   type FixedMultishotContext,
   executeFixedMultishotRule,
+  type FixedPelletContext,
+  executeFixedPelletRule,
   executeRule,
   type PredicateRejectedRuleExecution,
   type RuleContext,
@@ -20,6 +22,7 @@ export {
   type SequentialHit,
   type SequentialHitAggregateContext,
   executeSequentialHitAggregateRule,
+  executeSequentialPelletAggregateRule,
   scaleDamageVector,
   sumDamageVector,
 } from "./execution.ts";

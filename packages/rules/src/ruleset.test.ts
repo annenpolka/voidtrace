@@ -22,11 +22,12 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.schemaVersion).toBe("0.5.0");
+    expect(loaded.snapshot.schemaVersion).toBe("0.6.0");
     expect(loaded.snapshot.revision).toBe(1);
-    expect(loaded.snapshot.rules).toHaveLength(9);
+    expect(loaded.snapshot.rules).toHaveLength(11);
     expect(loaded.snapshot.rules.map((rule) => rule.id)).toEqual([
       "rule.multishot.emit-fixed-hits",
+      "rule.pellet.emit-fixed-hits",
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
       "rule.critical.resolve-tier-roll",
@@ -35,6 +36,7 @@ describe("loadRuleset", () => {
       "rule.damage.commit-health",
       "rule.critical.aggregate-expected-branches",
       "rule.multishot.aggregate-fixed-hits",
+      "rule.pellet.aggregate-fixed-hits",
     ]);
     expect(Object.isFrozen(loaded)).toBe(true);
     expect(Object.isFrozen(loaded.snapshot)).toBe(true);
@@ -45,6 +47,12 @@ describe("loadRuleset", () => {
       reads: ["action.multishot-hit-count"],
       writes: ["event.direct-hit-count"],
       operation: { kind: "event.expand-fixed-multishot", maximumHits: 64 },
+    });
+    expect(loaded.resolveRule("rule.pellet.emit-fixed-hits")).toMatchObject({
+      phase: "attack.emit",
+      reads: ["action.pellet-count"],
+      writes: ["event.direct-hit-count"],
+      operation: { kind: "event.expand-fixed-pellets", maximumPellets: 64 },
     });
     expect(loaded.resolveRule("rule.critical.resolve-tier-roll")).toMatchObject({
       phase: "critical.roll",
@@ -77,6 +85,11 @@ describe("loadRuleset", () => {
       phase: "result.aggregate",
       reads: ["hit.damage", "hit.health-before", "hit.health-after"],
       operation: { kind: "damage-vector.aggregate-sequential-hits" },
+    });
+    expect(loaded.resolveRule("rule.pellet.aggregate-fixed-hits")).toMatchObject({
+      phase: "result.aggregate",
+      reads: ["hit.damage", "hit.health-before", "hit.health-after"],
+      operation: { kind: "damage-vector.aggregate-sequential-pellets" },
     });
     expect(loaded.resolveRule("rule.defense.standard-armor").phase).toBe("target.mitigate");
   });
@@ -132,6 +145,32 @@ describe("loadRuleset", () => {
     });
   });
 
+  it("exposes fixed pellet expansion through its dedicated context", async () => {
+    const loaded = await loadRuleset();
+    const result = loaded.executeFixedPelletRule("rule.pellet.emit-fixed-hits", {
+      pelletCount: 4,
+      initialHealth: 1000,
+      zeroDamage: { "damage.synthetic": 0 },
+    });
+
+    expect(result).toMatchObject({
+      operationKind: "event.expand-fixed-pellets",
+      parameters: {
+        factor: 1,
+        maximumPellets: 64,
+        pelletCount: 4,
+      },
+      before: {
+        damage: { "damage.synthetic": 0 },
+        health: 1000,
+      },
+      after: {
+        damage: { "damage.synthetic": 0 },
+        health: 1000,
+      },
+    });
+  });
+
   it("exposes sequential-hit aggregation through its dedicated context", async () => {
     const loaded = await loadRuleset();
     const result = loaded.executeSequentialHitAggregateRule("rule.multishot.aggregate-fixed-hits", {
@@ -146,6 +185,35 @@ describe("loadRuleset", () => {
         },
         {
           id: "hit.multishot-1",
+          index: 1,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 150,
+          healthAfter: 50,
+        },
+      ],
+    });
+
+    expect(result.after).toEqual({
+      damage: { "damage.synthetic": 200 },
+      damageTotal: 200,
+      health: 50,
+    });
+  });
+
+  it("exposes sequential-pellet aggregation through its dedicated context", async () => {
+    const loaded = await loadRuleset();
+    const result = loaded.executeSequentialPelletAggregateRule("rule.pellet.aggregate-fixed-hits", {
+      initialHealth: 250,
+      hits: [
+        {
+          id: "pellet.shot-0",
+          index: 0,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 250,
+          healthAfter: 150,
+        },
+        {
+          id: "pellet.shot-1",
           index: 1,
           damage: { "damage.synthetic": 100 },
           healthBefore: 150,

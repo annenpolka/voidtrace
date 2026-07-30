@@ -1,0 +1,43 @@
+/// Experimental expansion of one resolved fixed-count pellet action.
+module voidtrace.mechanics.pellet
+
+import "../rules/model.pkl"
+
+emitFixedRule: model.Rule = new {
+  id = "rule.pellet.emit-fixed-hits"
+  description =
+    "Expand one action with an explicit positive safe-integer pellet count into that many stable ordered Direct Hit child events, bounded by the operation execution limit."
+  phase = "attack.emit"
+  eventKind = "action.pellet-direct-hit"
+  reads {
+    "action.pellet-count"
+  }
+  writes {
+    "event.direct-hit-count"
+  }
+  operation = new model.ExpandFixedPellets {
+    maximumPellets = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateFixedRule: model.Rule = new {
+  id = "rule.pellet.aggregate-fixed-hits"
+  description =
+    "After every emitted pellet Direct Hit reaches terminal Health commit in stable index order, sum the hit Damage Vectors and preserve the final sequential remaining Health."
+  phase = "result.aggregate"
+  eventKind = "action.pellet-direct-hit"
+  reads {
+    "hit.damage"
+    "hit.health-before"
+    "hit.health-after"
+  }
+  writes {
+    "event.damage"
+    "target.health"
+  }
+  operation = new model.AggregateSequentialPellets {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

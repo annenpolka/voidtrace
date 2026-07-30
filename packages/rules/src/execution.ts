@@ -39,6 +39,12 @@ export type FixedMultishotContext = {
   readonly zeroDamage: DamageVector;
 };
 
+export type FixedPelletContext = {
+  readonly pelletCount: number;
+  readonly initialHealth: number;
+  readonly zeroDamage: DamageVector;
+};
+
 export type SequentialHit = {
   readonly id: string;
   readonly index: number;
@@ -99,6 +105,8 @@ type ValidatedExpectedAggregateContext = {
 };
 
 type ValidatedFixedMultishotContext = FixedMultishotContext;
+
+type ValidatedFixedPelletContext = FixedPelletContext;
 
 type ValidatedSequentialHitAggregateContext = SequentialHitAggregateContext;
 
@@ -347,6 +355,33 @@ function snapshotFixedMultishotContext(
   }
   return Object.freeze({
     hitCount,
+    initialHealth: nonNegativeFinite(
+      dataProperty(context, "initialHealth", "context"),
+      "initialHealth",
+    ),
+    zeroDamage,
+  });
+}
+
+function snapshotFixedPelletContext(value: FixedPelletContext): ValidatedFixedPelletContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["pelletCount", "initialHealth", "zeroDamage"],
+    "context",
+  );
+  const pelletCount = dataProperty(context, "pelletCount", "context");
+  if (!isNonNegativeSafeInteger(pelletCount) || pelletCount < 1) {
+    invalidContext("pelletCount must be a positive safe integer", "pelletCount");
+  }
+  const zeroDamage = snapshotDamageVector(
+    dataProperty(context, "zeroDamage", "context"),
+    "zeroDamage",
+  );
+  if (sumValidatedDamageVector(zeroDamage) !== 0) {
+    invalidContext("zeroDamage components must all be zero", "zeroDamage");
+  }
+  return Object.freeze({
+    pelletCount,
     initialHealth: nonNegativeFinite(
       dataProperty(context, "initialHealth", "context"),
       "initialHealth",
@@ -763,6 +798,55 @@ export function executeFixedMultishotRule(
   );
 }
 
+export function executeFixedPelletRule(
+  rule: RuleDefinition,
+  context: FixedPelletContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "event.expand-fixed-pellets") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a fixed pellet expansion operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+
+  const operation = rule.operation as {
+    readonly kind: "event.expand-fixed-pellets";
+    readonly maximumPellets: unknown;
+  };
+  if (
+    typeof operation.maximumPellets !== "number" ||
+    !Number.isSafeInteger(operation.maximumPellets) ||
+    operation.maximumPellets < 1
+  ) {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid pellet limit`, {
+      ruleId: rule.id,
+    });
+  }
+
+  const input = snapshotFixedPelletContext(context);
+  if (input.pelletCount > operation.maximumPellets) {
+    throw new RulesError(
+      "execution-limit-exceeded",
+      `Fixed pelletCount ${input.pelletCount} exceeds limit ${operation.maximumPellets}`,
+      { maximumPellets: operation.maximumPellets, pelletCount: input.pelletCount },
+    );
+  }
+  const projection = stateProjection(input.zeroDamage, input.initialHealth);
+  return applied(
+    rule,
+    1,
+    parameters({
+      factor: 1,
+      maximumPellets: operation.maximumPellets,
+      pelletCount: input.pelletCount,
+    }),
+    projection,
+    projection,
+  );
+}
+
 export function executeExpectedAggregateRule(
   rule: RuleDefinition,
   context: ExpectedAggregateContext,
@@ -851,17 +935,19 @@ export function executeExpectedAggregateRule(
   );
 }
 
-export function executeSequentialHitAggregateRule(
+function executeSequentialAggregateRule(
   rule: RuleDefinition,
   context: SequentialHitAggregateContext,
+  operationKind:
+    | "damage-vector.aggregate-sequential-hits"
+    | "damage-vector.aggregate-sequential-pellets",
 ): RuleExecution {
   assertExecutableRule(rule);
-  if (rule.operation.kind !== "damage-vector.aggregate-sequential-hits") {
-    throw new RulesError(
-      "invalid-rule",
-      `Rule ${rule.id} is not a sequential-hit aggregate operation`,
-      { operationKind: rule.operation.kind, ruleId: rule.id },
-    );
+  if (rule.operation.kind !== operationKind) {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} is not a ${operationKind} operation`, {
+      operationKind: rule.operation.kind,
+      ruleId: rule.id,
+    });
   }
 
   const input = snapshotSequentialHitAggregateContext(context);
@@ -911,5 +997,23 @@ export function executeSequentialHitAggregateRule(
     parameters(values),
     stateProjection(damage, input.initialHealth),
     stateProjection(damage, finalHealth),
+  );
+}
+
+export function executeSequentialHitAggregateRule(
+  rule: RuleDefinition,
+  context: SequentialHitAggregateContext,
+): RuleExecution {
+  return executeSequentialAggregateRule(rule, context, "damage-vector.aggregate-sequential-hits");
+}
+
+export function executeSequentialPelletAggregateRule(
+  rule: RuleDefinition,
+  context: SequentialHitAggregateContext,
+): RuleExecution {
+  return executeSequentialAggregateRule(
+    rule,
+    context,
+    "damage-vector.aggregate-sequential-pellets",
   );
 }

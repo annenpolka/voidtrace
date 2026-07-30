@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:ec18615d67b469c715f12260839e885279295017ee55846cb0bf1028007e32b6",
+  "sourceFingerprint": "sha256:f7c00ca852fd351db7855054c9c7a434be9abdb8f171ec5fc731e3a51d57415c",
   "activeClauses": [
     {
       "id": "CLI-001",
@@ -164,9 +164,25 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-006",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/pellet-critical-armor.scenario.jsonは4個の順序付きpellet Direct Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "MSH-001",
       "pattern": "fixed_multishot_expansion",
       "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "PLT-001",
+      "pattern": "fixed_pellet_expansion",
+      "desc": "action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"

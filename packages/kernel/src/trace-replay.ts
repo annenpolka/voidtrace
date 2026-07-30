@@ -557,9 +557,12 @@ async function replayTrace(
           : health;
 
     switch (operation.kind) {
-      case "event.expand-fixed-multishot": {
-        const hitCount = operation.parameters.hitCount;
-        const maximumHits = operation.parameters.maximumHits;
+      case "event.expand-fixed-multishot":
+      case "event.expand-fixed-pellets": {
+        const isMultishot = operation.kind === "event.expand-fixed-multishot";
+        const hitCount = operation.parameters[isMultishot ? "hitCount" : "pelletCount"];
+        const maximumHits = operation.parameters[isMultishot ? "maximumHits" : "maximumPellets"];
+        const countRead = isMultishot ? "action.multishot-hit-count" : "action.pellet-count";
         if (
           typeof hitCount !== "number" ||
           !Number.isSafeInteger(hitCount) ||
@@ -567,9 +570,9 @@ async function replayTrace(
           typeof maximumHits !== "number" ||
           !Number.isSafeInteger(maximumHits) ||
           maximumHits < hitCount ||
-          decision.reads["action.multishot-hit-count"] !== hitCount
+          decision.reads[countRead] !== hitCount
         ) {
-          invalidParameters("Trace fixed Multishot expansion has invalid parameters");
+          invalidParameters("Trace fixed grouped-hit expansion has invalid parameters");
         }
         const beforeDamage = projectionDamage(
           decision.before,
@@ -581,7 +584,7 @@ async function replayTrace(
           `Trace decision ${decision.sequence} before`,
         );
         if (sumDamageVector(beforeDamage) !== 0) {
-          invalidParameters("Trace fixed Multishot expansion does not start at zero Damage");
+          invalidParameters("Trace fixed grouped-hit expansion does not start at zero Damage");
         }
         if (initialHealth === undefined) {
           initialHealth = beforeHealth;
@@ -916,9 +919,10 @@ async function replayTrace(
         committed = true;
         break;
       }
-      case "damage-vector.aggregate-sequential-hits": {
+      case "damage-vector.aggregate-sequential-hits":
+      case "damage-vector.aggregate-sequential-pellets": {
         if (initialHealth === undefined || expectedHitCount === undefined) {
-          invalidParameters("Trace aggregates sequential hits before fixed Multishot expansion");
+          invalidParameters("Trace aggregates sequential hits before fixed grouped-hit expansion");
         }
         const aggregate = aggregateSequentialHits(
           operation.parameters,

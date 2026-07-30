@@ -12,7 +12,7 @@
     "contentHash": "sha256:d1d5ccd92b5ffc0ae5d44e0ffcb1a90ef5a085047893d531770dd40854d07ca7",
     "gameBuild": "synthetic-fixture-0"
   },
-  "contentHash": "sha256:6c65f9c93b05f75bf8e91dfb4c626b6bf9944e864060d158ea8a0fe78a8a2863",
+  "contentHash": "sha256:fac24670a29d1b0aef2dd8cd8459d80b624578604815a95219535f25c29dcbfc",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -24,10 +24,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.5.0",
+    "schemaVersion": "0.6.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:a3b84464735cca2dbbe8ee3c169abc38cdbc5e54e31810cb29cd712c92ff765f",
+    "contentHash": "sha256:e66d73f7b47f365bebc7f4bf888fb1e3c804cc7094d179b53788a9ae697b7fb3",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {

@@ -215,9 +215,17 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
   const kernelClauses = spec.clauses.filter(
     (clause) => clause.area === "kernel" || clause.area === "scope",
   );
-  const multishotClauses = spec.clauses.filter((clause) => clause.id.startsWith("MSH-"));
+  const multishotClauses = spec.clauses.filter(
+    (clause) => clause.id.startsWith("MSH-") || clause.id === "GOL-005",
+  );
+  const pelletClauses = spec.clauses.filter(
+    (clause) => clause.id.startsWith("PLT-") || clause.id === "GOL-006",
+  );
   const directCriticalArmorClauses = spec.clauses.filter(
-    (clause) => clause.area === "mechanics" && !clause.id.startsWith("MSH-"),
+    (clause) =>
+      clause.area === "mechanics" &&
+      !multishotClauses.includes(clause) &&
+      !pelletClauses.includes(clause),
   );
   const cliClauses = spec.clauses.filter((clause) => clause.area === "cli");
   const rulesetContract = spec.contracts.find((contract) => contract.id === "ruleset");
@@ -283,6 +291,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       capability("kernel.foundation", kernelClauses),
       capability("mechanics.direct-critical-armor", directCriticalArmorClauses),
       capability("mechanics.fixed-multishot", multishotClauses),
+      capability("mechanics.fixed-pellets", pelletClauses),
       capability("cli.core", cliClauses),
     ],
   };

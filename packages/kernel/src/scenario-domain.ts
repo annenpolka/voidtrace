@@ -27,6 +27,8 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "target.health.expected-remaining",
   "multishot.hit-count",
   "damage.multishot.total",
+  "pellet.count",
+  "damage.pellet.total",
 ] as const);
 
 export type SupportedMetricId = (typeof SUPPORTED_METRIC_IDS)[number];
@@ -46,6 +48,7 @@ export type ScenarioDomainErrorCode =
   | "unsupported-damage-layer"
   | "invalid-critical-resolution"
   | "unsupported-multishot-resolution"
+  | "unsupported-pellet-resolution"
   | "unsupported-critical-tier"
   | "unsupported-metric"
   | "duplicate-metric";
@@ -74,7 +77,7 @@ export type ScenarioDomain = {
   };
   readonly action: {
     readonly id: string;
-    readonly kind: "direct-hit" | "fixed-multishot";
+    readonly kind: "direct-hit" | "fixed-multishot" | "fixed-pellets";
     readonly targetId: string;
     readonly hitLocation: "hit-location.neutral-body";
     readonly damageLayer: "health";
@@ -133,9 +136,18 @@ const FIXED_MULTISHOT_PARAMETER_KEYS = Object.freeze([
   "criticalTier",
   "hitCount",
 ] as const);
+const FIXED_PELLET_PARAMETER_KEYS = Object.freeze([
+  ...ACTION_PARAMETER_COMMON_KEYS,
+  "criticalTier",
+  "pelletCount",
+] as const);
 const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "multishot.hit-count",
   "damage.multishot.total",
+]);
+const PELLET_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "pellet.count",
+  "damage.pellet.total",
 ]);
 const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "critical.base-tier",
@@ -406,7 +418,11 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
 
   const action = scenario.actionPlan[0] as Scenario["actionPlan"][number];
-  if (action.kind !== "action.direct-hit" && action.kind !== "action.multishot-direct-hit") {
+  if (
+    action.kind !== "action.direct-hit" &&
+    action.kind !== "action.multishot-direct-hit" &&
+    action.kind !== "action.pellet-direct-hit"
+  ) {
     return failure(
       "unsupported-action-kind",
       "/actionPlan/0/kind",
@@ -415,7 +431,11 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
     );
   }
   const actionKind =
-    action.kind === "action.multishot-direct-hit" ? "fixed-multishot" : "direct-hit";
+    action.kind === "action.multishot-direct-hit"
+      ? "fixed-multishot"
+      : action.kind === "action.pellet-direct-hit"
+        ? "fixed-pellets"
+        : "direct-hit";
   const hasCriticalTier = Object.hasOwn(action.parameters, "criticalTier");
   const hasCriticalRoll = Object.hasOwn(action.parameters, "criticalRoll");
   if (
@@ -427,6 +447,17 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       "/actionPlan/0/parameters",
       "The first Multishot slice requires deterministic mode with fixed criticalTier and no criticalRoll",
       "mechanic.multishot.fixed-count",
+    );
+  }
+  if (
+    actionKind === "fixed-pellets" &&
+    (scenario.simulation.mode !== "deterministic" || !hasCriticalTier || hasCriticalRoll)
+  ) {
+    return failure(
+      "unsupported-pellet-resolution",
+      "/actionPlan/0/parameters",
+      "The first pellet slice requires deterministic mode with fixed criticalTier and no criticalRoll",
+      "mechanic.pellet.fixed-count",
     );
   }
   const criticalResolution =
@@ -446,8 +477,10 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
   const actionKeyError = exactKeys(
     action.parameters,
-    actionKind === "fixed-multishot"
-      ? FIXED_MULTISHOT_PARAMETER_KEYS
+    actionKind === "fixed-multishot" || actionKind === "fixed-pellets"
+      ? actionKind === "fixed-multishot"
+        ? FIXED_MULTISHOT_PARAMETER_KEYS
+        : FIXED_PELLET_PARAMETER_KEYS
       : criticalResolution === "fixed"
         ? FIXED_CRITICAL_PARAMETER_KEYS
         : criticalResolution === "roll"
@@ -534,6 +567,17 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       );
     }
     hitCount = candidate;
+  } else if (actionKind === "fixed-pellets") {
+    const candidate = action.parameters.pelletCount;
+    if (typeof candidate !== "number" || !Number.isSafeInteger(candidate) || candidate < 1) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/pelletCount",
+        `Fixed pelletCount must be a positive safe integer; received ${String(candidate)}`,
+        "mechanic.pellet.fixed-count",
+      );
+    }
+    hitCount = candidate;
   }
 
   if (scenario.metrics.length === 0) {
@@ -559,7 +603,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       (criticalResolution === "fixed" && FIXED_UNAVAILABLE_METRIC_IDS.has(supportedMetric)) ||
       (criticalResolution !== "expected" && EXPECTED_CRITICAL_METRIC_IDS.has(supportedMetric)) ||
       (criticalResolution === "expected" && REALIZED_CRITICAL_METRIC_IDS.has(supportedMetric)) ||
-      (actionKind !== "fixed-multishot" && MULTISHOT_ONLY_METRIC_IDS.has(supportedMetric))
+      (actionKind !== "fixed-multishot" && MULTISHOT_ONLY_METRIC_IDS.has(supportedMetric)) ||
+      (actionKind !== "fixed-pellets" && PELLET_ONLY_METRIC_IDS.has(supportedMetric))
     ) {
       return failure(
         "unsupported-metric",

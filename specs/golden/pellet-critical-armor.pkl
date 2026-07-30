@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for resolved fixed-count pellets.
+module voidtrace.golden.pelletCriticalArmor
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-006"
+  desc =
+    "data/fixtures/golden/pellet-critical-armor.scenario.jsonは4個の順序付きpellet Direct Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する"
+  maturity = "active"
+}

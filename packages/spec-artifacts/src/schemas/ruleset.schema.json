@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.5.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.6.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.5.0"
+      "const": "urn:voidtrace:schema:ruleset:0.6.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.5.0"
+      "const": "0.6.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -143,6 +143,26 @@
                 "type": "object",
                 "properties": {
                   "kind": {
+                    "description": "Expand one resolved pellet action into an explicit bounded count of ordered Direct Hit events.",
+                    "type": "string",
+                    "const": "event.expand-fixed-pellets"
+                  },
+                  "maximumPellets": {
+                    "description": "Positive safe execution bound for one resolved pellet action.",
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "maximumPellets"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
                     "description": "Copy the input base Damage Vector into event damage.",
                     "type": "string",
                     "const": "damage-vector.copy"
@@ -250,6 +270,20 @@
                     "description": "Aggregate ordered terminal Direct Hit Damage Vectors and preserve the final sequential Health state.",
                     "type": "string",
                     "const": "damage-vector.aggregate-sequential-hits"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Aggregate ordered terminal pellet Damage Vectors and preserve the final sequential Health state.",
+                    "type": "string",
+                    "const": "damage-vector.aggregate-sequential-pellets"
                   }
                 },
                 "required": [

@@ -1,0 +1,43 @@
+{
+  "id": "golden.pellet-critical-armor",
+  "scenarioId": "scenario.golden-pellet-critical-armor",
+  "metrics": {
+    "pellet.count": 4,
+    "damage.direct-hit.total": 100,
+    "critical.tier": 1,
+    "critical.multiplier": 2,
+    "damage.post-critical.total": 200,
+    "armor.remaining-multiplier": 0.5,
+    "damage.health.total": 400,
+    "damage.pellet.total": 400,
+    "target.health.remaining": 0
+  },
+  "damageBySource": {
+    "action.pellet-shot-1": 400
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 400
+  },
+  "appliedRuleIds": [
+    "rule.pellet.emit-fixed-hits",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.pellet.aggregate-fixed-hits"
+  ],
+  "rejectedRules": [],
+  "tolerance": 0.000001
+}

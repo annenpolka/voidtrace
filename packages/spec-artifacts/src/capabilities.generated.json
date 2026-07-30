@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:ec18615d67b469c715f12260839e885279295017ee55846cb0bf1028007e32b6",
+  "sourceFingerprint": "sha256:f7c00ca852fd351db7855054c9c7a434be9abdb8f171ec5fc731e3a51d57415c",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -52,8 +52,7 @@
         "GOL-001",
         "GOL-002",
         "GOL-003",
-        "GOL-004",
-        "GOL-005"
+        "GOL-004"
       ],
       "plannedClauseRefs": []
     },
@@ -61,7 +60,17 @@
       "id": "mechanics.fixed-multishot",
       "status": "supported",
       "activeClauseRefs": [
+        "GOL-005",
         "MSH-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.fixed-pellets",
+      "status": "supported",
+      "activeClauseRefs": [
+        "GOL-006",
+        "PLT-001"
       ],
       "plannedClauseRefs": []
     },

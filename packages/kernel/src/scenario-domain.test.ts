@@ -456,6 +456,76 @@ describe("parseScenarioDomain", () => {
     });
   });
 
+  it("accepts resolved fixed-count pellets without inventing rolls", async () => {
+    const scenario = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.id = "action.pellet-shot-1";
+      action.kind = "action.pellet-direct-hit";
+      action.parameters.pelletCount = 4;
+      mutable.metrics.push("pellet.count", "damage.pellet.total");
+    });
+
+    const result = await parseScenarioDomain(scenario);
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          id: "action.pellet-shot-1",
+          kind: "fixed-pellets",
+          criticalResolution: "fixed",
+          criticalTier: 1,
+          criticalRoll: null,
+          hitCount: 4,
+        },
+      },
+    });
+  });
+
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid fixed pelletCount %s",
+    async (pelletCount) => {
+      const scenario = await changedScenario((mutable) => {
+        const action = firstAction(mutable);
+        action.kind = "action.pellet-direct-hit";
+        action.parameters.pelletCount = pelletCount;
+      });
+
+      await expectFailure(scenario, {
+        code: "invalid-configuration-value",
+        path: "/actionPlan/0/parameters/pelletCount",
+        mechanicId: "mechanic.pellet.fixed-count",
+      });
+    },
+  );
+
+  it("rejects expected or explicit-roll pellets in the fixed-count slice", async () => {
+    const expected = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.kind = "action.pellet-direct-hit";
+      action.parameters.pelletCount = 4;
+      delete action.parameters.criticalTier;
+      mutable.simulation = { mode: "expected", timeLimitMs: 1 };
+    });
+    await expectFailure(expected, {
+      code: "unsupported-pellet-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.pellet.fixed-count",
+    });
+
+    const rolled = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.kind = "action.pellet-direct-hit";
+      action.parameters.pelletCount = 4;
+      delete action.parameters.criticalTier;
+      action.parameters.criticalRoll = 0.2;
+    });
+    await expectFailure(rolled, {
+      code: "unsupported-pellet-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.pellet.fixed-count",
+    });
+  });
+
   it("rejects non-neutral hit locations", async () => {
     const scenario = await changedScenario((mutable) => {
       firstAction(mutable).parameters.hitLocation = "hit-location.headshot";

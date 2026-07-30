@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   executeExpectedAggregateRule,
   executeFixedMultishotRule,
+  executeFixedPelletRule,
   executeSequentialHitAggregateRule,
+  executeSequentialPelletAggregateRule,
   executeRule,
   type ExpectedAggregateContext,
   type RuleContext,
@@ -88,6 +90,7 @@ describe("generated core Rule execution", async () => {
   const loaded = await loadRuleset();
   const directHit = loaded.resolveRule("rule.damage.direct-hit");
   const fixedMultishot = loaded.resolveRule("rule.multishot.emit-fixed-hits");
+  const fixedPellets = loaded.resolveRule("rule.pellet.emit-fixed-hits");
   const criticalRoll = loaded.resolveRule("rule.critical.resolve-tier-roll");
   const expectedCritical = loaded.resolveRule("rule.critical.resolve-expected-branches");
   const criticalScale = loaded.resolveRule("rule.critical.scale-tier");
@@ -95,6 +98,7 @@ describe("generated core Rule execution", async () => {
   const commitHealth = loaded.resolveRule("rule.damage.commit-health");
   const aggregateExpected = loaded.resolveRule("rule.critical.aggregate-expected-branches");
   const aggregateMultishot = loaded.resolveRule("rule.multishot.aggregate-fixed-hits");
+  const aggregatePellets = loaded.resolveRule("rule.pellet.aggregate-fixed-hits");
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -126,6 +130,42 @@ describe("generated core Rule execution", async () => {
     expect(() =>
       executeFixedMultishotRule(fixedMultishot, {
         hitCount: 65,
+        initialHealth: 1000,
+        zeroDamage: { "damage.synthetic": 0 },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "execution-limit-exceeded" }));
+  });
+
+  it("expands only bounded positive safe-integer fixed pellet counts", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 64 }), (pelletCount) => {
+        const result = executeFixedPelletRule(fixedPellets, {
+          pelletCount,
+          initialHealth: 1000,
+          zeroDamage: { "damage.synthetic": 0 },
+        });
+
+        expect(result.parameters).toEqual({
+          factor: 1,
+          maximumPellets: 64,
+          pelletCount,
+        });
+        expect(result.before).toEqual(result.after);
+      }),
+    );
+
+    for (const pelletCount of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() =>
+        executeFixedPelletRule(fixedPellets, {
+          pelletCount,
+          initialHealth: 1000,
+          zeroDamage: { "damage.synthetic": 0 },
+        }),
+      ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    }
+    expect(() =>
+      executeFixedPelletRule(fixedPellets, {
+        pelletCount: 65,
         initialHealth: 1000,
         zeroDamage: { "damage.synthetic": 0 },
       }),
@@ -171,6 +211,34 @@ describe("generated core Rule execution", async () => {
       "hit.0.healthAfter": 150,
       "hit.2.healthBefore": 50,
       "hit.2.healthAfter": 0,
+    });
+  });
+
+  it("aggregates ordered terminal pellet hits through the distinct operation", () => {
+    const result = executeSequentialPelletAggregateRule(aggregatePellets, {
+      initialHealth: 250,
+      hits: [
+        {
+          id: "pellet.shot-0",
+          index: 0,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 250,
+          healthAfter: 150,
+        },
+        {
+          id: "pellet.shot-1",
+          index: 1,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 150,
+          healthAfter: 50,
+        },
+      ],
+    });
+
+    expect(result.after).toEqual({
+      damage: { "damage.synthetic": 200 },
+      damageTotal: 200,
+      health: 50,
     });
   });
 

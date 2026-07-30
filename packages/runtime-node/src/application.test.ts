@@ -36,6 +36,9 @@ const expectedScenarioPath = fileURLToPath(
 const multishotScenarioPath = fileURLToPath(
   new URL("../../../data/fixtures/golden/multishot-critical-armor.scenario.json", import.meta.url),
 );
+const pelletScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/pellet-critical-armor.scenario.json", import.meta.url),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -189,6 +192,31 @@ describe("createNodeApplication", () => {
     });
     expect(outcome.trace.decisions.at(-1)).toMatchObject({
       ruleId: "rule.multishot.aggregate-fixed-hits",
+    });
+  });
+
+  it("evaluates resolved fixed-count pellets through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: pelletScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toMatchObject({
+      "pellet.count": 4,
+      "damage.direct-hit.total": 100,
+      "damage.pellet.total": 400,
+      "damage.health.total": 400,
+      "target.health.remaining": 0,
+    });
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      ruleId: "rule.pellet.emit-fixed-hits",
+    });
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      ruleId: "rule.pellet.aggregate-fixed-hits",
     });
   });
 

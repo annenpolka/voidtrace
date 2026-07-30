@@ -4,8 +4,8 @@ module voidtrace.contracts.ruleset
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.5.0"
-local contractVersion = "0.5.0"
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.6.0"
+local contractVersion = "0.6.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -52,6 +52,28 @@ function expandFixedMultishot(): model.ObjectNode = new model.ObjectNode {
     new model.Field {
       name = "maximumHits"
       description = "Positive safe execution bound for one resolved Multishot action."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 1
+      }
+    }
+  }
+}
+
+function expandFixedPellets(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Expand one resolved pellet action into an explicit bounded count of ordered Direct Hit events."
+      required = true
+      schema = new model.LiteralNode {
+        value = "event.expand-fixed-pellets"
+      }
+    }
+    new model.Field {
+      name = "maximumPellets"
+      description = "Positive safe execution bound for one resolved pellet action."
       required = true
       schema = new model.IntegerNode {
         minimum = 1
@@ -163,6 +185,20 @@ function aggregateSequentialHits(): model.ObjectNode = new model.ObjectNode {
   }
 }
 
+function aggregateSequentialPellets(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Aggregate ordered terminal pellet Damage Vectors and preserve the final sequential Health state."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.aggregate-sequential-pellets"
+      }
+    }
+  }
+}
+
 function rule(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
@@ -219,6 +255,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
       schema = new model.UnionNode {
         variants = new {
           expandFixedMultishot()
+          expandFixedPellets()
           copyDamageVector()
           resolveCriticalTierRoll()
           resolveExpectedCriticalBranches()
@@ -227,6 +264,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           commitHealthDamage()
           aggregateWeightedBranches()
           aggregateSequentialHits()
+          aggregateSequentialPellets()
         }
       }
     }

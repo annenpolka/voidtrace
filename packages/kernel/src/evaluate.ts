@@ -35,7 +35,7 @@ import {
 import { replayTraceState, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.5.0";
+export const KERNEL_ENGINE_VERSION = "0.6.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -398,7 +398,9 @@ function updateMetricValues(
   }
   switch (execution.operationKind) {
     case "event.expand-fixed-multishot":
+    case "event.expand-fixed-pellets":
     case "damage-vector.aggregate-sequential-hits":
+    case "damage-vector.aggregate-sequential-pellets":
       return;
     case "damage-vector.copy":
       metricValues["damage.direct-hit.total"] = execution.after.damageTotal;
@@ -510,6 +512,9 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "event.expand-fixed-multishot":
     case "damage-vector.aggregate-sequential-hits":
       return "mechanic.multishot.fixed-count";
+    case "event.expand-fixed-pellets":
+    case "damage-vector.aggregate-sequential-pellets":
+      return "mechanic.pellet.fixed-count";
     case "damage-vector.copy":
       return "mechanic.damage.direct-hit";
     case "critical-tier.resolve-tier-roll":
@@ -694,18 +699,27 @@ function evaluateDeterministicRuntime(
   });
 }
 
-function evaluateFixedMultishotRuntime(
+function evaluateFixedHitGroupRuntime(
   domain: ScenarioDomain,
   references: ResolvedCatalogReferences,
   ruleset: LoadedRuleset,
 ): RuntimeEvaluation {
   if (
-    domain.action.kind !== "fixed-multishot" ||
+    (domain.action.kind !== "fixed-multishot" && domain.action.kind !== "fixed-pellets") ||
     domain.action.criticalResolution !== "fixed" ||
     domain.action.criticalTier === null
   ) {
-    throw new TypeError("Non-fixed Multishot input reached fixed Multishot evaluation");
+    throw new TypeError("Non-fixed grouped-hit input reached fixed grouped-hit evaluation");
   }
+  const isMultishot = domain.action.kind === "fixed-multishot";
+  const eventKind = isMultishot ? "action.multishot-direct-hit" : "action.pellet-direct-hit";
+  const countRead = isMultishot ? "action.multishot-hit-count" : "action.pellet-count";
+  const expansionKind = isMultishot ? "event.expand-fixed-multishot" : "event.expand-fixed-pellets";
+  const expansionCountParameter = isMultishot ? "hitCount" : "pelletCount";
+  const aggregateKind = isMultishot
+    ? "damage-vector.aggregate-sequential-hits"
+    : "damage-vector.aggregate-sequential-pellets";
+  const hitPrefix = isMultishot ? "hit.multishot" : "pellet.shot";
 
   const appliedRules: RuleDefinition[] = [];
   const decisions: Trace["decisions"][number][] = [];
@@ -723,7 +737,7 @@ function evaluateFixedMultishotRuntime(
 
   for (const event of createPhaseEvents({
     actionId: domain.action.id,
-    kind: "action.multishot-direct-hit",
+    kind: eventKind,
     phases: FIXED_MULTISHOT_EMISSION_PHASES,
   }).drain()) {
     expansionEventId = event.id;
@@ -731,11 +745,17 @@ function evaluateFixedMultishotRuntime(
       if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
         continue;
       }
-      const execution = ruleset.executeFixedMultishotRule(rule.id, {
-        hitCount: domain.action.hitCount,
-        initialHealth: domain.target.resolvedHealth,
-        zeroDamage,
-      });
+      const execution = isMultishot
+        ? ruleset.executeFixedMultishotRule(rule.id, {
+            hitCount: domain.action.hitCount,
+            initialHealth: domain.target.resolvedHealth,
+            zeroDamage,
+          })
+        : ruleset.executeFixedPelletRule(rule.id, {
+            pelletCount: domain.action.hitCount,
+            initialHealth: domain.target.resolvedHealth,
+            zeroDamage,
+          });
       decisions.push(
         decisionForExecution(
           decisionSequence,
@@ -748,7 +768,7 @@ function evaluateFixedMultishotRuntime(
           domain.target.resolvedArmor,
           {
             readOverrides: {
-              "action.multishot-hit-count": domain.action.hitCount,
+              [countRead]: domain.action.hitCount,
             },
           },
         ),
@@ -762,17 +782,18 @@ function evaluateFixedMultishotRuntime(
   }
   if (
     expansionExecution === undefined ||
-    expansionExecution.operationKind !== "event.expand-fixed-multishot" ||
+    expansionExecution.operationKind !== expansionKind ||
     expansionEventId === undefined ||
-    requiredNumber(expansionExecution.parameters, "hitCount") !== domain.action.hitCount
+    requiredNumber(expansionExecution.parameters, expansionCountParameter) !==
+      domain.action.hitCount
   ) {
-    throw new TypeError("Ruleset did not apply fixed Multishot expansion");
+    throw new TypeError("Ruleset did not apply fixed grouped-hit expansion");
   }
 
   const hits: SequentialHit[] = [];
   for (let index = 0; index < domain.action.hitCount; index += 1) {
     const hit: HitTraceMetadata = Object.freeze({
-      id: `hit.multishot-${index}`,
+      id: `${hitPrefix}-${index}`,
       index,
       count: domain.action.hitCount,
     });
@@ -840,7 +861,7 @@ function evaluateFixedMultishotRuntime(
   let aggregateExecution: RuleExecution | undefined;
   for (const event of createPhaseEvents({
     actionId: domain.action.id,
-    kind: "action.multishot-direct-hit",
+    kind: eventKind,
     parentEventId: expansionEventId,
     phases: FIXED_MULTISHOT_AGGREGATION_PHASES,
   }).drain()) {
@@ -848,10 +869,15 @@ function evaluateFixedMultishotRuntime(
       if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
         continue;
       }
-      const execution = ruleset.executeSequentialHitAggregateRule(rule.id, {
-        initialHealth: domain.target.resolvedHealth,
-        hits,
-      });
+      const execution = isMultishot
+        ? ruleset.executeSequentialHitAggregateRule(rule.id, {
+            initialHealth: domain.target.resolvedHealth,
+            hits,
+          })
+        : ruleset.executeSequentialPelletAggregateRule(rule.id, {
+            initialHealth: domain.target.resolvedHealth,
+            hits,
+          });
       decisions.push(
         decisionForExecution(
           decisionSequence,
@@ -892,15 +918,13 @@ function evaluateFixedMultishotRuntime(
       }
     }
   }
-  if (
-    aggregateExecution === undefined ||
-    aggregateExecution.operationKind !== "damage-vector.aggregate-sequential-hits"
-  ) {
-    throw new TypeError("Ruleset did not apply fixed Multishot aggregation");
+  if (aggregateExecution === undefined || aggregateExecution.operationKind !== aggregateKind) {
+    throw new TypeError("Ruleset did not apply fixed grouped-hit aggregation");
   }
 
-  metricValues["multishot.hit-count"] = domain.action.hitCount;
-  metricValues["damage.multishot.total"] = aggregateExecution.after.damageTotal;
+  metricValues[isMultishot ? "multishot.hit-count" : "pellet.count"] = domain.action.hitCount;
+  metricValues[isMultishot ? "damage.multishot.total" : "damage.pellet.total"] =
+    aggregateExecution.after.damageTotal;
   metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
   metricValues["target.health.remaining"] = aggregateExecution.after.health;
 
@@ -1270,8 +1294,8 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
   let runtime: RuntimeEvaluation;
   try {
     runtime =
-      domain.action.kind === "fixed-multishot"
-        ? evaluateFixedMultishotRuntime(domain, references, ruleset)
+      domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
+        ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
         : domain.action.criticalResolution === "expected"
           ? evaluateExpectedRuntime(domain, references, ruleset)
           : evaluateDeterministicRuntime(domain, references, ruleset);

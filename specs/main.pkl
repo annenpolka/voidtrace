@@ -13,6 +13,7 @@ import "contracts/trace.pkl"
 import "golden/direct-critical-armor.pkl"
 import "golden/expected-critical-armor.pkl"
 import "golden/multishot-critical-armor.pkl"
+import "golden/pellet-critical-armor.pkl"
 import "golden/probability-critical-armor.pkl"
 import "golden/tier-2-critical-armor.pkl"
 import "kernel/determinism.pkl"
@@ -24,6 +25,7 @@ import "mechanics/critical.pkl"
 import "mechanics/defense.pkl"
 import "mechanics/direct-hit.pkl"
 import "mechanics/multishot.pkl"
+import "mechanics/pellet.pkl"
 import "patterns/base.pkl"
 import "rules/model.pkl" as ruleModel
 
@@ -42,6 +44,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.criticalTierUsesGeneralScale
   mechanicsClauses.criticalExpectedValueUsesTerminalBranches
   mechanicsClauses.fixedMultishotEmitsOrderedHits
+  mechanicsClauses.fixedPelletActionEmitsOrderedHits
   mechanicsClauses.armorDoesNotIncreaseDamage
   mechanicsClauses.armorThreeHundredHalvesDamage
   mechanicsClauses.traceReconstructsDamage
@@ -51,6 +54,7 @@ clauses: Listing<base.Clause> = new {
   `tier-2-critical-armor`.roundTrip
   `expected-critical-armor`.roundTrip
   `multishot-critical-armor`.roundTrip
+  `pellet-critical-armor`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
   cliSurface.streamExitDiscipline
@@ -72,11 +76,12 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.5.0"
+  version = "0.6.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
     multishot.emitFixedRule
+    pellet.emitFixedRule
     critical.resolveExpectedBranchesRule
     `direct-hit`.rule
     critical.resolveTierRollRule
@@ -85,5 +90,6 @@ ruleset: ruleModel.Ruleset = new {
     `direct-hit`.commitRule
     critical.aggregateExpectedBranchesRule
     multishot.aggregateFixedRule
+    pellet.aggregateFixedRule
   }
 }

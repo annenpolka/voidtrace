@@ -30,6 +30,12 @@ import multishotExpectedFixture from "../../../data/fixtures/golden/multishot-cr
 import multishotScenarioFixture from "../../../data/fixtures/golden/multishot-critical-armor.scenario.json" with {
   type: "json",
 };
+import pelletExpectedFixture from "../../../data/fixtures/golden/pellet-critical-armor.expected.json" with {
+  type: "json",
+};
+import pelletScenarioFixture from "../../../data/fixtures/golden/pellet-critical-armor.scenario.json" with {
+  type: "json",
+};
 import probabilityExpectedFixture from "../../../data/fixtures/golden/probability-critical-armor.expected.json" with {
   type: "json",
 };
@@ -81,6 +87,14 @@ async function evaluateExpectedGolden() {
 async function evaluateMultishotGolden() {
   return evaluateScenario({
     scenario: structuredClone(multishotScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluatePelletGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(pelletScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -598,6 +612,122 @@ describe("evaluateScenario", () => {
     );
   });
 
+  it("matches the independently authored fixed pellet golden and sequential Trace", async () => {
+    const outcome = await evaluatePelletGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(pelletExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(pelletExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(pelletExpectedFixture.damageByType);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(pelletExpectedFixture.appliedRuleIds);
+    expect(outcome.trace.decisions).toHaveLength(18);
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      phase: "attack.emit",
+      ruleId: "rule.pellet.emit-fixed-hits",
+      reads: {
+        "action.pellet-count": 4,
+      },
+      operations: [
+        {
+          kind: "event.expand-fixed-pellets",
+          parameters: {
+            maximumPellets: 64,
+            pelletCount: 4,
+          },
+        },
+      ],
+    });
+    expect(
+      outcome.trace.decisions.flatMap((decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.damage.commit-health"
+          ? [decision.after["target.health"]]
+          : [],
+      ),
+    ).toEqual([250, 150, 50, 0]);
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      phase: "result.aggregate",
+      ruleId: "rule.pellet.aggregate-fixed-hits",
+      operations: [{ kind: "damage-vector.aggregate-sequential-pellets" }],
+      after: {
+        "damage.total": 400,
+        "target.health": 0,
+      },
+    });
+    expect(await replayTraceState(outcome.trace, 350)).toEqual({
+      damage: pelletExpectedFixture.damageByType,
+      health: 0,
+    });
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, pelletScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("property-tests fixed pellet expansion count, order, aggregation, and Health clamp", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 16 }),
+        fc.integer({ min: 0, max: 8 }),
+        fc.integer({ min: 0, max: 2_000 }),
+        fc.integer({ min: 0, max: 10_000 }),
+        async (pelletCount, criticalTier, armor, health) => {
+          const changed = structuredClone(pelletScenarioFixture);
+          const action = changed.actionPlan[0];
+          const target = changed.targets[0];
+          if (action === undefined || target === undefined) {
+            throw new Error("Pellet golden must contain one action and target");
+          }
+          action.parameters.pelletCount = pelletCount;
+          action.parameters.criticalTier = criticalTier;
+          target.configuration.resolvedArmor = armor;
+          target.configuration.resolvedHealth = health;
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+
+          const perPellet = 100 * (1 + criticalTier) * (300 / (armor + 300));
+          let remainingHealth = health;
+          for (let index = 0; index < pelletCount; index += 1) {
+            remainingHealth = perPellet >= remainingHealth ? 0 : remainingHealth - perPellet;
+          }
+          expect(first.result.metrics["pellet.count"]).toBe(pelletCount);
+          expect(first.result.metrics["damage.pellet.total"]).toBeCloseTo(
+            perPellet * pelletCount,
+            6,
+          );
+          expect(first.result.metrics["target.health.remaining"]).toBeCloseTo(remainingHealth, 6);
+          expect(
+            first.trace.decisions.filter(
+              (decision) => decision.ruleId === "rule.damage.commit-health",
+            ),
+          ).toHaveLength(pelletCount);
+          expect(await replayTraceState(first.trace, health)).toEqual({
+            damage: first.result.damageByType,
+            health: first.result.metrics["target.health.remaining"],
+          });
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
   it("is canonically deterministic for identical Scenario, Catalog, Ruleset, and seed", async () => {
     const first = await evaluateGolden();
     const second = await evaluateGolden();
@@ -794,7 +924,9 @@ describe("evaluateScenario", () => {
         metric !== "damage.expected.health.total" &&
         metric !== "target.health.expected-remaining" &&
         metric !== "multishot.hit-count" &&
-        metric !== "damage.multishot.total",
+        metric !== "damage.multishot.total" &&
+        metric !== "pellet.count" &&
+        metric !== "damage.pellet.total",
     );
     const metricSubset = fc.uniqueArray(fc.constantFrom(...fixedMetricIds), {
       minLength: 1,

@@ -12,6 +12,7 @@ export const KNOWN_PATTERNS = [
   "fixed_critical_tier",
   "expected_critical_branches",
   "fixed_multishot_expansion",
+  "fixed_pellet_expansion",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -73,6 +74,10 @@ export type RuleOperation =
       maximumHits: number;
     }
   | {
+      kind: "event.expand-fixed-pellets";
+      maximumPellets: number;
+    }
+  | {
       kind: "damage-vector.copy";
     }
   | {
@@ -96,6 +101,9 @@ export type RuleOperation =
     }
   | {
       kind: "damage-vector.aggregate-sequential-hits";
+    }
+  | {
+      kind: "damage-vector.aggregate-sequential-pellets";
     };
 
 export type RuleDefinition = {
@@ -139,6 +147,7 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "fixed_critical_tier",
   "expected_critical_branches",
   "fixed_multishot_expansion",
+  "fixed_pellet_expansion",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -261,6 +270,16 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
           (candidate) => Number.isInteger(candidate) && candidate > 0,
         ),
       };
+    case "event.expand-fixed-pellets":
+      assertExactKeys(value, ["kind", "maximumPellets"], path);
+      return {
+        kind,
+        maximumPellets: requireFiniteNumber(
+          value.maximumPellets,
+          `${path}.maximumPellets`,
+          (candidate) => Number.isInteger(candidate) && candidate > 0,
+        ),
+      };
     case "damage-vector.copy":
       assertExactKeys(value, ["kind"], path);
       return { kind };
@@ -290,6 +309,9 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
       assertExactKeys(value, ["kind"], path);
       return { kind };
     case "damage-vector.aggregate-sequential-hits":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
+    case "damage-vector.aggregate-sequential-pellets":
       assertExactKeys(value, ["kind"], path);
       return { kind };
     default:

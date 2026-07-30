@@ -5,9 +5,9 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The current repository state is **Commit 10: resolved fixed-count Multishot**. It establishes the
+The current repository state is **Commit 11: resolved fixed-count pellets**. It establishes the
 normative Pkl specification, deterministic generated artifacts, eight versioned public contracts,
-and Ruleset `0.5.0` revision `1` on the Kernel foundation: an ordered Event Queue,
+and Ruleset `0.6.0` revision `1` on the Kernel foundation: an ordered Event Queue,
 logical-coordinate RNG, explicit World State transitions, and generated finite Rule IR. Strictly
 validated synthetic mini catalogs supply one hitscan weapon and one target to deterministic or
 analytic expected Direct Hit / Critical / Armor round trips. Critical resolution accepts either a fixed
@@ -21,12 +21,16 @@ commit, then weights final Damage Vectors and remaining Health. It does not inve
 Critical roll or tier. Resolved fixed-count Multishot expands one action into up to 64 stable,
 ordered Direct Hit child events, commits each hit to the preceding World State, and aggregates the
 terminal Damage Vector and final Health without generating Multishot or per-hit Critical rolls.
+Resolved fixed-count pellets use a separate action, emission Rule, aggregation Rule, capability,
+and Trace identity while reusing the Direct Hit pipeline for each ordered pellet.
 
 This slice and its runtime Rules remain synthetic and experimental. They are not verified
 statements of current Warframe mechanics. Generated random rolls, Monte Carlo,
 Critical inputs whose tiers or resulting multiplier cannot be represented safely, mods,
 headshots, Shield, Overguard, projectiles, status, probabilistic Multishot, custom-count helper
-variation, Multishot expected values, Trace queries, comparisons, and the Lab remain unsupported.
+variation, Multishot-plus-pellet composition, variable or probabilistic pellets, per-pellet rolls,
+pellet hit distribution, Spread, Multishot or pellet expected values, Trace queries, comparisons,
+and the Lab remain unsupported.
 
 `VoidTrace計画.md` is design input and discussion history. Normative behavior lives only under `specs/`.
 
@@ -59,9 +63,9 @@ Pkl under `specs/contracts/` is the sole contract source. It generates:
 
 The handwritten `@voidtrace/contracts` package registers every generated Schema with Ajv in strict mode. It validates without coercion or default insertion and provides RFC 8785 canonical JSON, SHA-256 Artifact fingerprints, stable ID checks, and cross-Artifact integrity checks. `Fingerprint.resultHash` identifies canonical execution inputs; Result and Trace content hashes independently identify their complete stored payloads. The package contains no game mechanics.
 
-This commit intentionally stops at the eight contracts and generated Ruleset `0.5.0` required by
-the deterministic, single-hit expected, and resolved fixed-count Multishot round trips and their
-structured CLI failure surface.
+This commit intentionally stops at the eight contracts and generated Ruleset `0.6.0` required by
+the deterministic, single-hit expected, resolved fixed-count Multishot, and resolved fixed-count
+pellet round trips and their structured CLI failure surface.
 `ScenarioPatch`/JSON Patch and later domain-specific Result proof fields remain future work.
 
 ## CLI
@@ -87,6 +91,10 @@ pnpm exec vt run data/fixtures/golden/multishot-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/multishot-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/pellet-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/pellet-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt run - --catalog data/fixtures/catalog-mini/catalog.json \
   < data/fixtures/golden/direct-critical-armor.scenario.json
 ```
@@ -101,14 +109,16 @@ On failure stdout remains empty and stderr receives one structured Problem. Exit
 The skill at `.agents/skills/voidtrace/SKILL.md` is a fixed-tier/expected fixture-variation and
 formal-CLI golden inspection helper. It accepts non-negative safe-integer deterministic tiers and
 an analytic expected preset through its helper, and documents the resolved fixed-count Multishot
-fixture through the formal CLI. It is not a second public CLI and does not synthesize Critical
-chance, rolls, or Multishot counts:
+and pellet fixtures through the formal CLI. It is not a second public CLI and does not synthesize
+Critical chance, rolls, Multishot counts, or pellet counts:
 
 ```bash
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts --critical-tier 4 --armor 0 --health 1000
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts --expected
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts --expected --armor 0 --health 250
 pnpm exec vt run data/fixtures/golden/multishot-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/pellet-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 .agents/skills/voidtrace/scripts/smoke.sh
 ```
@@ -118,12 +128,13 @@ reported explicitly rather than approximated.
 
 ## Specification maturity
 
-Of twenty-six Clauses, twenty-five are `active`; `TRC-002` remains a planned rejection-trace
+Of twenty-eight Clauses, twenty-seven are `active`; `TRC-002` remains a planned rejection-trace
 obligation. `CRT-001` covers the generalized adjacent-tier distribution for safely representable
 non-negative Critical chance and an explicit deterministic roll. `CRT-002` covers the
 `1 + tier * (criticalMultiplier - 1)` scale. `CRT-003` covers terminal-branch analytic expected
 values, including per-branch Health-zero clamp before weighting. All runtime Rules retain
 `experimental` evidence status. `MSH-001` covers bounded expansion into ordered fixed-count child
-hits without implicit randomness. `TRC-001` replays final Damage and terminal Health from Trace,
-anchored to the Scenario's initial Health. Generated randomness, probabilistic Multishot, and
-Monte Carlo remain future Clauses.
+hits without implicit randomness. `PLT-001` separately covers bounded fixed-count pellets from one
+shot without Multishot composition, hit distribution, Spread, or implicit randomness. `TRC-001`
+replays final Damage and terminal Health from Trace, anchored to the Scenario's initial Health.
+Generated randomness, probabilistic Multishot or pellets, and Monte Carlo remain future Clauses.

@@ -12,6 +12,8 @@ import {
   executeExpectedAggregateRule,
   type FixedMultishotContext,
   executeFixedMultishotRule,
+  type FixedPelletContext,
+  executeFixedPelletRule,
   executeRule,
   type RuleContext,
   type RuleDefinition,
@@ -20,6 +22,7 @@ import {
   type RulePhase,
   type SequentialHitAggregateContext,
   executeSequentialHitAggregateRule,
+  executeSequentialPelletAggregateRule,
 } from "./execution.ts";
 
 export type LoadedRuleset = {
@@ -28,7 +31,12 @@ export type LoadedRuleset = {
   executeRule(id: string, context: RuleContext): RuleExecution;
   executeExpectedAggregateRule(id: string, context: ExpectedAggregateContext): RuleExecution;
   executeFixedMultishotRule(id: string, context: FixedMultishotContext): RuleExecution;
+  executeFixedPelletRule(id: string, context: FixedPelletContext): RuleExecution;
   executeSequentialHitAggregateRule(
+    id: string,
+    context: SequentialHitAggregateContext,
+  ): RuleExecution;
+  executeSequentialPelletAggregateRule(
     id: string,
     context: SequentialHitAggregateContext,
   ): RuleExecution;
@@ -71,6 +79,12 @@ const OPERATION_DECLARATIONS = {
     phase: "attack.emit",
     eventKind: "action.multishot-direct-hit",
     reads: ["action.multishot-hit-count"],
+    writes: ["event.direct-hit-count"],
+  },
+  "event.expand-fixed-pellets": {
+    phase: "attack.emit",
+    eventKind: "action.pellet-direct-hit",
+    reads: ["action.pellet-count"],
     writes: ["event.direct-hit-count"],
   },
   "damage-vector.copy": {
@@ -134,6 +148,12 @@ const OPERATION_DECLARATIONS = {
     reads: ["hit.damage", "hit.health-before", "hit.health-after"],
     writes: ["event.damage", "target.health"],
   },
+  "damage-vector.aggregate-sequential-pellets": {
+    phase: "result.aggregate",
+    eventKind: "action.pellet-direct-hit",
+    reads: ["hit.damage", "hit.health-before", "hit.health-after"],
+    writes: ["event.damage", "target.health"],
+  },
 } as const satisfies Record<RuleOperationKind, OperationDeclaration>;
 
 function formatContractIssues(issues: ReadonlyArray<ValidationIssue>): string {
@@ -175,6 +195,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     readonly kind: string;
     readonly constant?: unknown;
     readonly maximumHits?: unknown;
+    readonly maximumPellets?: unknown;
   };
   switch (operation.kind) {
     case "event.expand-fixed-multishot":
@@ -186,6 +207,15 @@ function assertFiniteOperation(rule: RuleDefinition): void {
         return;
       }
       break;
+    case "event.expand-fixed-pellets":
+      if (
+        typeof operation.maximumPellets === "number" &&
+        Number.isSafeInteger(operation.maximumPellets) &&
+        operation.maximumPellets > 0
+      ) {
+        return;
+      }
+      break;
     case "damage-vector.copy":
     case "critical-tier.resolve-tier-roll":
     case "critical-tier.resolve-expected-branches":
@@ -193,6 +223,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     case "damage.commit-health":
     case "damage-vector.aggregate-weighted-branches":
     case "damage-vector.aggregate-sequential-hits":
+    case "damage-vector.aggregate-sequential-pellets":
       return;
     case "damage-vector.scale-standard-armor":
       if (
@@ -293,10 +324,16 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       executeExpectedAggregateRule(resolveRule(id), context),
     executeFixedMultishotRule: (id: string, context: FixedMultishotContext): RuleExecution =>
       executeFixedMultishotRule(resolveRule(id), context),
+    executeFixedPelletRule: (id: string, context: FixedPelletContext): RuleExecution =>
+      executeFixedPelletRule(resolveRule(id), context),
     executeSequentialHitAggregateRule: (
       id: string,
       context: SequentialHitAggregateContext,
     ): RuleExecution => executeSequentialHitAggregateRule(resolveRule(id), context),
+    executeSequentialPelletAggregateRule: (
+      id: string,
+      context: SequentialHitAggregateContext,
+    ): RuleExecution => executeSequentialPelletAggregateRule(resolveRule(id), context),
   });
 }
 

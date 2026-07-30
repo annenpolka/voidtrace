@@ -51,9 +51,18 @@ class AggregateSequentialHits extends RuleOperation {
   kind = "damage-vector.aggregate-sequential-hits"
 }
 
+class AggregateSequentialPellets extends RuleOperation {
+  kind = "damage-vector.aggregate-sequential-pellets"
+}
+
 class ExpandFixedMultishot extends RuleOperation {
   kind = "event.expand-fixed-multishot"
   maximumHits: UInt(isPositive)
+}
+
+class ExpandFixedPellets extends RuleOperation {
+  kind = "event.expand-fixed-pellets"
+  maximumPellets: UInt(isPositive)
 }
 
 class Rule {

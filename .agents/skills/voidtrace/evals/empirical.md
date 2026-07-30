@@ -340,6 +340,125 @@ Convergence check: two consecutive clear rounds after the Iteration 2 fix.
   are not asserted.
 - Resource decision: ship the resolved fixed-count Multishot operator documentation.
 
+## Commit 11 resolved fixed-count pellet re-evaluation
+
+Commit 11 adds a formal-CLI path for one repository-local four-pellet Scenario. Pellets belong to
+one shot, have stable pellet identities in hit metadata, share one explicit fixed Critical tier,
+and are distinct from the resolved fixed-count Multishot action.
+
+### Iteration 0: description/body consistency
+
+- Updated the description, supported boundary, formal CLI commands, unsupported list, and Trace
+  interpretation for resolved fixed-count pellets.
+- Distinguished one-pellet `damage.direct-hit.total` from `damage.pellet.total` and sequential
+  Health clamp.
+- Kept variable or probabilistic pellet counts, Multishot composition, hit distribution, Spread,
+  per-pellet rolls, pellet expected values, generated randomness, and current-game claims outside
+  the skill boundary.
+- Static result: description and body are consistent. This is not an empirical convergence round.
+
+### Frozen scenarios and requirements
+
+#### Scenario A — median: inspect resolved fixed-count pellets
+
+Run the repository-local pellet fixture through both formal CLI views and summarize its Result and
+causal Trace.
+
+1. [critical] Invoke `vt run` and `vt trace` with the pellet Scenario and matching Catalog.
+2. Report pellet count, one-pellet Direct Hit total, aggregate Health damage, aggregate pellet
+   damage, and final remaining Health accurately.
+3. Report the pellet emission Rule, four repeated Rules for each of four ordered pellets, final
+   pellet aggregation Rule, stable pellet identities, and sequential Health transitions.
+4. Preserve the synthetic/experimental limitation and do not modify repository files.
+5. Do not call the pellet group Multishot or claim generated pellet or Critical rolls.
+
+#### Scenario B — unsupported edge: compose probabilistic Multishot and pellets
+
+Ask for 2.5 Multishot times 12 pellets, distributed across two targets with Spread and generated
+per-pellet Critical rolls, including expected and realized damage.
+
+1. [critical] Do not edit Artifacts, fabricate rolls or hit distribution, or reinterpret either
+   fixed fixture as the requested composition.
+2. Name Multishot-plus-pellet composition, probabilistic/custom counts, multiple-target hit
+   distribution, Spread, per-pellet Critical rolls, and grouped expected values as unsupported.
+3. Offer the separate repository-local fixed Multishot or pellet fixtures, or separately
+   authorized implementation work.
+4. Do not approximate unsupported mechanics, make a current-game claim, or modify files.
+
+### Iteration 1
+
+#### Changes from Iteration 0
+
+- None after the fixed-count pellet consistency update.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — resolved fixed-count pellets | ○ | 100% | unavailable | unavailable | 0 | — |
+| B — unsupported grouped composition | ○ | 100% | unavailable | unavailable | 0 | — |
+
+The collaboration runner did not expose `tool_uses` or `duration_ms`; those fields remain
+unavailable rather than estimated.
+
+#### Structured reflection
+
+- Both fresh executors satisfied every fixed requirement and reported zero retries.
+- Scenario A's dirty-worktree note concerns the shared environment, not instruction ambiguity.
+- Scenario B's undefined distribution, composition order, hit assignment, RNG, and aggregation
+  are exactly the unsupported semantics the skill requires it not to infer.
+
+#### Discretionary fill-ins
+
+- Scenario A included decision count and empty rejected-Rule status.
+- Scenario B called local fixtures “checked-in”; this was executor wording rather than a
+  capability claim or checklist failure.
+
+#### Ledger updates
+
+- No new instruction-side failure pattern.
+
+Convergence check: one consecutive clear fixed-pellet round. A fresh second round is required.
+
+### Iteration 2
+
+#### Changes from Iteration 1
+
+- None. Iteration 1 surfaced no instruction-side fix.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — resolved fixed-count pellets | ○ | 100% | unavailable | unavailable | 0 | — |
+| B — unsupported grouped composition | ○ | 100% | unavailable | unavailable | 0 | — |
+
+#### Structured reflection
+
+- Scenario A reproduced all metrics, four stable pellet identities, 18 applied decisions, ordered
+  Health commits, and matching Artifact hashes with no unclear points.
+- Scenario B stopped without execution, explicitly rejected the `2.5 × 12 = 30` shortcut, named
+  every unsupported dimension, and offered only separate fixed fixtures or implementation.
+
+#### Ledger updates
+
+- No new patterns.
+
+Convergence check: two consecutive clear fixed-pellet rounds.
+
+### Commit 11 evaluation status
+
+- Description/body consistency: pass.
+- Two consecutive fresh-executor rounds: 100% accuracy, all critical items pass, zero new
+  instruction-side unclear points, and zero retries.
+- Unsupported grouped-composition edge: pass without execution, fabrication, approximation, or
+  file mutation.
+- `tool_uses` and `duration_ms`: unavailable from this collaboration runner, so those thresholds
+  are not asserted.
+- Resource decision: ship the resolved fixed-count pellet operator documentation.
+
 ### Iteration 4
 
 #### Changes from Iteration 3

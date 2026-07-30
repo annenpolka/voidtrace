@@ -22,9 +22,13 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 07:44:00Z) Node 24とNode 26で21テストファイル251テストを含む全ゲートを通した。
 - [x] (2026-07-30 07:46:00Z) Multishotマイルストーンを `92019a6` としてコミットした。
 - [x] (2026-07-30 07:46:00Z) 元計画の順序に従い、次の縦切りを解決済み固定count Pelletに選定した。
-- [ ] PelletのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義する。（開始: Multishotと合成しない単独Pellet actionの境界を設計）
-- [ ] Pelletを既存Direct Hitパイプラインへ流し、Result／Trace／replayを実装する。
-- [ ] 独立oracle、境界/propertyテスト、Runtime/CLI E2E、skill操作例を追加して検証・コミットする。
+- [x] (2026-07-30 07:52:00Z) PelletのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義し、Ruleset `0.6.0`を生成した。
+- [x] (2026-07-30 07:52:00Z) Pelletを既存Direct Hitパイプラインへ流し、Result／Trace／replayを実装した。
+- [x] (2026-07-30 07:52:00Z) 独立oracle、境界/propertyテスト、Runtime/CLI E2Eを追加し、対象8ファイル185テストを通した。
+- [x] (2026-07-30 07:56:00Z) repository-local skillのPellet操作例をempirical-prompt-tuningで再評価し、2回連続の100% checklist達成を確認した。
+- [x] (2026-07-30 07:56:00Z) Node 26で21テストファイル268テストを含む全ゲートを通した。
+- [x] (2026-07-30 07:57:00Z) Node 24でも21テストファイル268テストを含む全ゲートを通した。
+- [ ] Pelletマイルストーンをコミットし、次のRadial縦切りを設計する。
 
 ## Surprises & Discoveries
 
@@ -39,6 +43,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: Scenario Contractのaction parameterは既に有限scalar mapを許していたため、`hitCount`追加にScenario schema version更新は不要だった。
   Evidence: `action.multishot-direct-hit`と`hitCount`はdomain parserで狭め、Ruleset `0.5.0`側が最大64の実行上限を担う。
+
+- Observation: 同じ逐次Damage集約アルゴリズムでも、MultishotとPelletは異なるevent kindへ厳密に束縛する必要があった。
+  Evidence: Rules packageのoperation declarationはphase、event kind、reads、writesを完全一致で検査するため、Pelletには `damage-vector.aggregate-sequential-pellets` を追加し、内部の安全な集約実装だけを共有した。
+
+- Observation: Kernel側は固定Multishot evaluatorを固定grouped-hit evaluatorへ一般化でき、Direct Hitの意味論を複製せずPelletへ再利用できた。
+  Evidence: `evaluateFixedHitGroupRuntime` がaction kindに応じて発生／集約Ruleとmetric名だけを切り替え、Critical、Armor、Health commitは既存Rule列をそのまま使う。
 
 ## Decision Log
 
@@ -71,6 +81,8 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
 
 Multishotマイルストーンでは、明示された1〜64の固定hit countを安定した子Direct Hitへ展開し、共通の固定Critical tier、Armor、逐次Health commitを適用した後、終端Damage Vectorを集約できるようになった。Resultは共通の一発値と全hit集約値を分離し、Traceは各hitのID、index、count、親子関係、Health遷移を保持する。65以上は部分Artifactを返さずCLI exit 4の実行上限となる。確率的Multishot、hitごとのCritical roll、Multishot expected valueは引き続き非対応である。
+
+Pelletマイルストーンでは、明示された1〜64の固定pellet countを一回の射撃に属する安定した子Direct Hitへ展開し、Multishotと別のRule、capability、Trace identity、Result aggregateとして扱えるようになった。4-pellet Goldenは共通の固定Critical tierとArmorを各pelletへ適用し、Healthを `350→250→150→50→0` と逐次commitする。Multishotとの合成、命中分配、Spread、pellet別roll、pellet expected valueは非対応である。
 
 ## Context and Orientation
 
@@ -176,6 +188,23 @@ Multishotマイルストーンの検証記録は次のとおりである。
     golden.expected-critical-armor passed: true
     multishot decisions: 14
 
+Pelletマイルストーンの検証記録は次のとおりである。
+
+    Node.js 26.0.0
+    Specification is valid, 24 generated files are fresh.
+    Test Files 21 passed
+    Tests 268 passed
+
+    Node.js 24.18.0
+    Specification is valid, 24 generated files are fresh.
+    Test Files 21 passed
+    Tests 268 passed
+
+    mechanics.fixed-pellets: supported
+    pellet count: 4
+    pellet decisions: 18
+    final Health: 0
+
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
 
 Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むローカル基準線は `92019a6 feat: add fixed multishot vertical slice` としてコミット済みである。
@@ -184,6 +213,6 @@ Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むロー
 
 既存の公開SDK関数 `evaluateScenario(request: { scenario: unknown; catalog: unknown }): Promise<EvaluationOutcome>` を維持する。CLIとskillは引き続きこの境界を通り、KernelやRulesを直接組み立てない。
 
-Multishot入力はScenarioのactionに属する解決済み値として定義し、Catalogの生データや確率的rollを暗黙に読み込まない。Kernelが生成する子イベントはEvent Queueの論理時刻、sequence、stable ID順序に従う。Rule executionは生成Rulesetだけから行い、Kernel、CLI、skillへMultishot倍率の式を重複させない。
+MultishotとPellet入力はScenarioの別actionに属する解決済み値として定義し、Catalogの生データや確率的rollを暗黙に読み込まない。Kernelが生成する子イベントはEvent Queueの論理時刻、sequence、stable ID順序に従う。Rule executionは生成Rulesetだけから行い、Kernel、CLI、skillへgrouped-hit計算を重複させない。
 
 新しい外部ライブラリは追加しない。既存のPkl 0.32、Ajv、TypeScript、Vitest、fast-check、Commanderだけを使う。

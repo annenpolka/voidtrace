@@ -14,6 +14,7 @@ const probabilityScenarioPath = "data/fixtures/golden/probability-critical-armor
 const tier2ScenarioPath = "data/fixtures/golden/tier-2-critical-armor.scenario.json";
 const expectedScenarioPath = "data/fixtures/golden/expected-critical-armor.scenario.json";
 const multishotScenarioPath = "data/fixtures/golden/multishot-critical-armor.scenario.json";
+const pelletScenarioPath = "data/fixtures/golden/pellet-critical-armor.scenario.json";
 const catalogPath = "data/fixtures/catalog-mini/catalog.json";
 const tier2CatalogPath = "data/fixtures/catalog-mini/catalog-tier-2.json";
 
@@ -68,6 +69,8 @@ describe("installed VoidTrace CLI aliases", () => {
     ["trace", expectedScenarioPath, "--catalog", tier2CatalogPath],
     ["run", multishotScenarioPath, "--catalog", catalogPath],
     ["trace", multishotScenarioPath, "--catalog", catalogPath],
+    ["run", pelletScenarioPath, "--catalog", catalogPath],
+    ["trace", pelletScenarioPath, "--catalog", catalogPath],
     ["run", "--help"],
     ["unknown"],
   ])("are byte-equivalent for %j", async (...argv) => {
@@ -266,6 +269,72 @@ describe("installed VoidTrace CLI aliases", () => {
       throw new Error("Multishot golden Scenario must contain an action");
     }
     action.parameters.hitCount = 65;
+    const { contentHash: _contentHash, ...withoutHash } = fixture;
+    const scenario = await attachArtifactContentHash(withoutHash);
+    const failure = await execute(
+      "vt",
+      ["run", "-", "--catalog", catalogPath],
+      JSON.stringify(scenario),
+    );
+
+    expect(failure.exitCode).toBe(4);
+    expect(failure.stdout).toBe("");
+    expect(failure.stderr.split("\n")).toHaveLength(2);
+    expect(JSON.parse(failure.stderr)).toMatchObject({
+      code: "rule-execution-failed",
+      classification: "limit",
+      causeCode: "execution-limit-exceeded",
+    });
+    expect(validateContract("problem", JSON.parse(failure.stderr)).ok).toBe(true);
+  });
+
+  it("exposes resolved fixed-count pellet Result and Trace through the installed CLI", async () => {
+    const result = await execute("vt", ["run", pelletScenarioPath, "--catalog", catalogPath]);
+    const trace = await execute("vt", ["trace", pelletScenarioPath, "--catalog", catalogPath]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const resultArtifact = JSON.parse(result.stdout);
+    expect(resultArtifact).toMatchObject({
+      metrics: {
+        "pellet.count": 4,
+        "damage.direct-hit.total": 100,
+        "damage.pellet.total": 400,
+        "damage.health.total": 400,
+        "target.health.remaining": 0,
+      },
+      damageByType: {
+        "damage.synthetic-kinetic": 400,
+      },
+    });
+    expect(validateContract("result", resultArtifact).ok).toBe(true);
+
+    expect(trace.exitCode).toBe(0);
+    expect(trace.stderr).toBe("");
+    const traceArtifact = JSON.parse(trace.stdout) as {
+      decisions: Array<{ ruleId: string }>;
+    };
+    expect(traceArtifact.decisions[0]).toMatchObject({
+      ruleId: "rule.pellet.emit-fixed-hits",
+    });
+    expect(traceArtifact.decisions.at(-1)).toMatchObject({
+      ruleId: "rule.pellet.aggregate-fixed-hits",
+    });
+    expect(validateContract("trace", traceArtifact).ok).toBe(true);
+  });
+
+  it("returns one limit Problem and no partial Artifact above the pellet bound", async () => {
+    const fixture = JSON.parse(
+      await readFile(new URL(`../${pelletScenarioPath}`, import.meta.url), "utf8"),
+    ) as {
+      contentHash: string;
+      actionPlan: Array<{ parameters: { pelletCount: number } }>;
+    } & Record<string, unknown>;
+    const action = fixture.actionPlan[0];
+    if (action === undefined) {
+      throw new Error("Pellet golden Scenario must contain an action");
+    }
+    action.parameters.pelletCount = 65;
     const { contentHash: _contentHash, ...withoutHash } = fixture;
     const scenario = await attachArtifactContentHash(withoutHash);
     const failure = await execute(
