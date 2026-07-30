@@ -9,6 +9,9 @@ import expectedScenarioFixture from "../../../data/fixtures/golden/expected-crit
 import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
   type: "json",
 };
+import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
+  type: "json",
+};
 import { parseScenarioDomain } from "./scenario-domain.ts";
 
 type MutableScenarioFixture = {
@@ -83,6 +86,15 @@ async function changedStatusScenario(
   change: (scenario: MutableScenarioFixture) => void,
 ): Promise<unknown> {
   const mutable = structuredClone(statusScenarioFixture) as MutableScenarioFixture;
+  change(mutable);
+  const { contentHash: _contentHash, ...withoutHash } = mutable;
+  return attachArtifactContentHash(withoutHash);
+}
+
+async function changedPunchThroughScenario(
+  change: (scenario: MutableScenarioFixture) => void,
+): Promise<unknown> {
+  const mutable = structuredClone(punchThroughScenarioFixture) as MutableScenarioFixture;
   change(mutable);
   const { contentHash: _contentHash, ...withoutHash } = mutable;
   return attachArtifactContentHash(withoutHash);
@@ -227,8 +239,74 @@ describe("parseScenarioDomain", () => {
 
     await expectFailure(scenario, {
       code: "unsupported-target-graph",
-      path: "/targetGraph/relations",
-      mechanicId: "mechanic.target-graph",
+      path: "/targetGraph/relations/0",
+      mechanicId: "mechanic.punch-through.resolved-path",
+    });
+  });
+
+  it("accepts one resolved punch-through ordered path and preserves its target order", async () => {
+    const result = await parseScenarioDomain(structuredClone(punchThroughScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          kind: "resolved-punch-through",
+          targetPathRelationId: "target-relation.punch-through-1",
+          pathTargetIds: ["actor.target-a", "actor.target-b", "actor.target-c"],
+          hitCount: 3,
+          criticalTier: 1,
+        },
+        targets: [
+          { id: "actor.target-a", resolvedArmor: 300, resolvedHealth: 150 },
+          { id: "actor.target-b", resolvedArmor: 0, resolvedHealth: 80 },
+          { id: "actor.target-c", resolvedArmor: 900, resolvedHealth: 60 },
+        ],
+      },
+    });
+  });
+
+  it("rejects a punch-through action whose relation reference does not match", async () => {
+    const scenario = await changedPunchThroughScenario((mutable) => {
+      firstAction(mutable).parameters.targetPathRelationId = "target-relation.missing";
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-target-reference",
+      path: "/actionPlan/0/parameters/targetPathRelationId",
+      mechanicId: "mechanic.punch-through.resolved-path",
+    });
+  });
+
+  it("rejects duplicate target identities in a resolved punch-through path", async () => {
+    const scenario = await changedPunchThroughScenario((mutable) => {
+      const relation = mutable.targetGraph.relations[0];
+      if (relation === undefined) {
+        throw new Error("Resolved punch-through golden must contain one relation");
+      }
+      relation.targetIds = ["actor.target-a", "actor.target-a", "actor.target-c"];
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-target-reference",
+      path: "/targetGraph/relations/0/targetIds",
+      mechanicId: "mechanic.punch-through.resolved-path",
+    });
+  });
+
+  it("rejects a resolved punch-through path that names an unknown target", async () => {
+    const scenario = await changedPunchThroughScenario((mutable) => {
+      const relation = mutable.targetGraph.relations[0];
+      if (relation === undefined) {
+        throw new Error("Resolved punch-through golden must contain one relation");
+      }
+      relation.targetIds = ["actor.target-a", "actor.target-b", "actor.target-missing"];
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-target-reference",
+      path: "/targetGraph/relations/0/targetIds/2",
+      mechanicId: "mechanic.punch-through.resolved-path",
     });
   });
 

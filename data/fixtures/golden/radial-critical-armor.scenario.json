@@ -4,7 +4,7 @@
   "schemaVersion": "0.2.0",
   "id": "scenario.golden-radial-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:ab6b1962c002497efdb976f82c349c27b75b12b0366d3a1f4e360838d4927d03",
+  "contentHash": "sha256:2ddac9e751c227014637dcfb3f31f1e828f5d31a73c2af983ef4aae28a260225",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +16,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.8.0",
+    "schemaVersion": "0.9.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:65cdeef7bd1882ae84b79b651d6a5a39cda5bd1cd5aeed373d12c86452b240a3",
+    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {

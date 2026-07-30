@@ -45,6 +45,9 @@ const radialScenarioPath = fileURLToPath(
 const statusScenarioPath = fileURLToPath(
   new URL("../../../data/fixtures/golden/resolved-status-ticks.scenario.json", import.meta.url),
 );
+const punchThroughScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/resolved-punch-through.scenario.json", import.meta.url),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -272,6 +275,37 @@ describe("createNodeApplication", () => {
     expect(outcome.trace.decisions.map((decision) => decision.eventTimeMs)).toEqual([
       0, 1000, 1000, 2000, 2000, 3000, 3000, 3000,
     ]);
+  });
+
+  it("evaluates resolved punch-through target paths through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: punchThroughScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toEqual({
+      "punch-through.target-count": 3,
+      "damage.punch-through.total": 350,
+      "damage.health.total": 350,
+      "targets.health.remaining-total": 60,
+      "targets.defeated-count": 1,
+    });
+    expect(outcome.result.targetStates).toEqual({
+      "actor.target-a": { health: 50 },
+      "actor.target-b": { health: 0 },
+      "actor.target-c": { health: 10 },
+    });
+    expect(outcome.trace.decisions).toHaveLength(14);
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      ruleId: "rule.punch-through.expand-resolved-targets",
+    });
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      ruleId: "rule.punch-through.aggregate-resolved-targets",
+    });
   });
 
   it("produces the same outcome for file and stdin Scenario sources", async () => {

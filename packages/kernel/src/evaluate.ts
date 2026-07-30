@@ -23,6 +23,7 @@ import {
   type RuleDefinition,
   type RuleExecution,
   RulesError,
+  type ResolvedPunchThroughTargetHit,
   type SequentialHit,
   sumDamageVector,
 } from "@voidtrace/rules";
@@ -32,10 +33,10 @@ import {
   type ScenarioDomain,
   type ScenarioDomainError,
 } from "./scenario-domain.ts";
-import { replayTraceState, TraceReplayError } from "./trace-replay.ts";
+import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.8.0";
+export const KERNEL_ENGINE_VERSION = "0.9.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -140,6 +141,13 @@ type TickTraceMetadata = {
   readonly index: number;
   readonly count: number;
   readonly timeMs: number;
+};
+
+type PathTargetTraceMetadata = {
+  readonly pathId: string;
+  readonly targetId: string;
+  readonly index: number;
+  readonly count: number;
 };
 
 function failure(
@@ -283,6 +291,7 @@ function operationParameters(
   branch?: BranchTraceMetadata,
   hit?: HitTraceMetadata,
   tick?: TickTraceMetadata,
+  pathTarget?: PathTargetTraceMetadata,
 ): ScalarRecord {
   const values: Record<string, string | number | boolean | null> = {
     ...execution.parameters,
@@ -308,6 +317,14 @@ function operationParameters(
           "tick.count": tick.count,
           "tick.time-ms": tick.timeMs,
         }),
+    ...(pathTarget === undefined
+      ? {}
+      : {
+          "path.id": pathTarget.pathId,
+          "target.id": pathTarget.targetId,
+          "path.index": pathTarget.index,
+          "path.count": pathTarget.count,
+        }),
   };
   if (execution.operationKind === "damage-vector.copy") {
     for (const [damageTypeId, value] of Object.entries(execution.after.damage)) {
@@ -330,6 +347,7 @@ function decisionForExecution(
     readonly branch?: BranchTraceMetadata;
     readonly hit?: HitTraceMetadata;
     readonly tick?: TickTraceMetadata;
+    readonly pathTarget?: PathTargetTraceMetadata;
     readonly readOverrides?: ScalarRecord;
   } = {},
 ): Trace["decisions"][number] {
@@ -373,7 +391,13 @@ function decisionForExecution(
     operations: Object.freeze([
       Object.freeze({
         kind: execution.operationKind,
-        parameters: operationParameters(execution, options.branch, options.hit, options.tick),
+        parameters: operationParameters(
+          execution,
+          options.branch,
+          options.hit,
+          options.tick,
+          options.pathTarget,
+        ),
       }),
     ]),
     before: traceState(execution.before.damage, execution.before.health),
@@ -430,9 +454,11 @@ function updateMetricValues(
     case "event.expand-fixed-multishot":
     case "event.expand-fixed-pellets":
     case "event.expand-resolved-status-ticks":
+    case "event.expand-resolved-punch-through-targets":
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
     case "damage-vector.aggregate-sequential-status-ticks":
+    case "damage-vector.aggregate-resolved-punch-through-targets":
       return;
     case "damage-vector.copy":
       metricValues[
@@ -560,6 +586,9 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "damage-vector.copy-resolved-status-tick":
     case "damage-vector.aggregate-sequential-status-ticks":
       return "mechanic.status.resolved-ticks";
+    case "event.expand-resolved-punch-through-targets":
+    case "damage-vector.aggregate-resolved-punch-through-targets":
+      return "mechanic.punch-through.resolved-path";
     case "damage-vector.scale-resolved-radial-falloff":
       return "mechanic.damage.radial-falloff";
     case "damage-vector.copy":
@@ -649,6 +678,7 @@ type RuntimeEvaluation = {
   readonly decisions: readonly Trace["decisions"][number][];
   readonly metricValues: Readonly<Record<string, number>>;
   readonly damage: DamageVector;
+  readonly targetHealthById?: Readonly<Record<string, number>>;
 };
 
 function ruleContext(
@@ -982,6 +1012,239 @@ function evaluateFixedHitGroupRuntime(
     decisions: Object.freeze(decisions),
     metricValues: Object.freeze(metricValues),
     damage: aggregateExecution.after.damage,
+  });
+}
+
+function evaluateResolvedPunchThroughRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (
+    domain.action.kind !== "resolved-punch-through" ||
+    domain.action.criticalResolution !== "fixed" ||
+    domain.action.criticalTier === null ||
+    domain.action.targetPathRelationId === null
+  ) {
+    throw new TypeError("Invalid input reached resolved punch-through evaluation");
+  }
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  const zeroDamage = zeroVector(references.attackMode.baseDamage);
+  const initialHealthTotal = domain.targets.reduce(
+    (total, target) => total + target.resolvedHealth,
+    0,
+  );
+  let world = createWorldState(
+    domain.targets.map((target) => ({
+      id: target.id,
+      values: Object.freeze({ health: target.resolvedHealth }),
+    })),
+  );
+  let decisionSequence = 0;
+  let expansionExecution: RuleExecution | undefined;
+  let expansionEventId: string | undefined;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-punch-through-direct-hits",
+    phases: FIXED_MULTISHOT_EMISSION_PHASES,
+  }).drain()) {
+    expansionEventId = event.id;
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeResolvedPunchThroughExpansionRule(rule.id, {
+        targetCount: domain.targets.length,
+        initialHealthTotal,
+        zeroDamage,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          0,
+          {
+            readOverrides: {
+              "action.target-path-count": domain.targets.length,
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        expansionExecution = execution;
+      }
+    }
+  }
+  if (
+    expansionExecution?.operationKind !== "event.expand-resolved-punch-through-targets" ||
+    expansionEventId === undefined
+  ) {
+    throw new TypeError("Ruleset did not apply resolved punch-through expansion");
+  }
+
+  const targetHits: ResolvedPunchThroughTargetHit[] = [];
+  for (const [index, target] of domain.targets.entries()) {
+    const pathTarget: PathTargetTraceMetadata = Object.freeze({
+      pathId: domain.action.targetPathRelationId,
+      targetId: target.id,
+      index,
+      count: domain.targets.length,
+    });
+    const healthBefore = readHealth(world, target.id);
+    let targetDamage = zeroVector(references.attackMode.baseDamage);
+    for (const event of createPhaseEvents({
+      actionId: domain.action.id,
+      namespace: `${domain.action.id}.path-target-${index}`,
+      logicalId: `${domain.action.id}.${target.id}`,
+      parentEventId: expansionEventId,
+      phases: FIXED_CRITICAL_PHASES,
+    }).drain()) {
+      for (const rule of ruleset.snapshot.rules) {
+        if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+          continue;
+        }
+        const execution = ruleset.executeRule(
+          rule.id,
+          ruleContext(
+            references,
+            targetDamage,
+            domain.action.criticalTier,
+            null,
+            target.resolvedArmor,
+            readHealth(world, target.id),
+          ),
+        );
+        decisions.push(
+          decisionForExecution(
+            decisionSequence,
+            event,
+            rule,
+            execution,
+            references,
+            domain.action.criticalTier,
+            null,
+            target.resolvedArmor,
+            { pathTarget },
+          ),
+        );
+        decisionSequence += 1;
+        updateMetricValues(metricValues, execution, domain.action.criticalTier);
+        if (execution.outcome === "applied") {
+          appliedRules.push(rule);
+          targetDamage = execution.after.damage;
+          world = replaceEntityState(world, target.id, {
+            health: execution.after.health,
+          });
+        }
+      }
+    }
+    targetHits.push(
+      Object.freeze({
+        id: `path-target.${index}`,
+        targetId: target.id,
+        index,
+        damage: targetDamage,
+        healthBefore,
+        healthAfter: readHealth(world, target.id),
+      }),
+    );
+  }
+
+  let aggregateExecution: RuleExecution | undefined;
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-punch-through-direct-hits",
+    parentEventId: expansionEventId,
+    phases: FIXED_MULTISHOT_AGGREGATION_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeResolvedPunchThroughAggregateRule(rule.id, {
+        initialHealthTotal,
+        targets: targetHits,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          0,
+          {
+            readOverrides: {
+              "path-target.damage": canonicalizeJson(
+                targetHits.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  damage: { ...target.damage },
+                })),
+              ),
+              "path-target.health-before": canonicalizeJson(
+                targetHits.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  healthBefore: target.healthBefore,
+                })),
+              ),
+              "path-target.health-after": canonicalizeJson(
+                targetHits.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  healthAfter: target.healthAfter,
+                })),
+              ),
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        aggregateExecution = execution;
+      }
+    }
+  }
+  if (
+    aggregateExecution?.operationKind !== "damage-vector.aggregate-resolved-punch-through-targets"
+  ) {
+    throw new TypeError("Ruleset did not apply resolved punch-through aggregation");
+  }
+
+  const remainingHealthTotal = targetHits.reduce((total, target) => total + target.healthAfter, 0);
+  metricValues["punch-through.target-count"] = targetHits.length;
+  metricValues["damage.punch-through.total"] = aggregateExecution.after.damageTotal;
+  metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
+  metricValues["targets.health.remaining-total"] = remainingHealthTotal;
+  metricValues["targets.defeated-count"] = targetHits.filter(
+    (target) => target.healthAfter === 0,
+  ).length;
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage: aggregateExecution.after.damage,
+    targetHealthById: Object.freeze(
+      Object.fromEntries(targetHits.map((target) => [target.targetId, target.healthAfter])),
+    ),
   });
 }
 
@@ -1688,13 +1951,15 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     runtime =
       domain.action.kind === "resolved-status-ticks"
         ? evaluateResolvedStatusTicksRuntime(domain, references, ruleset)
-        : domain.action.kind === "radial-hit"
-          ? evaluateFixedRadialRuntime(domain, references, ruleset)
-          : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
-            ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
-            : domain.action.criticalResolution === "expected"
-              ? evaluateExpectedRuntime(domain, references, ruleset)
-              : evaluateDeterministicRuntime(domain, references, ruleset);
+        : domain.action.kind === "resolved-punch-through"
+          ? evaluateResolvedPunchThroughRuntime(domain, references, ruleset)
+          : domain.action.kind === "radial-hit"
+            ? evaluateFixedRadialRuntime(domain, references, ruleset)
+            : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
+              ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
+              : domain.action.criticalResolution === "expected"
+                ? evaluateExpectedRuntime(domain, references, ruleset)
+                : evaluateDeterministicRuntime(domain, references, ruleset);
   } catch (error) {
     if (error instanceof RulesError && error.code === "unsupported-critical-multiplier") {
       const path = attackModeFieldPath(catalog, references, "criticalMultiplier");
@@ -1743,9 +2008,9 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
 
     const finalDamageTotal = sumDamageVector(runtime.damage);
     const resultWithHash = await attachArtifactContentHash({
-      $schema: "urn:voidtrace:schema:result:0.1.0",
+      $schema: "urn:voidtrace:schema:result:0.2.0",
       kind: "voidtrace.result",
-      schemaVersion: "0.1.0",
+      schemaVersion: "0.2.0",
       id: `result.${domain.scenario.id}`,
       revision: domain.scenario.revision,
       gameBuild: domain.scenario.gameBuild,
@@ -1757,6 +2022,20 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
         [domain.action.id]: finalDamageTotal,
       },
       damageByType: runtime.damage,
+      targetStates: Object.fromEntries(
+        domain.targets.map((target) => [
+          target.id,
+          {
+            health:
+              runtime.targetHealthById?.[target.id] ??
+              runtime.metricValues[
+                domain.action.criticalResolution === "expected"
+                  ? "target.health.expected-remaining"
+                  : "target.health.remaining"
+              ],
+          },
+        ]),
+      ),
       resolvedDefaults: {
         "fingerprint.seed": domain.fingerprintSeed,
         "trace.level": "full",
@@ -1788,6 +2067,33 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
         "Result, Trace, and Scenario failed cross-Artifact integrity verification",
       );
     }
+    if (domain.action.kind === "resolved-punch-through") {
+      try {
+        const replayed = await replayTraceTargetStates(
+          trace,
+          Object.fromEntries(domain.targets.map((target) => [target.id, target.resolvedHealth])),
+        );
+        if (
+          canonicalizeJson(replayed.damage) !== canonicalizeJson(runtime.damage) ||
+          canonicalizeJson(replayed.healthByTarget) !== canonicalizeJson(runtime.targetHealthById)
+        ) {
+          return failure(
+            "integrity-check-failed",
+            "Punch-through Trace replay does not match evaluated Damage or target Health",
+          );
+        }
+      } catch (error) {
+        return failure(
+          "integrity-check-failed",
+          error instanceof Error ? error.message : "Punch-through Trace semantic replay failed",
+          {
+            causeCode: error instanceof TraceReplayError ? error.code : "unknown",
+          },
+        );
+      }
+      return Object.freeze({ ok: true, result, trace });
+    }
+
     let replayedHealth: number;
     try {
       const replayed = await replayTraceState(trace, domain.target.resolvedHealth);

@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, resolved synthetic Status ticks, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, distance-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, resolved synthetic Status ticks, resolved ordered punch-through Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, geometry-derived or attenuated punch-through, distance-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -18,7 +18,9 @@ present its values as verified current Warframe mechanics.
 
 ## Supported requests
 
-The interface supports exactly one target and one action from the finite set below:
+The interface supports one action from the finite set below. Every slice uses exactly one target
+except the checked-in resolved punch-through Scenario, whose one ordered path contains three
+explicit targets:
 
 - one hitscan Direct Hit using the bundled synthetic Catalog and generated core Ruleset;
 - deterministic mode with any non-negative safe-integer fixed Critical tier through the helper;
@@ -33,6 +35,9 @@ The interface supports exactly one target and one action from the finite set bel
 - a repository-local resolved synthetic Status Scenario through the formal CLI, where an explicit
   final Health Damage per tick is committed at a fixed positive interval for a fixed positive
   tick count;
+- the repository-local resolved punch-through Scenario through the formal CLI, where one explicit
+  ordered path contains three stable target IDs and each target independently receives the same
+  fixed-tier Direct Hit through its resolved Armor and Health;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
@@ -40,8 +45,9 @@ The interface supports exactly one target and one action from the finite set bel
 - full Result and causal Trace JSON.
 
 The helper does not synthesize or vary Critical chance or rolls. The formal CLI can evaluate the
-repository-local explicit-roll, expected, and resolved fixed-count Multishot Scenarios. The helper
-does not accept a Multishot or pellet count override. Generated random rolls, custom Critical
+repository-local explicit-roll, expected, resolved fixed-count Multishot, and resolved
+punch-through Scenarios. The helper does not accept a Multishot count, pellet count, target path,
+or per-target override. Generated random rolls, custom Critical
 chance, probabilistic or custom-count Multishot, custom-count or probabilistic pellets,
 Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, Multishot or pellet
 expected values, hit distribution, Spread, unsafe or unrepresentable tiers, Monte Carlo
@@ -54,9 +60,13 @@ stacking, refresh, snapshot rules, defense changes between ticks, expected Statu
 generated Status rolls are unsupported. If a request needs any of them, state the unsupported
 mechanic and stop. Do not approximate it as zero effect and do not silently adapt it to the
 supported slice.
-The Scenario Contract contains an explicit resolved `targetGraph`, but the current evaluator
-accepts only `relations: []`. Non-empty impact-distance, ordered-path, or other Target Graph
-evaluation and multiple targets are unsupported and must not be silently reduced to one target.
+The Scenario Contract contains an explicit resolved `targetGraph`. The current evaluator accepts
+either `relations: []` or exactly one checked-in-style `target-relation.ordered-path` with
+`pathKind: punch-through`, referenced by one
+`action.resolved-punch-through-direct-hits`. Impact-distance, chain, ricochet, more than one
+relation, geometry or collision derivation, wall thickness, target selection, penetration
+attenuation, per-target Critical variation, and rolls remain unsupported. Do not silently reduce
+another Target Graph to the supported path or infer missing effects.
 
 ## Commands
 
@@ -94,6 +104,10 @@ pnpm exec vt trace data/fixtures/golden/radial-critical-armor.scenario.json \
 pnpm exec vt run data/fixtures/golden/resolved-status-ticks.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-status-ticks.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-punch-through.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-punch-through.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -184,6 +198,16 @@ for another agent or script. `--help` lists the finite adapter options.
   explaining causality. `resolvedHealthDamagePerTick` is already the final Health Damage for each
   tick. Do not infer a Status chance, Proc type, source hit, Critical, Armor, stack, refresh,
   snapshot, or real-game formula from it.
+- Resolved punch-through starts with `rule.punch-through.expand-resolved-targets`, applies Direct
+  Hit, fixed Critical scale, Armor, and Health commit once per ordered path target, and ends with
+  `rule.punch-through.aggregate-resolved-targets`. Report `punch-through.target-count`,
+  `damage.punch-through.total`, `damage.health.total`, `targets.health.remaining-total`,
+  `targets.defeated-count`, and every `result.targetStates[targetId].health`. Preserve `path.id`,
+  `path.index`, `path.count`, and `target.id` Trace metadata when explaining causality. The Golden
+  path order is `actor.target-a`, `actor.target-b`, `actor.target-c`; do not replace it with the
+  `targets` array order or imply that the Kernel selected targets. Aggregate Damage sums each
+  independent terminal hit and can exceed an individual target's Health. This slice does not
+  model penetration attenuation, walls, collision, geometry, chain, ricochet, or rolls.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
 For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,

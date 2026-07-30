@@ -4,8 +4,8 @@ module voidtrace.contracts.result
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:result:0.1.0"
-local contractVersion = "0.1.0"
+local schemaIdentifier = "urn:voidtrace:schema:result:0.2.0"
+local contractVersion = "0.2.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -132,6 +132,19 @@ function warning(): model.ObjectNode = new model.ObjectNode {
   }
 }
 
+function targetState(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "health"
+      description = "Finite non-negative terminal Health for this Scenario target."
+      required = true
+      schema = new model.NumberNode {
+        minimum = 0
+      }
+    }
+  }
+}
+
 result: model.Contract = new {
   id = "result"
   typeName = "Result"
@@ -194,6 +207,15 @@ result: model.Contract = new {
           values = new model.NumberNode {
             minimum = 0
           }
+          keySchema = artifact.stableId()
+        }
+      }
+      new model.Field {
+        name = "targetStates"
+        description = "Terminal state projection keyed by Scenario target identity."
+        required = true
+        schema = new model.RecordNode {
+          values = targetState()
           keySchema = artifact.stableId()
         }
       }

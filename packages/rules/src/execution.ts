@@ -63,6 +63,26 @@ export type ResolvedStatusTickDamageContext = {
   readonly health: number;
 };
 
+export type ResolvedPunchThroughExpansionContext = {
+  readonly targetCount: number;
+  readonly initialHealthTotal: number;
+  readonly zeroDamage: DamageVector;
+};
+
+export type ResolvedPunchThroughTargetHit = {
+  readonly id: string;
+  readonly targetId: string;
+  readonly index: number;
+  readonly damage: DamageVector;
+  readonly healthBefore: number;
+  readonly healthAfter: number;
+};
+
+export type ResolvedPunchThroughAggregateContext = {
+  readonly initialHealthTotal: number;
+  readonly targets: ReadonlyArray<ResolvedPunchThroughTargetHit>;
+};
+
 export type SequentialHit = {
   readonly id: string;
   readonly index: number;
@@ -131,6 +151,10 @@ type ValidatedResolvedRadialFalloffContext = ResolvedRadialFalloffContext;
 type ValidatedResolvedStatusTickScheduleContext = ResolvedStatusTickScheduleContext;
 
 type ValidatedResolvedStatusTickDamageContext = ResolvedStatusTickDamageContext;
+
+type ValidatedResolvedPunchThroughExpansionContext = ResolvedPunchThroughExpansionContext;
+
+type ValidatedResolvedPunchThroughAggregateContext = ResolvedPunchThroughAggregateContext;
 
 type ValidatedSequentialHitAggregateContext = SequentialHitAggregateContext;
 
@@ -488,6 +512,108 @@ function snapshotResolvedStatusTickDamageContext(
     ),
     health: nonNegativeFinite(dataProperty(context, "health", "context"), "health"),
   });
+}
+
+function snapshotResolvedPunchThroughExpansionContext(
+  value: ResolvedPunchThroughExpansionContext,
+): ValidatedResolvedPunchThroughExpansionContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["targetCount", "initialHealthTotal", "zeroDamage"],
+    "context",
+  );
+  const targetCount = dataProperty(context, "targetCount", "context");
+  if (!isNonNegativeSafeInteger(targetCount) || targetCount < 1) {
+    invalidContext("targetCount must be a positive safe integer", "targetCount");
+  }
+  const zeroDamage = snapshotDamageVector(
+    dataProperty(context, "zeroDamage", "context"),
+    "zeroDamage",
+  );
+  if (sumValidatedDamageVector(zeroDamage) !== 0) {
+    invalidContext("zeroDamage components must all be zero", "zeroDamage");
+  }
+  return Object.freeze({
+    targetCount,
+    initialHealthTotal: nonNegativeFinite(
+      dataProperty(context, "initialHealthTotal", "context"),
+      "initialHealthTotal",
+    ),
+    zeroDamage,
+  });
+}
+
+function snapshotResolvedPunchThroughTargets(
+  value: unknown,
+): ReadonlyArray<ResolvedPunchThroughTargetHit> {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    value.length < 1
+  ) {
+    invalidContext("targets must be a plain non-empty array", "targets");
+  }
+  const targets: ResolvedPunchThroughTargetHit[] = [];
+  const ids = new Set<string>();
+  const targetIds = new Set<string>();
+  for (let index = 0; index < value.length; index += 1) {
+    const subject = `targets[${index}]`;
+    const target = snapshotPlainExactObject(
+      dataProperty(value, String(index), "targets"),
+      ["id", "targetId", "index", "damage", "healthBefore", "healthAfter"],
+      subject,
+    );
+    const id = dataProperty(target, "id", subject);
+    const targetId = dataProperty(target, "targetId", subject);
+    if (typeof id !== "string" || !isStableId(id) || ids.has(id)) {
+      invalidContext(`${subject}.id must be a unique stable ID`, `${subject}.id`);
+    }
+    if (typeof targetId !== "string" || !isStableId(targetId) || targetIds.has(targetId)) {
+      invalidContext(`${subject}.targetId must be a unique stable ID`, `${subject}.targetId`);
+    }
+    if (dataProperty(target, "index", subject) !== index) {
+      invalidContext(`${subject}.index must equal its stable array index`, `${subject}.index`);
+    }
+    const damage = snapshotDamageVector(
+      dataProperty(target, "damage", subject),
+      `${subject}.damage`,
+    );
+    const healthBefore = nonNegativeFinite(
+      dataProperty(target, "healthBefore", subject),
+      `${subject}.healthBefore`,
+    );
+    const healthAfter = nonNegativeFinite(
+      dataProperty(target, "healthAfter", subject),
+      `${subject}.healthAfter`,
+    );
+    const expectedHealthAfter =
+      sumValidatedDamageVector(damage) >= healthBefore
+        ? 0
+        : healthBefore - sumValidatedDamageVector(damage);
+    if (healthAfter !== expectedHealthAfter) {
+      invalidContext(`${subject} does not form a valid Health transition`, "targets");
+    }
+    ids.add(id);
+    targetIds.add(targetId);
+    targets.push(Object.freeze({ id, targetId, index, damage, healthBefore, healthAfter }));
+  }
+  return Object.freeze(targets);
+}
+
+function snapshotResolvedPunchThroughAggregateContext(
+  value: ResolvedPunchThroughAggregateContext,
+): ValidatedResolvedPunchThroughAggregateContext {
+  const context = snapshotPlainExactObject(value, ["initialHealthTotal", "targets"], "context");
+  const initialHealthTotal = nonNegativeFinite(
+    dataProperty(context, "initialHealthTotal", "context"),
+    "initialHealthTotal",
+  );
+  const targets = snapshotResolvedPunchThroughTargets(dataProperty(context, "targets", "context"));
+  const summedInitialHealth = targets.reduce((total, target) => total + target.healthBefore, 0);
+  if (!Number.isFinite(summedInitialHealth) || summedInitialHealth !== initialHealthTotal) {
+    invalidContext("initialHealthTotal must equal the target Health sum", "initialHealthTotal");
+  }
+  return Object.freeze({ initialHealthTotal, targets });
 }
 
 function snapshotSequentialHits(value: unknown): ReadonlyArray<SequentialHit> {
@@ -1048,6 +1174,53 @@ export function executeResolvedStatusTickDamageRule(
   );
 }
 
+export function executeResolvedPunchThroughExpansionRule(
+  rule: RuleDefinition,
+  context: ResolvedPunchThroughExpansionContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "event.expand-resolved-punch-through-targets") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved punch-through expansion operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const operation = rule.operation as {
+    readonly kind: "event.expand-resolved-punch-through-targets";
+    readonly maximumTargets: unknown;
+  };
+  if (
+    typeof operation.maximumTargets !== "number" ||
+    !Number.isSafeInteger(operation.maximumTargets) ||
+    operation.maximumTargets < 1
+  ) {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid target limit`, {
+      ruleId: rule.id,
+    });
+  }
+  const input = snapshotResolvedPunchThroughExpansionContext(context);
+  if (input.targetCount > operation.maximumTargets) {
+    throw new RulesError(
+      "execution-limit-exceeded",
+      `Resolved punch-through targetCount ${input.targetCount} exceeds limit ${operation.maximumTargets}`,
+      { maximumTargets: operation.maximumTargets, targetCount: input.targetCount },
+    );
+  }
+  const projection = stateProjection(input.zeroDamage, input.initialHealthTotal);
+  return applied(
+    rule,
+    1,
+    parameters({
+      factor: 1,
+      maximumTargets: operation.maximumTargets,
+      targetCount: input.targetCount,
+    }),
+    projection,
+    projection,
+  );
+}
+
 export function executeExpectedAggregateRule(
   rule: RuleDefinition,
   context: ExpectedAggregateContext,
@@ -1230,5 +1403,70 @@ export function executeSequentialStatusTickAggregateRule(
     rule,
     context,
     "damage-vector.aggregate-sequential-status-ticks",
+  );
+}
+
+export function executeResolvedPunchThroughAggregateRule(
+  rule: RuleDefinition,
+  context: ResolvedPunchThroughAggregateContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "damage-vector.aggregate-resolved-punch-through-targets") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved punch-through aggregate operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const input = snapshotResolvedPunchThroughAggregateContext(context);
+  const expectedDamageKeys = Object.keys(input.targets[0]?.damage ?? {});
+  const aggregateDamage: Record<string, number> = Object.fromEntries(
+    expectedDamageKeys.map((id) => [id, 0]),
+  );
+  const values: Record<string, RuleParameterValue> = {
+    targetCount: input.targets.length,
+  };
+  let remainingHealthTotal = 0;
+  for (const [index, target] of input.targets.entries()) {
+    const damageKeys = Object.keys(target.damage);
+    if (
+      damageKeys.length !== expectedDamageKeys.length ||
+      damageKeys.some((id, keyIndex) => id !== expectedDamageKeys[keyIndex])
+    ) {
+      invalidContext(
+        "All punch-through targets must contain the same Damage Vector keys",
+        "targets",
+      );
+    }
+    values[`target.${index}.id`] = target.targetId;
+    values[`target.${index}.event-id`] = target.id;
+    values[`target.${index}.index`] = target.index;
+    values[`target.${index}.damageTotal`] = sumValidatedDamageVector(target.damage);
+    values[`target.${index}.healthBefore`] = target.healthBefore;
+    values[`target.${index}.healthAfter`] = target.healthAfter;
+    remainingHealthTotal += target.healthAfter;
+    if (!Number.isFinite(remainingHealthTotal)) {
+      throw new RulesError("arithmetic-invalid", "Target Health sum overflowed finite arithmetic");
+    }
+    for (const id of expectedDamageKeys) {
+      const component = (aggregateDamage[id] ?? 0) + (target.damage[id] ?? 0);
+      if (!Number.isFinite(component) || component < 0) {
+        throw new RulesError(
+          "arithmetic-invalid",
+          `Punch-through aggregate overflowed damage component ${id}`,
+          { id, targetId: target.targetId },
+        );
+      }
+      aggregateDamage[id] = component;
+      values[`target.${index}.damage.${id}`] = target.damage[id] ?? 0;
+    }
+  }
+  const damage = Object.freeze(aggregateDamage);
+  return applied(
+    rule,
+    1,
+    parameters(values),
+    stateProjection(damage, input.initialHealthTotal),
+    stateProjection(damage, remainingHealthTotal),
   );
 }

@@ -11,6 +11,9 @@ import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor
 import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical-armor.scenario.json" with {
   type: "json",
 };
+import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
+  type: "json",
+};
 import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
   type: "json",
 };
@@ -20,6 +23,7 @@ import { runCli, type CliIo } from "./cli.ts";
 const SCENARIO_PATH = "data/fixtures/golden/direct-critical-armor.scenario.json";
 const RADIAL_SCENARIO_PATH = "data/fixtures/golden/radial-critical-armor.scenario.json";
 const STATUS_SCENARIO_PATH = "data/fixtures/golden/resolved-status-ticks.scenario.json";
+const PUNCH_THROUGH_SCENARIO_PATH = "data/fixtures/golden/resolved-punch-through.scenario.json";
 const CATALOG_PATH = "data/fixtures/catalog-mini/catalog.json";
 
 type Invocation = {
@@ -182,6 +186,40 @@ describe("VoidTrace CLI success routing", () => {
     });
     await expect(
       verifyResultTraceIntegrity(result.value, causalTrace.value, statusScenarioFixture),
+    ).resolves.toBe(true);
+  });
+
+  it("round-trips resolved punch-through targets through run and trace", async () => {
+    const run = await invoke(["run", PUNCH_THROUGH_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const trace = await invoke(["trace", PUNCH_THROUGH_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const resultValue = JSON.parse(run.stdout) as unknown;
+    const traceValue = JSON.parse(trace.stdout) as unknown;
+    const result = validateContract("result", resultValue);
+    const causalTrace = validateContract("trace", traceValue);
+
+    expect(run.exitCode).toBe(0);
+    expect(trace.exitCode).toBe(0);
+    expect(run.stderr).toBe("");
+    expect(trace.stderr).toBe("");
+    expect(result.ok).toBe(true);
+    expect(causalTrace.ok).toBe(true);
+    if (!result.ok || !causalTrace.ok) {
+      throw new Error("CLI emitted an invalid resolved punch-through Result or Trace");
+    }
+    expect(result.value.metrics).toEqual({
+      "punch-through.target-count": 3,
+      "damage.punch-through.total": 350,
+      "damage.health.total": 350,
+      "targets.health.remaining-total": 60,
+      "targets.defeated-count": 1,
+    });
+    expect(result.value.targetStates).toEqual({
+      "actor.target-a": { health: 50 },
+      "actor.target-b": { health: 0 },
+      "actor.target-c": { health: 10 },
+    });
+    await expect(
+      verifyResultTraceIntegrity(result.value, causalTrace.value, punchThroughScenarioFixture),
     ).resolves.toBe(true);
   });
 

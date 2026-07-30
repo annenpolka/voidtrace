@@ -88,8 +88,8 @@ Structured application failure whose stable classification determines the proces
 ## Result
 
 - Contract ID: `result`
-- Schema ID: `urn:voidtrace:schema:result:0.1.0`
-- Schema version: `0.1.0`
+- Schema ID: `urn:voidtrace:schema:result:0.2.0`
+- Schema version: `0.2.0`
 
 Versioned evaluation output with explicit provenance, coverage, and limitations.
 
@@ -109,6 +109,7 @@ Versioned evaluation output with explicit provenance, coverage, and limitations.
 | `metrics` | required | Computed scalar metrics keyed by stable metric identifier. |
 | `damageBySource` | required | Non-negative damage totals keyed by stable source identifier. |
 | `damageByType` | required | Non-negative damage totals keyed by stable damage-type identifier. |
+| `targetStates` | required | Terminal state projection keyed by Scenario target identity. |
 | `resolvedDefaults` | required | Every default resolved during evaluation, represented as explicit scalar values. |
 | `assumptions` | required | Assumptions that qualify interpretation of this Result. |
 | `warnings` | required | Structured warnings emitted without silently changing mechanics. |
@@ -117,8 +118,8 @@ Versioned evaluation output with explicit provenance, coverage, and limitations.
 ## Ruleset
 
 - Contract ID: `ruleset`
-- Schema ID: `urn:voidtrace:schema:ruleset:0.8.0`
-- Schema version: `0.8.0`
+- Schema ID: `urn:voidtrace:schema:ruleset:0.9.0`
+- Schema version: `0.9.0`
 
 Generated finite Rule IR interpreted by the Kernel-facing Rules package.
 

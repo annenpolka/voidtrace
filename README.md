@@ -5,9 +5,9 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The current repository state is **Commit 14: resolved Target Graph contract boundary**. It establishes the
+The current repository state is **Commit 15: resolved punch-through target path**. It establishes the
 normative Pkl specification, deterministic generated artifacts, eight versioned public contracts,
-and Ruleset `0.8.0` revision `1` on the Kernel foundation: an ordered Event Queue,
+and Ruleset `0.9.0` revision `1` on the Kernel foundation: an ordered Event Queue,
 logical-coordinate RNG, explicit World State transitions, and generated finite Rule IR. Strictly
 validated synthetic mini catalogs supply one hitscan weapon and one target to deterministic or
 analytic expected Direct Hit / Critical / Armor round trips. Critical resolution accepts either a fixed
@@ -29,8 +29,12 @@ Resolved synthetic Status evaluation schedules up to 64 explicit Health-damage t
 logical-time interval, commits them sequentially, and aggregates their terminal Damage and Health.
 Scenario Contract `0.2.0` also makes the resolved Target Graph explicit. Its finite input
 vocabulary covers impact-to-target distance with a resolved LoS result and ordered
-punch-through/chain/ricochet paths. Current evaluation accepts only an empty graph; non-empty
-relations and multiple targets are rejected rather than ignored.
+punch-through/chain/ricochet paths. Current evaluation accepts an empty graph or one resolved
+punch-through ordered path referenced by one action. It applies the same fixed-tier Direct Hit
+independently to each explicit target in path order, records target-specific terminal Health in
+Result `targetStates`, and aggregates Damage, remaining Health, and defeated count. Geometry,
+collision, wall penetration, attenuation, target selection, chain, ricochet, and rolls are not
+derived; every other non-empty graph is rejected rather than ignored.
 
 This slice and its runtime Rules remain synthetic and experimental. They are not verified
 statements of current Warframe mechanics. Generated random rolls, Monte Carlo,
@@ -39,7 +43,8 @@ headshots, Shield, Overguard, projectiles, Status chance or type rolls, probabil
 custom-count helper variation, Multishot-plus-pellet composition, variable or probabilistic
 pellets, per-pellet rolls, pellet hit distribution, Spread, Multishot or pellet expected values,
 Trace queries, comparisons, distance-derived Radial falloff, physical geometry, Direct-plus-Radial
-or Projectile parent composition, non-empty Target Graph evaluation, multi-target Radial damage,
+or Projectile parent composition, Target Graph evaluation outside the resolved punch-through
+ordered-path slice, multi-target Radial damage,
 and the Lab remain unsupported.
 Real Status formulas, application from Direct or Radial hits, Critical or Armor derivation,
 stacking, refresh, snapshots, defense changes, expected values, and generated Status rolls also
@@ -76,10 +81,11 @@ Pkl under `specs/contracts/` is the sole contract source. It generates:
 
 The handwritten `@voidtrace/contracts` package registers every generated Schema with Ajv in strict mode. It validates without coercion or default insertion and provides RFC 8785 canonical JSON, SHA-256 Artifact fingerprints, stable ID checks, and cross-Artifact integrity checks. `Fingerprint.resultHash` identifies canonical execution inputs; Result and Trace content hashes independently identify their complete stored payloads. The package contains no game mechanics.
 
-This commit intentionally stops at the eight contracts and generated Ruleset `0.8.0` required by
+This commit intentionally stops at the eight contracts and generated Ruleset `0.9.0` required by
 the deterministic, single-hit expected, resolved fixed-count Multishot, and resolved fixed-count
 pellet round trips, standalone resolved Radial falloff, and resolved synthetic Status ticks plus
-their structured CLI failure surface.
+the resolved punch-through target path and their structured CLI failure surface. Result Contract
+`0.2.0` exposes terminal Health keyed by stable target ID.
 `ScenarioPatch`/JSON Patch and later domain-specific Result proof fields remain future work.
 
 ## CLI
@@ -116,6 +122,10 @@ pnpm exec vt trace data/fixtures/golden/radial-critical-armor.scenario.json \
 pnpm exec vt run data/fixtures/golden/resolved-status-ticks.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-status-ticks.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-punch-through.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-punch-through.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt run - --catalog data/fixtures/catalog-mini/catalog.json \
   < data/fixtures/golden/direct-critical-armor.scenario.json

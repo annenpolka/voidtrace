@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.8.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.9.0",
   "kind": "ruleset",
-  "schemaVersion": "0.8.0",
+  "schemaVersion": "0.9.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:65cdeef7bd1882ae84b79b651d6a5a39cda5bd1cd5aeed373d12c86452b240a3",
+  "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -58,6 +58,24 @@
       "operation": {
         "kind": "event.expand-resolved-status-ticks",
         "maximumTicks": 64
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.punch-through.expand-resolved-targets",
+      "description": "Expand one explicit resolved punch-through path into a bounded ordered sequence of target Direct Hit events.",
+      "phase": "attack.emit",
+      "eventKind": "action.resolved-punch-through-direct-hits",
+      "reads": [
+        "action.target-path-count"
+      ],
+      "writes": [
+        "event.direct-hit-count"
+      ],
+      "operation": {
+        "kind": "event.expand-resolved-punch-through-targets",
+        "maximumTargets": 64
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []
@@ -381,6 +399,26 @@
       ],
       "operation": {
         "kind": "damage-vector.aggregate-sequential-status-ticks"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.punch-through.aggregate-resolved-targets",
+      "description": "Aggregate terminal Damage and target-specific Health from every target visited by one resolved punch-through path.",
+      "phase": "result.aggregate",
+      "eventKind": "action.resolved-punch-through-direct-hits",
+      "reads": [
+        "path-target.damage",
+        "path-target.health-before",
+        "path-target.health-after"
+      ],
+      "writes": [
+        "event.damage",
+        "targets.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-resolved-punch-through-targets"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

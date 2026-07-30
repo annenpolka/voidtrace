@@ -50,12 +50,21 @@ class ExpandResolvedStatusTicks extends RuleOperation {
   maximumTicks: UInt(isPositive)
 }
 
+class ExpandResolvedPunchThroughTargets extends RuleOperation {
+  kind = "event.expand-resolved-punch-through-targets"
+  maximumTargets: UInt(isPositive)
+}
+
 class CopyResolvedStatusTickDamage extends RuleOperation {
   kind = "damage-vector.copy-resolved-status-tick"
 }
 
 class AggregateSequentialStatusTicks extends RuleOperation {
   kind = "damage-vector.aggregate-sequential-status-ticks"
+}
+
+class AggregateResolvedPunchThroughTargets extends RuleOperation {
+  kind = "damage-vector.aggregate-resolved-punch-through-targets"
 }
 
 class CommitHealthDamage extends RuleOperation {

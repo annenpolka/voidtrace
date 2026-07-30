@@ -15,6 +15,7 @@ const tier2ScenarioPath = "data/fixtures/golden/tier-2-critical-armor.scenario.j
 const expectedScenarioPath = "data/fixtures/golden/expected-critical-armor.scenario.json";
 const multishotScenarioPath = "data/fixtures/golden/multishot-critical-armor.scenario.json";
 const pelletScenarioPath = "data/fixtures/golden/pellet-critical-armor.scenario.json";
+const punchThroughScenarioPath = "data/fixtures/golden/resolved-punch-through.scenario.json";
 const catalogPath = "data/fixtures/catalog-mini/catalog.json";
 const tier2CatalogPath = "data/fixtures/catalog-mini/catalog-tier-2.json";
 
@@ -71,6 +72,8 @@ describe("installed VoidTrace CLI aliases", () => {
     ["trace", multishotScenarioPath, "--catalog", catalogPath],
     ["run", pelletScenarioPath, "--catalog", catalogPath],
     ["trace", pelletScenarioPath, "--catalog", catalogPath],
+    ["run", punchThroughScenarioPath, "--catalog", catalogPath],
+    ["trace", punchThroughScenarioPath, "--catalog", catalogPath],
     ["run", "--help"],
     ["unknown"],
   ])("are byte-equivalent for %j", async (...argv) => {

@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for resolved punch-through target order.
+module voidtrace.golden.resolvedPunchThrough
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-009"
+  desc =
+    "data/fixtures/golden/resolved-punch-through.scenario.jsonは明示されたA→B→Cのpunch-through ordered pathを固定Critical tier 1で評価し、target別ArmorによりHealthを150→50、80→0、60→10へ独立commitして、Damage合計350と残Health合計60をliteral expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

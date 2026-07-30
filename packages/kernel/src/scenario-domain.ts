@@ -36,6 +36,10 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "status.tick-interval-ms",
   "damage.status.per-tick",
   "damage.status.total",
+  "punch-through.target-count",
+  "damage.punch-through.total",
+  "targets.health.remaining-total",
+  "targets.defeated-count",
 ] as const);
 
 export type SupportedMetricId = (typeof SUPPORTED_METRIC_IDS)[number];
@@ -78,14 +82,8 @@ export type ScenarioDomain = {
     readonly weaponId: string;
     readonly attackModeId: string;
   };
-  readonly target: {
-    readonly id: string;
-    readonly catalogTargetId: string;
-    readonly resolvedHealth: number;
-    readonly resolvedShield: 0;
-    readonly resolvedArmor: number;
-    readonly resolvedOverguard: 0;
-  };
+  readonly target: ScenarioDomainTarget;
+  readonly targets: readonly ScenarioDomainTarget[];
   readonly action: {
     readonly id: string;
     readonly kind:
@@ -93,8 +91,11 @@ export type ScenarioDomain = {
       | "fixed-multishot"
       | "fixed-pellets"
       | "radial-hit"
-      | "resolved-status-ticks";
+      | "resolved-status-ticks"
+      | "resolved-punch-through";
     readonly targetId: string;
+    readonly targetPathRelationId: string | null;
+    readonly pathTargetIds: readonly string[];
     readonly hitLocation: "hit-location.neutral-body" | null;
     readonly damageLayer: "health";
     readonly criticalResolution: "fixed" | "roll" | "expected" | "none";
@@ -113,6 +114,15 @@ export type ScenarioDomain = {
   };
   readonly metrics: readonly SupportedMetricId[];
   readonly fingerprintSeed: 0;
+};
+
+export type ScenarioDomainTarget = {
+  readonly id: string;
+  readonly catalogTargetId: string;
+  readonly resolvedHealth: number;
+  readonly resolvedShield: 0;
+  readonly resolvedArmor: number;
+  readonly resolvedOverguard: 0;
 };
 
 type ScenarioDomainFailure = {
@@ -175,6 +185,12 @@ const RESOLVED_STATUS_TICK_PARAMETER_KEYS = Object.freeze([
   "tickCount",
   "tickIntervalMs",
 ] as const);
+const RESOLVED_PUNCH_THROUGH_PARAMETER_KEYS = Object.freeze([
+  "targetPathRelationId",
+  "hitLocation",
+  "damageLayer",
+  "criticalTier",
+] as const);
 const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "multishot.hit-count",
   "damage.multishot.total",
@@ -198,6 +214,16 @@ const STATUS_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   ...STATUS_ONLY_METRIC_IDS,
   "damage.health.total",
   "target.health.remaining",
+]);
+const PUNCH_THROUGH_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "punch-through.target-count",
+  "damage.punch-through.total",
+  "targets.health.remaining-total",
+  "targets.defeated-count",
+]);
+const PUNCH_THROUGH_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  ...PUNCH_THROUGH_ONLY_METRIC_IDS,
+  "damage.health.total",
 ]);
 const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "critical.base-tier",
@@ -320,6 +346,332 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value);
 }
 
+function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainParseResult {
+  if (scenario.simulation.mode !== "deterministic") {
+    return failure(
+      "unsupported-simulation-mode",
+      "/simulation/mode",
+      "Resolved punch-through currently requires deterministic mode",
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+  if (scenario.targetGraph.relations.length !== 1) {
+    return failure(
+      "unsupported-target-graph",
+      "/targetGraph/relations",
+      "Resolved punch-through requires exactly one ordered-path relation",
+      "mechanic.target-graph",
+    );
+  }
+  const relation = scenario.targetGraph.relations[0];
+  if (
+    relation === undefined ||
+    relation.kind !== "target-relation.ordered-path" ||
+    relation.pathKind !== "punch-through"
+  ) {
+    return failure(
+      "unsupported-target-graph",
+      "/targetGraph/relations/0",
+      "Only a resolved punch-through ordered-path relation is executable",
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+  if (relation.targetIds.length > 64) {
+    return failure(
+      "unsupported-target-graph",
+      "/targetGraph/relations/0/targetIds",
+      "Resolved punch-through supports at most 64 target IDs",
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+  if (new Set(relation.targetIds).size !== relation.targetIds.length) {
+    return failure(
+      "invalid-target-reference",
+      "/targetGraph/relations/0/targetIds",
+      "Resolved punch-through target IDs must be unique",
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+  if (scenario.targets.length !== relation.targetIds.length) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/targets",
+      "Resolved punch-through requires targets to match the ordered path exactly",
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+  if (scenario.actionPlan.length !== 1) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/actionPlan",
+      "Resolved punch-through requires exactly one action",
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+  if (Object.keys(scenario.initialState).length > 0) {
+    return failure(
+      "unsupported-configuration-key",
+      "/initialState",
+      "Resolved punch-through requires an empty initialState",
+    );
+  }
+
+  const attackerKeyError = exactKeys(
+    scenario.attacker.configuration,
+    ATTACKER_CONFIGURATION_KEYS,
+    "/attacker/configuration",
+  );
+  if (attackerKeyError !== undefined) {
+    return attackerKeyError;
+  }
+  const weaponId = readStableString(
+    scenario.attacker.configuration,
+    "weaponId",
+    "/attacker/configuration",
+  );
+  if (!weaponId.ok) {
+    return weaponId;
+  }
+  const attackModeId = readStableString(
+    scenario.attacker.configuration,
+    "attackModeId",
+    "/attacker/configuration",
+  );
+  if (!attackModeId.ok) {
+    return attackModeId;
+  }
+
+  const configuredTargets = new Map(scenario.targets.map((target) => [target.id, target]));
+  if (configuredTargets.size !== scenario.targets.length) {
+    return failure(
+      "invalid-target-reference",
+      "/targets",
+      "Scenario target IDs must be unique",
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+  const targets: ScenarioDomainTarget[] = [];
+  for (const [pathIndex, targetId] of relation.targetIds.entries()) {
+    const target = configuredTargets.get(targetId);
+    if (target === undefined) {
+      return failure(
+        "invalid-target-reference",
+        `/targetGraph/relations/0/targetIds/${pathIndex}`,
+        `Unknown punch-through target: ${targetId}`,
+        "mechanic.punch-through.resolved-path",
+      );
+    }
+    const basePath = `/targets/${scenario.targets.indexOf(target)}/configuration`;
+    const keyError = exactKeys(target.configuration, TARGET_CONFIGURATION_KEYS, basePath);
+    if (keyError !== undefined) {
+      return keyError;
+    }
+    const catalogTargetId = readStableString(target.configuration, "catalogTargetId", basePath);
+    if (!catalogTargetId.ok) {
+      return catalogTargetId;
+    }
+    const resolvedHealth = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedHealth",
+      basePath,
+    );
+    if (!resolvedHealth.ok) {
+      return resolvedHealth;
+    }
+    const resolvedShield = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedShield",
+      basePath,
+    );
+    if (!resolvedShield.ok) {
+      return resolvedShield;
+    }
+    const resolvedArmor = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedArmor",
+      basePath,
+    );
+    if (!resolvedArmor.ok) {
+      return resolvedArmor;
+    }
+    const resolvedOverguard = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedOverguard",
+      basePath,
+    );
+    if (!resolvedOverguard.ok) {
+      return resolvedOverguard;
+    }
+    if (resolvedShield.value !== 0 || resolvedOverguard.value !== 0) {
+      return failure(
+        "unsupported-target-defense",
+        basePath,
+        "Resolved punch-through supports Health and Armor only",
+        resolvedShield.value !== 0 ? "mechanic.shield" : "mechanic.overguard",
+      );
+    }
+    targets.push(
+      Object.freeze({
+        id: target.id,
+        catalogTargetId: catalogTargetId.value,
+        resolvedHealth: resolvedHealth.value,
+        resolvedShield: 0,
+        resolvedArmor: resolvedArmor.value,
+        resolvedOverguard: 0,
+      }),
+    );
+  }
+  const catalogTargetIds = new Set(targets.map((target) => target.catalogTargetId));
+  if (catalogTargetIds.size !== 1) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/targets",
+      "Resolved punch-through currently requires one shared Catalog target definition",
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+
+  const action = scenario.actionPlan[0];
+  if (action === undefined || action.kind !== "action.resolved-punch-through-direct-hits") {
+    return failure(
+      "unsupported-action-kind",
+      "/actionPlan/0/kind",
+      "Target Graph relations require action.resolved-punch-through-direct-hits",
+      action?.kind ?? "action.missing",
+    );
+  }
+  const actionKeyError = exactKeys(
+    action.parameters,
+    RESOLVED_PUNCH_THROUGH_PARAMETER_KEYS,
+    "/actionPlan/0/parameters",
+  );
+  if (actionKeyError !== undefined) {
+    return actionKeyError;
+  }
+  const relationId = readStableString(
+    action.parameters,
+    "targetPathRelationId",
+    "/actionPlan/0/parameters",
+  );
+  if (!relationId.ok) {
+    return relationId;
+  }
+  if (relationId.value !== relation.id) {
+    return failure(
+      "invalid-target-reference",
+      "/actionPlan/0/parameters/targetPathRelationId",
+      `Unknown target path relation: ${relationId.value}`,
+      "mechanic.punch-through.resolved-path",
+    );
+  }
+  if (action.parameters.hitLocation !== "hit-location.neutral-body") {
+    return failure(
+      "unsupported-hit-location",
+      "/actionPlan/0/parameters/hitLocation",
+      `Unsupported hit location: ${String(action.parameters.hitLocation)}`,
+      "mechanic.hit-location",
+    );
+  }
+  if (action.parameters.damageLayer !== "health") {
+    return failure(
+      "unsupported-damage-layer",
+      "/actionPlan/0/parameters/damageLayer",
+      `Unsupported damage layer: ${String(action.parameters.damageLayer)}`,
+      "mechanic.damage-layer",
+    );
+  }
+  const criticalTier = action.parameters.criticalTier;
+  if (typeof criticalTier !== "number" || !Number.isSafeInteger(criticalTier) || criticalTier < 0) {
+    return failure(
+      "unsupported-critical-tier",
+      "/actionPlan/0/parameters/criticalTier",
+      "Resolved punch-through criticalTier must be a non-negative safe integer",
+      "mechanic.critical.tier-multiplier",
+    );
+  }
+
+  const metrics: SupportedMetricId[] = [];
+  const seenMetrics = new Set<string>();
+  for (const [index, metric] of scenario.metrics.entries()) {
+    if (!SUPPORTED_METRIC_SET.has(metric)) {
+      return failure(
+        "unsupported-metric",
+        `/metrics/${index}`,
+        `Unsupported metric: ${metric}`,
+        metric,
+      );
+    }
+    const supportedMetric = metric as SupportedMetricId;
+    if (!PUNCH_THROUGH_AVAILABLE_METRIC_IDS.has(supportedMetric)) {
+      return failure(
+        "unsupported-metric",
+        `/metrics/${index}`,
+        `Metric ${metric} is unavailable for resolved punch-through`,
+        metric,
+      );
+    }
+    if (seenMetrics.has(metric)) {
+      return failure(
+        "duplicate-metric",
+        `/metrics/${index}`,
+        `Duplicate metric: ${metric}`,
+        metric,
+      );
+    }
+    seenMetrics.add(metric);
+    metrics.push(supportedMetric);
+  }
+  if (metrics.length === 0) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/metrics",
+      "At least one resolved punch-through metric is required",
+    );
+  }
+
+  const frozenScenario = deepFreeze(scenario);
+  const frozenTargets = Object.freeze(targets);
+  const primaryTarget = frozenTargets[0];
+  if (primaryTarget === undefined) {
+    return failure("unsupported-scenario-shape", "/targets", "At least one target is required");
+  }
+  const value: ScenarioDomain = Object.freeze({
+    scenario: frozenScenario,
+    attacker: Object.freeze({
+      id: frozenScenario.attacker.id,
+      weaponId: weaponId.value,
+      attackModeId: attackModeId.value,
+    }),
+    target: primaryTarget,
+    targets: frozenTargets,
+    action: Object.freeze({
+      id: action.id,
+      kind: "resolved-punch-through",
+      targetId: primaryTarget.id,
+      targetPathRelationId: relation.id,
+      pathTargetIds: Object.freeze([...relation.targetIds]),
+      hitLocation: "hit-location.neutral-body",
+      damageLayer: "health",
+      criticalResolution: "fixed",
+      criticalTier,
+      criticalRoll: null,
+      hitCount: relation.targetIds.length,
+      resolvedRadialFalloffMultiplier: 1,
+      statusId: null,
+      resolvedHealthDamagePerTick: 0,
+      statusTickCount: 0,
+      statusTickIntervalMs: 0,
+    }),
+    simulation: Object.freeze({
+      mode: "deterministic",
+      timeLimitMs: frozenScenario.simulation.timeLimitMs,
+    }),
+    metrics: Object.freeze(metrics),
+    fingerprintSeed: 0,
+  });
+  return Object.freeze({ ok: true, value });
+}
+
 export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomainParseResult> {
   const contract = validateContract("scenario", input);
   if (!contract.ok) {
@@ -352,12 +704,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
 
   if (scenario.targetGraph.relations.length > 0) {
-    return failure(
-      "unsupported-target-graph",
-      "/targetGraph/relations",
-      "Resolved Target Graph relations are not implemented by the current single-target slice",
-      "mechanic.target-graph",
-    );
+    return parseResolvedPunchThroughDomain(scenario);
   }
 
   if (scenario.targets.length !== 1) {
@@ -647,10 +994,22 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
         resolvedArmor: resolvedArmor.value,
         resolvedOverguard: 0,
       }),
+      targets: Object.freeze([
+        Object.freeze({
+          id: target.id,
+          catalogTargetId: catalogTargetId.value,
+          resolvedHealth: resolvedHealth.value,
+          resolvedShield: 0,
+          resolvedArmor: resolvedArmor.value,
+          resolvedOverguard: 0,
+        }),
+      ]),
       action: Object.freeze({
         id: action.id,
         kind: "resolved-status-ticks",
         targetId: actionTargetId.value,
+        targetPathRelationId: null,
+        pathTargetIds: Object.freeze([]),
         hitLocation: null,
         damageLayer: "health",
         criticalResolution: "none",
@@ -883,7 +1242,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       (actionKind !== "fixed-multishot" && MULTISHOT_ONLY_METRIC_IDS.has(supportedMetric)) ||
       (actionKind !== "fixed-pellets" && PELLET_ONLY_METRIC_IDS.has(supportedMetric)) ||
       (actionKind !== "radial-hit" && RADIAL_ONLY_METRIC_IDS.has(supportedMetric)) ||
-      STATUS_ONLY_METRIC_IDS.has(supportedMetric)
+      STATUS_ONLY_METRIC_IDS.has(supportedMetric) ||
+      PUNCH_THROUGH_ONLY_METRIC_IDS.has(supportedMetric)
     ) {
       return failure(
         "unsupported-metric",
@@ -920,10 +1280,22 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       resolvedArmor: resolvedArmor.value,
       resolvedOverguard: 0,
     }),
+    targets: Object.freeze([
+      Object.freeze({
+        id: target.id,
+        catalogTargetId: catalogTargetId.value,
+        resolvedHealth: resolvedHealth.value,
+        resolvedShield: 0,
+        resolvedArmor: resolvedArmor.value,
+        resolvedOverguard: 0,
+      }),
+    ]),
     action: Object.freeze({
       id: action.id,
       kind: actionKind,
       targetId: actionTargetId.value,
+      targetPathRelationId: null,
+      pathTargetIds: Object.freeze([]),
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
       criticalResolution,

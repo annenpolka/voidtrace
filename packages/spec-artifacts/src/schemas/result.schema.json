@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:result:0.1.0",
+  "$id": "urn:voidtrace:schema:result:0.2.0",
   "title": "Result",
   "description": "Versioned evaluation output with explicit provenance, coverage, and limitations.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:result:0.1.0"
+      "const": "urn:voidtrace:schema:result:0.2.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -181,6 +181,29 @@
         "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
       }
     },
+    "targetStates": {
+      "description": "Terminal state projection keyed by Scenario target identity.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "health": {
+            "description": "Finite non-negative terminal Health for this Scenario target.",
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "health"
+        ],
+        "additionalProperties": false
+      },
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+      }
+    },
     "resolvedDefaults": {
       "description": "Every default resolved during evaluation, represented as explicit scalar values.",
       "type": "object",
@@ -312,6 +335,7 @@
     "metrics",
     "damageBySource",
     "damageByType",
+    "targetStates",
     "resolvedDefaults",
     "assumptions",
     "warnings"

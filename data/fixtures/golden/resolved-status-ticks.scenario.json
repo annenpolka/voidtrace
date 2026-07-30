@@ -4,7 +4,7 @@
   "schemaVersion": "0.2.0",
   "id": "scenario.golden-resolved-status-ticks",
   "revision": 0,
-  "contentHash": "sha256:d20cd03e8dd8de147b30a16199e5ab5a63ef9b683c7510a015b6799b602d6156",
+  "contentHash": "sha256:21b37fcdc68ed93e5717e92858df529187d96304f9fb367c436b83cefd14aedb",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +16,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.8.0",
+    "schemaVersion": "0.9.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:65cdeef7bd1882ae84b79b651d6a5a39cda5bd1cd5aeed373d12c86452b240a3",
+    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {

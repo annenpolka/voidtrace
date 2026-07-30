@@ -86,9 +86,9 @@ const fingerprint = {
 } as const;
 
 const result = {
-  $schema: "urn:voidtrace:schema:result:0.1.0",
+  $schema: "urn:voidtrace:schema:result:0.2.0",
   kind: "voidtrace.result",
-  schemaVersion: "0.1.0",
+  schemaVersion: "0.2.0",
   id: "result.example",
   revision: 0,
   contentHash: HASH,
@@ -110,6 +110,11 @@ const result = {
   },
   damageByType: {
     "damage.impact": 10,
+  },
+  targetStates: {
+    "target.primary": {
+      health: 90,
+    },
   },
   resolvedDefaults: {},
   assumptions: [],

@@ -79,6 +79,13 @@ type TickMetadata = HitMetadata & {
   readonly timeMs: number;
 };
 
+type PathTargetMetadata = {
+  readonly pathId: string;
+  readonly targetId: string;
+  readonly index: number;
+  readonly count: number;
+};
+
 function branchMetadata(
   parameters: Readonly<Record<string, string | number | boolean | null>>,
 ): BranchMetadata | undefined {
@@ -160,9 +167,46 @@ function tickMetadata(
   return Object.freeze({ id, index, count, timeMs });
 }
 
+function pathTargetMetadata(
+  parameters: Readonly<Record<string, string | number | boolean | null>>,
+): PathTargetMetadata | undefined {
+  const pathId = parameters["path.id"];
+  const targetId = parameters["target.id"];
+  const index = parameters["path.index"];
+  const count = parameters["path.count"];
+  if (
+    pathId === undefined &&
+    targetId === undefined &&
+    index === undefined &&
+    count === undefined
+  ) {
+    return undefined;
+  }
+  if (
+    typeof pathId !== "string" ||
+    !isStableId(pathId) ||
+    typeof targetId !== "string" ||
+    !isStableId(targetId) ||
+    typeof index !== "number" ||
+    !Number.isSafeInteger(index) ||
+    index < 0 ||
+    typeof count !== "number" ||
+    !Number.isSafeInteger(count) ||
+    count < 1 ||
+    index >= count
+  ) {
+    invalidParameters("Trace path target operation has incomplete or invalid metadata");
+  }
+  return Object.freeze({ pathId, targetId, index, count });
+}
+
 export type ReplayedTraceState = {
   readonly damage: DamageVector;
   readonly health: number;
+};
+
+export type ReplayedTargetTraceState = ReplayedTraceState & {
+  readonly healthByTarget: Readonly<Record<string, number>>;
 };
 
 type BranchReplayState = ReplayedTraceState & {
@@ -176,6 +220,11 @@ type HitReplayState = ReplayedTraceState & {
   readonly index: number;
   readonly count: number;
   readonly healthBefore: number;
+};
+
+type PathTargetReplayState = HitReplayState & {
+  readonly targetId: string;
+  readonly pathId: string;
 };
 
 function invalidParameters(message: string): never {
@@ -528,10 +577,37 @@ export async function replayTraceState(
   return replayTrace(input, initialHealth);
 }
 
+export async function replayTraceTargetStates(
+  input: unknown,
+  initialHealthByTarget: Readonly<Record<string, number>>,
+): Promise<ReplayedTargetTraceState> {
+  const entries = Object.entries(initialHealthByTarget);
+  if (
+    entries.length < 1 ||
+    entries.some(
+      ([targetId, health]) => !isStableId(targetId) || !Number.isFinite(health) || health < 0,
+    )
+  ) {
+    invalidParameters(
+      "Trace replay initialHealthByTarget must contain stable IDs and non-negative finite Health",
+    );
+  }
+  const replayed = await replayTrace(input, undefined, Object.freeze({ ...initialHealthByTarget }));
+  if (replayed.healthByTarget === undefined) {
+    invalidParameters("Trace did not produce target-specific Health state");
+  }
+  return Object.freeze({
+    damage: replayed.damage,
+    health: replayed.health,
+    healthByTarget: replayed.healthByTarget,
+  });
+}
+
 async function replayTrace(
   input: unknown,
   anchoredInitialHealth?: number,
-): Promise<ReplayedTraceState> {
+  anchoredInitialHealthByTarget?: Readonly<Record<string, number>>,
+): Promise<ReplayedTraceState & { readonly healthByTarget?: Readonly<Record<string, number>> }> {
   const validated = validateContract("trace", input);
   if (!validated.ok) {
     throw new TraceReplayError("trace-contract-invalid", "Trace contract validation failed");
@@ -550,9 +626,12 @@ async function replayTrace(
   const branches = new Map<string, BranchReplayState>();
   const hits = new Map<string, HitReplayState>();
   const ticks = new Map<string, HitReplayState>();
+  const pathTargets = new Map<string, PathTargetReplayState>();
   let expectedHitCount: number | undefined;
   let expectedTickCount: number | undefined;
   let expectedTickIntervalMs: number | undefined;
+  let expectedPathTargetCount: number | undefined;
+  let expectedPathId: string | undefined;
 
   for (const decision of trace.decisions) {
     if (decision.outcome !== "applied") {
@@ -571,16 +650,23 @@ async function replayTrace(
     const operationHitId = operationHit?.id;
     const operationTick = tickMetadata(operation.parameters);
     const operationTickId = operationTick?.id;
+    const operationPathTarget = pathTargetMetadata(operation.parameters);
+    const operationPathTargetId = operationPathTarget?.targetId;
     if (
-      [operationBranchId, operationHitId, operationTickId].filter((id) => id !== undefined).length >
-      1
+      [operationBranchId, operationHitId, operationTickId, operationPathTargetId].filter(
+        (id) => id !== undefined,
+      ).length > 1
     ) {
-      invalidParameters(`Trace decision ${decision.sequence} mixes branch, hit, or tick metadata`);
+      invalidParameters(
+        `Trace decision ${decision.sequence} mixes branch, hit, tick, or path metadata`,
+      );
     }
     const branchState =
       operationBranchId === undefined ? undefined : branches.get(operationBranchId);
     const hitState = operationHitId === undefined ? undefined : hits.get(operationHitId);
     const tickState = operationTickId === undefined ? undefined : ticks.get(operationTickId);
+    const pathTargetState =
+      operationPathTargetId === undefined ? undefined : pathTargets.get(operationPathTargetId);
     if (
       operationBranch !== undefined &&
       branchState !== undefined &&
@@ -604,6 +690,15 @@ async function replayTrace(
     ) {
       invalidParameters(`Trace decision ${decision.sequence} changed tick metadata or time`);
     }
+    if (
+      operationPathTarget !== undefined &&
+      pathTargetState !== undefined &&
+      (operationPathTarget.index !== pathTargetState.index ||
+        operationPathTarget.count !== pathTargetState.count ||
+        operationPathTarget.pathId !== pathTargetState.pathId)
+    ) {
+      invalidParameters(`Trace decision ${decision.sequence} changed path target metadata`);
+    }
     const currentDamage =
       operationBranchId !== undefined
         ? branchState?.damage
@@ -611,7 +706,9 @@ async function replayTrace(
           ? hitState?.damage
           : operationTickId !== undefined
             ? tickState?.damage
-            : damage;
+            : operationPathTargetId !== undefined
+              ? pathTargetState?.damage
+              : damage;
     const currentHealth =
       operationBranchId !== undefined
         ? branchState?.health
@@ -619,9 +716,56 @@ async function replayTrace(
           ? hitState?.health
           : operationTickId !== undefined
             ? tickState?.health
-            : health;
+            : operationPathTargetId !== undefined
+              ? pathTargetState?.health
+              : health;
 
     switch (operation.kind) {
+      case "event.expand-resolved-punch-through-targets": {
+        const targetCount = operation.parameters.targetCount;
+        const maximumTargets = operation.parameters.maximumTargets;
+        if (
+          anchoredInitialHealthByTarget === undefined ||
+          typeof targetCount !== "number" ||
+          !Number.isSafeInteger(targetCount) ||
+          targetCount < 1 ||
+          typeof maximumTargets !== "number" ||
+          !Number.isSafeInteger(maximumTargets) ||
+          maximumTargets < targetCount ||
+          Object.keys(anchoredInitialHealthByTarget).length !== targetCount ||
+          decision.reads["action.target-path-count"] !== targetCount ||
+          decision.eventTimeMs !== 0
+        ) {
+          invalidParameters("Trace resolved punch-through expansion has invalid parameters");
+        }
+        const initialHealthTotal = Object.values(anchoredInitialHealthByTarget).reduce(
+          (total, value) => total + value,
+          0,
+        );
+        const beforeDamage = projectionDamage(
+          decision.before,
+          `Trace decision ${decision.sequence} before`,
+        );
+        if (sumDamageVector(beforeDamage) !== 0) {
+          invalidParameters("Trace punch-through expansion does not start at zero Damage");
+        }
+        assertProjection(
+          decision.before,
+          beforeDamage,
+          initialHealthTotal,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          beforeDamage,
+          initialHealthTotal,
+          `Trace decision ${decision.sequence} after`,
+        );
+        expectedPathTargetCount = targetCount;
+        damage = beforeDamage;
+        health = initialHealthTotal;
+        break;
+      }
       case "event.expand-resolved-status-ticks": {
         const tickCount = operation.parameters.tickCount;
         const tickIntervalMs = operation.parameters.tickIntervalMs;
@@ -726,7 +870,7 @@ async function replayTrace(
       }
       case "damage-vector.copy":
       case "damage-vector.copy-resolved-status-tick": {
-        if (initialHealth === undefined) {
+        if (initialHealth === undefined && operationPathTargetId === undefined) {
           initialHealth = requiredNonNegativeNumber(
             decision.before,
             "target.health",
@@ -743,13 +887,18 @@ async function replayTrace(
           );
         }
         const copyHealth =
-          operationHitId === undefined && operationTickId === undefined
-            ? initialHealth
-            : requiredNonNegativeNumber(
-                decision.before,
-                "target.health",
-                `Trace decision ${decision.sequence} before`,
-              );
+          operationPathTargetId !== undefined
+            ? anchoredInitialHealthByTarget?.[operationPathTargetId]
+            : operationHitId === undefined && operationTickId === undefined
+              ? initialHealth
+              : requiredNonNegativeNumber(
+                  decision.before,
+                  "target.health",
+                  `Trace decision ${decision.sequence} before`,
+                );
+        if (copyHealth === undefined) {
+          invalidParameters(`Trace constructs unknown path target ${operationPathTargetId}`);
+        }
         assertProjection(
           decision.before,
           beforeDamage,
@@ -763,7 +912,35 @@ async function replayTrace(
           copyHealth,
           `Trace decision ${decision.sequence} after`,
         );
-        if (operationTickId !== undefined) {
+        if (operationPathTargetId !== undefined) {
+          const metadata = operationPathTarget;
+          if (
+            metadata === undefined ||
+            expectedPathTargetCount === undefined ||
+            metadata.count !== expectedPathTargetCount ||
+            metadata.index !== pathTargets.size ||
+            pathTargets.has(operationPathTargetId) ||
+            (expectedPathId !== undefined && metadata.pathId !== expectedPathId)
+          ) {
+            invalidParameters(
+              `Trace constructs invalid punch-through target ${operationPathTargetId}`,
+            );
+          }
+          expectedPathId = metadata.pathId;
+          pathTargets.set(
+            operationPathTargetId,
+            Object.freeze({
+              targetId: operationPathTargetId,
+              pathId: metadata.pathId,
+              damage: copied,
+              health: copyHealth,
+              healthBefore: copyHealth,
+              committed: false,
+              index: metadata.index,
+              count: metadata.count,
+            }),
+          );
+        } else if (operationTickId !== undefined) {
           const metadata = requiredTickMetadata(
             operationTick,
             `Trace copy decision ${decision.sequence}`,
@@ -931,7 +1108,19 @@ async function replayTrace(
           currentHealth,
           `Trace decision ${decision.sequence} after`,
         );
-        if (operationHitId !== undefined) {
+        if (operationPathTargetId !== undefined) {
+          if (pathTargetState === undefined || operationPathTarget === undefined) {
+            invalidParameters(`Trace scales unknown path target ${operationPathTargetId}`);
+          }
+          pathTargets.set(
+            operationPathTargetId,
+            Object.freeze({
+              ...pathTargetState,
+              damage: scaled,
+              health: currentHealth,
+            }),
+          );
+        } else if (operationHitId !== undefined) {
           const metadata = requiredHitMetadata(
             operationHit,
             `Trace scale decision ${decision.sequence}`,
@@ -1013,7 +1202,20 @@ async function replayTrace(
           healthAfter,
           `Trace decision ${decision.sequence} after`,
         );
-        if (operationTickId !== undefined) {
+        if (operationPathTargetId !== undefined) {
+          if (pathTargetState === undefined || pathTargetState.committed) {
+            invalidParameters(`Trace commits invalid path target ${operationPathTargetId}`);
+          }
+          pathTargets.set(
+            operationPathTargetId,
+            Object.freeze({
+              ...pathTargetState,
+              damage: currentDamage,
+              health: healthAfter,
+              committed: true,
+            }),
+          );
+        } else if (operationTickId !== undefined) {
           const metadata = requiredTickMetadata(
             operationTick,
             `Trace Health commit ${decision.sequence}`,
@@ -1172,6 +1374,103 @@ async function replayTrace(
         committed = true;
         break;
       }
+      case "damage-vector.aggregate-resolved-punch-through-targets": {
+        if (
+          anchoredInitialHealthByTarget === undefined ||
+          expectedPathTargetCount === undefined ||
+          pathTargets.size !== expectedPathTargetCount ||
+          operation.parameters.targetCount !== expectedPathTargetCount
+        ) {
+          invalidParameters(
+            "Trace aggregates punch-through targets before complete target expansion",
+          );
+        }
+        const orderedTargets = [...pathTargets.values()].toSorted(
+          (left, right) => left.index - right.index,
+        );
+        const aggregateDamage: Record<string, number> = {};
+        const damageReads: Array<Record<string, unknown>> = [];
+        const beforeReads: Array<Record<string, unknown>> = [];
+        const afterReads: Array<Record<string, unknown>> = [];
+        let initialHealthTotal = 0;
+        let remainingHealthTotal = 0;
+        for (const [index, target] of orderedTargets.entries()) {
+          if (
+            !target.committed ||
+            target.index !== index ||
+            target.count !== expectedPathTargetCount
+          ) {
+            invalidParameters(`Trace punch-through target ${target.targetId} is incomplete`);
+          }
+          if (
+            operation.parameters[`target.${index}.id`] !== target.targetId ||
+            operation.parameters[`target.${index}.event-id`] !== `path-target.${index}` ||
+            operation.parameters[`target.${index}.index`] !== index ||
+            operation.parameters[`target.${index}.damageTotal`] !==
+              sumDamageVector(target.damage) ||
+            operation.parameters[`target.${index}.healthBefore`] !== target.healthBefore ||
+            operation.parameters[`target.${index}.healthAfter`] !== target.health
+          ) {
+            invalidParameters(`Trace punch-through aggregate target ${index} is inconsistent`);
+          }
+          initialHealthTotal += target.healthBefore;
+          remainingHealthTotal += target.health;
+          for (const [damageTypeId, component] of Object.entries(target.damage)) {
+            if (operation.parameters[`target.${index}.damage.${damageTypeId}`] !== component) {
+              invalidParameters(
+                `Trace punch-through target ${index} component ${damageTypeId} is inconsistent`,
+              );
+            }
+            const total = (aggregateDamage[damageTypeId] ?? 0) + component;
+            if (!Number.isFinite(total)) {
+              invalidParameters("Trace punch-through aggregate overflowed Damage");
+            }
+            aggregateDamage[damageTypeId] = total;
+          }
+          damageReads.push({
+            id: `path-target.${index}`,
+            targetId: target.targetId,
+            index,
+            damage: target.damage,
+          });
+          beforeReads.push({
+            id: `path-target.${index}`,
+            targetId: target.targetId,
+            index,
+            healthBefore: target.healthBefore,
+          });
+          afterReads.push({
+            id: `path-target.${index}`,
+            targetId: target.targetId,
+            index,
+            healthAfter: target.health,
+          });
+        }
+        if (
+          decision.reads["path-target.damage"] !== canonicalizeJson(damageReads) ||
+          decision.reads["path-target.health-before"] !== canonicalizeJson(beforeReads) ||
+          decision.reads["path-target.health-after"] !== canonicalizeJson(afterReads)
+        ) {
+          invalidParameters("Trace punch-through aggregate reads are inconsistent");
+        }
+        const aggregate = Object.freeze(aggregateDamage);
+        assertProjection(
+          decision.before,
+          aggregate,
+          initialHealthTotal,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          aggregate,
+          remainingHealthTotal,
+          `Trace decision ${decision.sequence} after`,
+        );
+        damage = aggregate;
+        health = remainingHealthTotal;
+        committed = true;
+        break;
+      }
       default:
         throw new TraceReplayError(
           "unsupported-operation",
@@ -1189,7 +1488,19 @@ async function replayTrace(
   if (!committed) {
     invalidParameters("Trace does not reach terminal Health commit or expected aggregation");
   }
-  return Object.freeze({ damage, health });
+  return Object.freeze({
+    damage,
+    health,
+    ...(anchoredInitialHealthByTarget === undefined
+      ? {}
+      : {
+          healthByTarget: Object.freeze(
+            Object.fromEntries(
+              [...pathTargets.values()].map((target) => [target.targetId, target.health]),
+            ),
+          ),
+        }),
+  });
 }
 
 /**

@@ -48,6 +48,12 @@ import radialExpectedFixture from "../../../data/fixtures/golden/radial-critical
 import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical-armor.scenario.json" with {
   type: "json",
 };
+import punchThroughExpectedFixture from "../../../data/fixtures/golden/resolved-punch-through.expected.json" with {
+  type: "json",
+};
+import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
+  type: "json",
+};
 import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
   type: "json",
 };
@@ -62,7 +68,12 @@ import tier2ScenarioFixture from "../../../data/fixtures/golden/tier-2-critical-
 };
 import { evaluateScenario } from "./evaluate.ts";
 import { SUPPORTED_METRIC_IDS } from "./scenario-domain.ts";
-import { replayTraceDamage, replayTraceState, type TraceReplayError } from "./trace-replay.ts";
+import {
+  replayTraceDamage,
+  replayTraceState,
+  replayTraceTargetStates,
+  type TraceReplayError,
+} from "./trace-replay.ts";
 
 async function evaluateGolden() {
   return evaluateScenario({
@@ -128,11 +139,27 @@ async function evaluateStatusGolden() {
   });
 }
 
+async function evaluatePunchThroughGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(punchThroughScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
 async function rehash<T extends { contentHash: string }>(
   value: T,
 ): Promise<Omit<T, "contentHash"> & { readonly contentHash: string }> {
   const { contentHash: _contentHash, ...withoutHash } = value;
   return attachArtifactContentHash(withoutHash);
+}
+
+function requiredAt<T>(values: readonly T[], index: number, label: string): T {
+  const value = values[index];
+  if (value === undefined) {
+    throw new Error(`Missing ${label} at index ${index}`);
+  }
+  return value;
 }
 
 describe("evaluateScenario", () => {
@@ -863,6 +890,193 @@ describe("evaluateScenario", () => {
     );
   });
 
+  it("matches the independently authored resolved punch-through golden and target order", async () => {
+    const outcome = await evaluatePunchThroughGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(punchThroughExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(punchThroughExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(punchThroughExpectedFixture.damageByType);
+    expect(outcome.result.targetStates).toEqual(punchThroughExpectedFixture.targetStates);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(punchThroughExpectedFixture.appliedRuleIds);
+    expect(
+      outcome.trace.decisions.flatMap((decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.damage.direct-hit"
+          ? [decision.operations[0]?.parameters["target.id"]]
+          : [],
+      ),
+    ).toEqual(punchThroughExpectedFixture.targetOrder);
+    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual(
+      Array.from({ length: 14 }, (_, index) => index),
+    );
+    expect(outcome.result.coverage.experimental).toContain("mechanic.punch-through.resolved-path");
+    expect(
+      await replayTraceTargetStates(outcome.trace, {
+        "actor.target-a": 150,
+        "actor.target-b": 80,
+        "actor.target-c": 60,
+      }),
+    ).toEqual({
+      damage: punchThroughExpectedFixture.damageByType,
+      health: 60,
+      healthByTarget: {
+        "actor.target-a": 50,
+        "actor.target-b": 0,
+        "actor.target-c": 10,
+      },
+    });
+    expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
+    expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, punchThroughScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("rejects a resolved punch-through Trace whose target identity was altered", async () => {
+    const outcome = await evaluatePunchThroughGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = await rehash({
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) =>
+        decision.outcome === "applied" &&
+        decision.ruleId === "rule.damage.direct-hit" &&
+        decision.operations[0]?.parameters["path.index"] === 0
+          ? {
+              ...decision,
+              operations: decision.operations.map((operation) => ({
+                ...operation,
+                parameters: {
+                  ...operation.parameters,
+                  "target.id": "actor.target-b",
+                },
+              })),
+            }
+          : decision,
+      ),
+    });
+
+    await expect(
+      replayTraceTargetStates(changed, {
+        "actor.target-a": 150,
+        "actor.target-b": 80,
+        "actor.target-c": 60,
+      }),
+    ).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+  });
+
+  it("property-tests resolved punch-through per-target mitigation, Health clamp, and replay", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+    const targetState = fc.record({
+      armor: fc.integer({ min: 0, max: 10_000 }),
+      health: fc.integer({ min: 0, max: 10_000 }),
+    });
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.tuple(targetState, targetState, targetState),
+        fc.integer({ min: 0, max: 8 }),
+        async (states, criticalTier) => {
+          const changed = structuredClone(punchThroughScenarioFixture);
+          const action = changed.actionPlan[0];
+          if (action === undefined) {
+            throw new Error("Resolved punch-through golden must contain one action");
+          }
+          action.parameters.criticalTier = criticalTier;
+          for (const [index, state] of states.entries()) {
+            const target = changed.targets[index];
+            if (target === undefined) {
+              throw new Error("Resolved punch-through golden must contain three targets");
+            }
+            target.configuration.resolvedArmor = state.armor;
+            target.configuration.resolvedHealth = state.health;
+          }
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+
+          const damageByTarget = states.map(
+            ({ armor }) => 100 * (1 + criticalTier) * (300 / (armor + 300)),
+          ) as [number, number, number];
+          const remainingByTarget = states.map(({ health }, index) => {
+            const damage = requiredAt(damageByTarget, index, "target damage");
+            return damage >= health ? 0 : health - damage;
+          }) as [number, number, number];
+          const targetIds = punchThroughExpectedFixture.targetOrder;
+          const expectedTargetStates = Object.fromEntries(
+            targetIds.map((targetId, index) => [
+              targetId,
+              { health: requiredAt(remainingByTarget, index, "remaining target Health") },
+            ]),
+          );
+          const initialHealthByTarget = Object.fromEntries(
+            targetIds.map((targetId, index) => [
+              targetId,
+              requiredAt(states, index, "initial target state").health,
+            ]),
+          );
+          expect(first.result.metrics["damage.punch-through.total"]).toBeCloseTo(
+            damageByTarget.reduce((sum, damage) => sum + damage, 0),
+            6,
+          );
+          expect(first.result.metrics["targets.health.remaining-total"]).toBeCloseTo(
+            remainingByTarget.reduce((sum, health) => sum + health, 0),
+            6,
+          );
+          expect(first.result.metrics["targets.defeated-count"]).toBe(
+            remainingByTarget.filter((health) => health === 0).length,
+          );
+          for (const targetId of targetIds) {
+            const expected = expectedTargetStates[targetId];
+            if (expected === undefined) {
+              throw new Error(`Missing expected target state for ${targetId}`);
+            }
+            const actual = first.result.targetStates[targetId]?.health;
+            if (actual === undefined) {
+              throw new Error(`Missing Result target state for ${targetId}`);
+            }
+            expect(actual).toBeCloseTo(expected.health, 6);
+          }
+          const replayed = await replayTraceTargetStates(first.trace, initialHealthByTarget);
+          expect(replayed.damage).toEqual(first.result.damageByType);
+          for (const targetId of targetIds) {
+            const expected = expectedTargetStates[targetId];
+            if (expected === undefined) {
+              throw new Error(`Missing expected target state for ${targetId}`);
+            }
+            const actual = replayed.healthByTarget[targetId];
+            if (actual === undefined) {
+              throw new Error(`Missing replayed target state for ${targetId}`);
+            }
+            expect(actual).toBeCloseTo(expected.health, 6);
+          }
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
   it("matches the independently authored resolved Status tick golden and logical times", async () => {
     const outcome = await evaluateStatusGolden();
 
@@ -1238,7 +1452,11 @@ describe("evaluateScenario", () => {
         metric !== "status.tick-count" &&
         metric !== "status.tick-interval-ms" &&
         metric !== "damage.status.per-tick" &&
-        metric !== "damage.status.total",
+        metric !== "damage.status.total" &&
+        metric !== "punch-through.target-count" &&
+        metric !== "damage.punch-through.total" &&
+        metric !== "targets.health.remaining-total" &&
+        metric !== "targets.defeated-count",
     );
     const metricSubset = fc.uniqueArray(fc.constantFrom(...fixedMetricIds), {
       minLength: 1,

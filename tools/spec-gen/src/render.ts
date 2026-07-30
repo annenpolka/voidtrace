@@ -227,13 +227,17 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
   const statusClauses = spec.clauses.filter(
     (clause) => clause.id.startsWith("STS-") || clause.id === "GOL-008",
   );
+  const punchThroughClauses = spec.clauses.filter(
+    (clause) => clause.id.startsWith("PTH-") || clause.id === "GOL-009",
+  );
   const directCriticalArmorClauses = spec.clauses.filter(
     (clause) =>
       clause.area === "mechanics" &&
       !multishotClauses.includes(clause) &&
       !pelletClauses.includes(clause) &&
       !radialClauses.includes(clause) &&
-      !statusClauses.includes(clause),
+      !statusClauses.includes(clause) &&
+      !punchThroughClauses.includes(clause),
   );
   const cliClauses = spec.clauses.filter((clause) => clause.area === "cli");
   const rulesetContract = spec.contracts.find((contract) => contract.id === "ruleset");
@@ -302,6 +306,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       capability("mechanics.fixed-pellets", pelletClauses),
       capability("mechanics.resolved-radial", radialClauses),
       capability("mechanics.resolved-status-ticks", statusClauses),
+      capability("mechanics.resolved-punch-through", punchThroughClauses),
       capability("cli.core", cliClauses),
     ],
   };

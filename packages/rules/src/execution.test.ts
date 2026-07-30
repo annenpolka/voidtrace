@@ -5,6 +5,8 @@ import {
   executeFixedMultishotRule,
   executeFixedPelletRule,
   executeResolvedRadialFalloffRule,
+  executeResolvedPunchThroughAggregateRule,
+  executeResolvedPunchThroughExpansionRule,
   executeResolvedStatusTickDamageRule,
   executeResolvedStatusTickScheduleRule,
   executeSequentialHitAggregateRule,
@@ -107,6 +109,8 @@ describe("generated core Rule execution", async () => {
   const statusSchedule = loaded.resolveRule("rule.status.schedule-resolved-ticks");
   const statusTick = loaded.resolveRule("rule.status.construct-resolved-tick");
   const aggregateStatusTicks = loaded.resolveRule("rule.status.aggregate-resolved-ticks");
+  const punchThroughExpansion = loaded.resolveRule("rule.punch-through.expand-resolved-targets");
+  const punchThroughAggregate = loaded.resolveRule("rule.punch-through.aggregate-resolved-targets");
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -292,6 +296,67 @@ describe("generated core Rule execution", async () => {
       damageTotal: 80,
       health: 20,
     });
+  });
+
+  it("expands and aggregates independent resolved punch-through targets", () => {
+    const expansion = executeResolvedPunchThroughExpansionRule(punchThroughExpansion, {
+      targetCount: 3,
+      initialHealthTotal: 290,
+      zeroDamage: { "damage.synthetic": 0 },
+    });
+    expect(expansion.parameters).toEqual({
+      factor: 1,
+      maximumTargets: 64,
+      targetCount: 3,
+    });
+    const aggregate = executeResolvedPunchThroughAggregateRule(punchThroughAggregate, {
+      initialHealthTotal: 290,
+      targets: [
+        {
+          id: "path-target.0",
+          targetId: "actor.target-a",
+          index: 0,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 150,
+          healthAfter: 50,
+        },
+        {
+          id: "path-target.1",
+          targetId: "actor.target-b",
+          index: 1,
+          damage: { "damage.synthetic": 200 },
+          healthBefore: 80,
+          healthAfter: 0,
+        },
+        {
+          id: "path-target.2",
+          targetId: "actor.target-c",
+          index: 2,
+          damage: { "damage.synthetic": 50 },
+          healthBefore: 60,
+          healthAfter: 10,
+        },
+      ],
+    });
+    expect(aggregate.after).toEqual({
+      damage: { "damage.synthetic": 350 },
+      damageTotal: 350,
+      health: 60,
+    });
+    expect(aggregate.parameters).toMatchObject({
+      targetCount: 3,
+      "target.0.id": "actor.target-a",
+      "target.1.id": "actor.target-b",
+      "target.2.id": "actor.target-c",
+    });
+
+    expect(() =>
+      executeResolvedPunchThroughExpansionRule(punchThroughExpansion, {
+        targetCount: 65,
+        initialHealthTotal: 1000,
+        zeroDamage: { "damage.synthetic": 0 },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "execution-limit-exceeded" }));
   });
 
   it("aggregates ordered terminal Multishot hits and preserves sequential Health", () => {

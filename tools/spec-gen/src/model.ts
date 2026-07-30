@@ -15,6 +15,7 @@ export const KNOWN_PATTERNS = [
   "fixed_pellet_expansion",
   "resolved_radial_falloff",
   "resolved_status_ticks",
+  "resolved_punch_through_path",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -86,6 +87,10 @@ export type RuleOperation =
       maximumTicks: number;
     }
   | {
+      kind: "event.expand-resolved-punch-through-targets";
+      maximumTargets: number;
+    }
+  | {
       kind: "damage-vector.copy";
     }
   | {
@@ -121,6 +126,9 @@ export type RuleOperation =
     }
   | {
       kind: "damage-vector.aggregate-sequential-status-ticks";
+    }
+  | {
+      kind: "damage-vector.aggregate-resolved-punch-through-targets";
     };
 
 export type RuleDefinition = {
@@ -167,6 +175,7 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "fixed_pellet_expansion",
   "resolved_radial_falloff",
   "resolved_status_ticks",
+  "resolved_punch_through_path",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -309,6 +318,16 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
           (candidate) => Number.isInteger(candidate) && candidate > 0,
         ),
       };
+    case "event.expand-resolved-punch-through-targets":
+      assertExactKeys(value, ["kind", "maximumTargets"], path);
+      return {
+        kind,
+        maximumTargets: requireFiniteNumber(
+          value.maximumTargets,
+          `${path}.maximumTargets`,
+          (candidate) => Number.isInteger(candidate) && candidate > 0,
+        ),
+      };
     case "damage-vector.copy":
       assertExactKeys(value, ["kind"], path);
       return { kind };
@@ -350,6 +369,9 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
       assertExactKeys(value, ["kind"], path);
       return { kind };
     case "damage-vector.aggregate-sequential-status-ticks":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
+    case "damage-vector.aggregate-resolved-punch-through-targets":
       assertExactKeys(value, ["kind"], path);
       return { kind };
     default:

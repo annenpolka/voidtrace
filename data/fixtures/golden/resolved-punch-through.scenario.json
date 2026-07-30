@@ -1,0 +1,108 @@
+{
+  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
+  "kind": "voidtrace.scenario",
+  "schemaVersion": "0.2.0",
+  "id": "scenario.golden-resolved-punch-through",
+  "revision": 0,
+  "contentHash": "sha256:8d2986841b27f7a350e2d6402bba04047bd772233512078eea108b532652137d",
+  "gameBuild": "synthetic-fixture-0",
+  "catalogRef": {
+    "kind": "catalog-snapshot",
+    "schemaVersion": "0.1.0",
+    "id": "catalog.synthetic-mini",
+    "revision": 0,
+    "contentHash": "sha256:d8136a7f9a2f20899fb89001409dc3f71a1010dd1a7002b67f9917f2d3d61224",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "rulesetRef": {
+    "kind": "ruleset",
+    "schemaVersion": "0.9.0",
+    "id": "ruleset.synthetic-core",
+    "revision": 1,
+    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "attacker": {
+    "id": "actor.attacker",
+    "configuration": {
+      "weaponId": "weapon.synthetic-aperture",
+      "attackModeId": "attack-mode.synthetic-aperture.primary"
+    }
+  },
+  "targets": [
+    {
+      "id": "actor.target-a",
+      "configuration": {
+        "catalogTargetId": "target.synthetic-calibration",
+        "resolvedHealth": 150,
+        "resolvedShield": 0,
+        "resolvedArmor": 300,
+        "resolvedOverguard": 0
+      }
+    },
+    {
+      "id": "actor.target-b",
+      "configuration": {
+        "catalogTargetId": "target.synthetic-calibration",
+        "resolvedHealth": 80,
+        "resolvedShield": 0,
+        "resolvedArmor": 0,
+        "resolvedOverguard": 0
+      }
+    },
+    {
+      "id": "actor.target-c",
+      "configuration": {
+        "catalogTargetId": "target.synthetic-calibration",
+        "resolvedHealth": 60,
+        "resolvedShield": 0,
+        "resolvedArmor": 900,
+        "resolvedOverguard": 0
+      }
+    }
+  ],
+  "targetGraph": {
+    "relations": [
+      {
+        "id": "target-relation.punch-through-1",
+        "kind": "target-relation.ordered-path",
+        "pathKind": "punch-through",
+        "targetIds": ["actor.target-a", "actor.target-b", "actor.target-c"]
+      }
+    ]
+  },
+  "initialState": {},
+  "actionPlan": [
+    {
+      "id": "action.resolved-punch-through-1",
+      "kind": "action.resolved-punch-through-direct-hits",
+      "parameters": {
+        "targetPathRelationId": "target-relation.punch-through-1",
+        "hitLocation": "hit-location.neutral-body",
+        "damageLayer": "health",
+        "criticalTier": 1
+      }
+    }
+  ],
+  "simulation": {
+    "mode": "deterministic",
+    "timeLimitMs": 1
+  },
+  "metrics": [
+    "punch-through.target-count",
+    "damage.punch-through.total",
+    "damage.health.total",
+    "targets.health.remaining-total",
+    "targets.defeated-count"
+  ],
+  "assumptions": [
+    {
+      "id": "assumption.synthetic-resolved-punch-through",
+      "description": "Synthetic resolved punch-through order; not a verified current-game Warframe punch-through or attenuation rule."
+    },
+    {
+      "id": "assumption.no-punch-through-attenuation",
+      "description": "Each target receives one independent Direct Hit without wall, collision, or penetration attenuation."
+    }
+  ]
+}

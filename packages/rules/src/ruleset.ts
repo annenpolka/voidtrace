@@ -20,6 +20,10 @@ import {
   executeResolvedStatusTickDamageRule,
   type ResolvedStatusTickScheduleContext,
   executeResolvedStatusTickScheduleRule,
+  type ResolvedPunchThroughAggregateContext,
+  type ResolvedPunchThroughExpansionContext,
+  executeResolvedPunchThroughAggregateRule,
+  executeResolvedPunchThroughExpansionRule,
   executeRule,
   type RuleContext,
   type RuleDefinition,
@@ -50,6 +54,14 @@ export type LoadedRuleset = {
   executeResolvedStatusTickDamageRule(
     id: string,
     context: ResolvedStatusTickDamageContext,
+  ): RuleExecution;
+  executeResolvedPunchThroughExpansionRule(
+    id: string,
+    context: ResolvedPunchThroughExpansionContext,
+  ): RuleExecution;
+  executeResolvedPunchThroughAggregateRule(
+    id: string,
+    context: ResolvedPunchThroughAggregateContext,
   ): RuleExecution;
   executeSequentialHitAggregateRule(
     id: string,
@@ -117,6 +129,12 @@ const OPERATION_DECLARATIONS = {
     eventKind: "action.resolved-status-ticks",
     reads: ["action.status-tick-count", "action.status-tick-interval-ms"],
     writes: ["event.status-tick-count"],
+  },
+  "event.expand-resolved-punch-through-targets": {
+    phase: "attack.emit",
+    eventKind: "action.resolved-punch-through-direct-hits",
+    reads: ["action.target-path-count"],
+    writes: ["event.direct-hit-count"],
   },
   "damage-vector.copy": {
     phase: "damage.construct",
@@ -203,6 +221,12 @@ const OPERATION_DECLARATIONS = {
     reads: ["tick.damage", "tick.health-before", "tick.health-after"],
     writes: ["event.damage", "target.health"],
   },
+  "damage-vector.aggregate-resolved-punch-through-targets": {
+    phase: "result.aggregate",
+    eventKind: "action.resolved-punch-through-direct-hits",
+    reads: ["path-target.damage", "path-target.health-before", "path-target.health-after"],
+    writes: ["event.damage", "targets.health"],
+  },
 } as const satisfies Record<RuleOperationKind, OperationDeclaration>;
 
 function formatContractIssues(issues: ReadonlyArray<ValidationIssue>): string {
@@ -246,6 +270,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     readonly maximumHits?: unknown;
     readonly maximumPellets?: unknown;
     readonly maximumTicks?: unknown;
+    readonly maximumTargets?: unknown;
   };
   switch (operation.kind) {
     case "event.expand-fixed-multishot":
@@ -275,6 +300,15 @@ function assertFiniteOperation(rule: RuleDefinition): void {
         return;
       }
       break;
+    case "event.expand-resolved-punch-through-targets":
+      if (
+        typeof operation.maximumTargets === "number" &&
+        Number.isSafeInteger(operation.maximumTargets) &&
+        operation.maximumTargets > 0
+      ) {
+        return;
+      }
+      break;
     case "damage-vector.copy":
     case "critical-tier.resolve-tier-roll":
     case "critical-tier.resolve-expected-branches":
@@ -286,6 +320,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     case "damage-vector.scale-resolved-radial-falloff":
     case "damage-vector.copy-resolved-status-tick":
     case "damage-vector.aggregate-sequential-status-ticks":
+    case "damage-vector.aggregate-resolved-punch-through-targets":
       return;
     case "damage-vector.scale-standard-armor":
       if (
@@ -403,6 +438,14 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       id: string,
       context: ResolvedStatusTickDamageContext,
     ): RuleExecution => executeResolvedStatusTickDamageRule(resolveRule(id), context),
+    executeResolvedPunchThroughExpansionRule: (
+      id: string,
+      context: ResolvedPunchThroughExpansionContext,
+    ): RuleExecution => executeResolvedPunchThroughExpansionRule(resolveRule(id), context),
+    executeResolvedPunchThroughAggregateRule: (
+      id: string,
+      context: ResolvedPunchThroughAggregateContext,
+    ): RuleExecution => executeResolvedPunchThroughAggregateRule(resolveRule(id), context),
     executeSequentialHitAggregateRule: (
       id: string,
       context: SequentialHitAggregateContext,

@@ -4,11 +4,11 @@
 
 Implementation verification and game-mechanics evidence will remain separate axes.
 
-- Rules: 20
+- Rules: 22
 - Referenced evidence records: 0
 
 | Evidence status | Rules |
 | --- | --- |
-| `experimental` | 20 |
+| `experimental` | 22 |
 
 The synthetic first-slice Ruleset is not presented as verified current Warframe behavior.

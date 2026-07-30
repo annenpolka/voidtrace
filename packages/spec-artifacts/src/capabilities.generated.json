@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:2b588f78a338a34e35fabe43ff5e6e82af8f4351b1e50d4ff44a2d7aa5b717a3",
+  "sourceFingerprint": "sha256:12b40df33b05df63b4d2be89f4cac0384166d25cfcd0d4a6b3fef1139d42372e",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -90,6 +90,15 @@
       "activeClauseRefs": [
         "GOL-008",
         "STS-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.resolved-punch-through",
+      "status": "supported",
+      "activeClauseRefs": [
+        "GOL-009",
+        "PTH-001"
       ],
       "plannedClauseRefs": []
     },

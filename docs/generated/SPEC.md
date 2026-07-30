@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:2b588f78a338a34e35fabe43ff5e6e82af8f4351b1e50d4ff44a2d7aa5b717a3`
+- Source fingerprint: `sha256:12b40df33b05df63b4d2be89f4cac0384166d25cfcd0d4a6b3fef1139d42372e`
 - Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -41,13 +41,15 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `GOL-006` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/pellet-critical-armor.scenario.jsonは4個の順序付きpellet Direct Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する |
 | `GOL-007` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/radial-critical-armor.scenario.jsonはbase Damage 100、fixed Critical tier 1、resolved falloff 0.75、Armor 300からHealth Damage 75と残Health 925を独立literal expected vectorとしてResultおよびTraceと照合する |
 | `GOL-008` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-status-ticks.scenario.jsonは解決済みHealth Damage 40の3 tickを1000ms間隔でHealth 100へ順次commitし、時刻1000、2000、3000と最終Health 0を独立literal expected vectorとしてResultおよびTraceと照合する |
+| `GOL-009` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-punch-through.scenario.jsonは明示されたA→B→Cのpunch-through ordered pathを固定Critical tier 1で評価し、target別ArmorによりHealthを150→50、80→0、60→10へ独立commitして、Damage合計350と残Health合計60をliteral expected vectorとしてResultおよびTraceと照合する |
 | `MSH-001` | `mechanics` | `fixed_multishot_expansion` | `property-tested` | `active` | action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない |
 | `PLT-001` | `mechanics` | `fixed_pellet_expansion` | `property-tested` | `active` | action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない |
+| `PTH-001` | `mechanics` | `resolved_punch_through_path` | `property-tested` | `active` | action.resolved-punch-through-direct-hitsは一つのpathKind punch-through ordered-path relationをtargetPathRelationIdで参照し、その1以上64以下のtargetIdsを順番どおり一度ずつ固定Critical Direct Hitとして評価する。各targetは自身のresolved ArmorとHealthを読み、target別World Stateへcommitする。壁厚、衝突、貫通減衰、target選択、暗黙rollは生成しない |
 | `RAD-001` | `mechanics` | `resolved_radial_falloff` | `property-tested` | `active` | action.radial-hitは明示された有限な0以上1以下のresolvedFalloffMultiplierと固定Critical tierを受理する。Radial Damage VectorはCritical解決後かつArmor適用前にこの倍率でscaleされる。距離式、物理配置、Direct sibling、Projectile親、Multishot、Pellet、複数target、暗黙rollは生成しない |
 | `RNG-001` | `kernel` | `same_logical_random` | `property-tested` | `active` | 同一seed、論理Event ID、roll purposeは同一乱数を返す |
 | `SCP-001` | `scope` | `scope_boundary` | `manual` | `active` | 物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない |
 | `SCP-002` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | 非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す |
-| `SCP-003` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。現在の単一target縦切りは空relationsだけを受理し、非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する |
+| `SCP-003` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relationsまたはresolved punch-through Direct Hit列が参照する一つのordered pathだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する |
 | `STS-001` | `mechanics` | `resolved_status_ticks` | `property-tested` | `active` | action.resolved-status-ticksはstatus.synthetic-resolved-dot、有限な非負resolvedHealthDamagePerTick、1以上のsafe-integer tickCount、正のsafe-integer tickIntervalMsを受理する。最大64 tickをintervalの倍数時刻で単一targetのHealthへ順次commitし、最後のtickはScenario timeLimitMs以下でなければならない。Status chance、type抽選、付与元Direct／Radial、Critical、Armor、stack、refresh、snapshot式、暗黙rollは生成しない |
 | `TRC-001` | `kernel` | `trace_reconstructs_result` | `property-tested` | `active` | Scenarioの初期HealthをアンカーとしてTraceの順序付きDamage Vector、Health commit、expected branch集約を再生すると、Resultの最終Damage Vectorとdeterministicまたはexpectedの残Healthに一致する |
 | `TRC-002` | `kernel` | `rejected_rule_has_reason` | `property-tested` | `planned` | 不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する |

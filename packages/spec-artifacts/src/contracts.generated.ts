@@ -141,11 +141,11 @@ export type Problem = {
 /** Versioned evaluation output with explicit provenance, coverage, and limitations. */
 export type Result = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:result:0.1.0";
+  readonly "$schema": "urn:voidtrace:schema:result:0.2.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "voidtrace.result";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.1.0";
+  readonly "schemaVersion": "0.2.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -179,6 +179,11 @@ export type Result = {
   readonly "damageBySource": Readonly<Record<string, number>>;
   /** Non-negative damage totals keyed by stable damage-type identifier. */
   readonly "damageByType": Readonly<Record<string, number>>;
+  /** Terminal state projection keyed by Scenario target identity. */
+  readonly "targetStates": Readonly<Record<string, {
+    /** Finite non-negative terminal Health for this Scenario target. */
+    readonly "health": number;
+  }>>;
   /** Every default resolved during evaluation, represented as explicit scalar values. */
   readonly "resolvedDefaults": Readonly<Record<string, string | number | boolean | null>>;
   /** Assumptions that qualify interpretation of this Result. */
@@ -208,11 +213,11 @@ export type Result = {
 /** Generated finite Rule IR interpreted by the Kernel-facing Rules package. */
 export type Ruleset = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:ruleset:0.8.0";
+  readonly "$schema": "urn:voidtrace:schema:ruleset:0.9.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "ruleset";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.8.0";
+  readonly "schemaVersion": "0.9.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -254,6 +259,11 @@ export type Ruleset = {
       /** Positive safe execution bound for one resolved Status action. */
       readonly "maximumTicks": number;
     } | {
+      /** Expand one resolved punch-through path into an explicit bounded count of ordered target events. */
+      readonly "kind": "event.expand-resolved-punch-through-targets";
+      /** Positive safe execution bound for one resolved punch-through path. */
+      readonly "maximumTargets": number;
+    } | {
       /** Copy the input base Damage Vector into event damage. */
       readonly "kind": "damage-vector.copy";
     } | {
@@ -291,6 +301,9 @@ export type Ruleset = {
     } | {
       /** Aggregate ordered terminal Status tick Damage Vectors and preserve the final sequential Health state. */
       readonly "kind": "damage-vector.aggregate-sequential-status-ticks";
+    } | {
+      /** Aggregate terminal Damage and target-specific Health for a resolved punch-through path. */
+      readonly "kind": "damage-vector.aggregate-resolved-punch-through-targets";
     };
     /** Game-mechanics evidence status, independent of implementation maturity. */
     readonly "evidenceStatus": "verified" | "experimental" | "disputed" | "unsupported" | "approximated";

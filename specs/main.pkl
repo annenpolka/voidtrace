@@ -16,6 +16,7 @@ import "golden/multishot-critical-armor.pkl"
 import "golden/pellet-critical-armor.pkl"
 import "golden/probability-critical-armor.pkl"
 import "golden/radial-critical-armor.pkl"
+import "golden/resolved-punch-through.pkl"
 import "golden/resolved-status-ticks.pkl"
 import "golden/tier-2-critical-armor.pkl"
 import "kernel/determinism.pkl"
@@ -28,6 +29,7 @@ import "mechanics/defense.pkl"
 import "mechanics/direct-hit.pkl"
 import "mechanics/multishot.pkl"
 import "mechanics/pellet.pkl"
+import "mechanics/punch-through.pkl"
 import "mechanics/radial.pkl"
 import "mechanics/status.pkl"
 import "patterns/base.pkl"
@@ -52,6 +54,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.fixedPelletActionEmitsOrderedHits
   mechanicsClauses.resolvedRadialFalloffScalesDamage
   mechanicsClauses.resolvedStatusTicksCommitInTimeOrder
+  mechanicsClauses.resolvedPunchThroughVisitsTargetsInPathOrder
   mechanicsClauses.armorDoesNotIncreaseDamage
   mechanicsClauses.armorThreeHundredHalvesDamage
   mechanicsClauses.traceReconstructsDamage
@@ -64,6 +67,7 @@ clauses: Listing<base.Clause> = new {
   `pellet-critical-armor`.roundTrip
   `radial-critical-armor`.roundTrip
   `resolved-status-ticks`.roundTrip
+  `resolved-punch-through`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
   cliSurface.streamExitDiscipline
@@ -85,13 +89,14 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.8.0"
+  version = "0.9.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
     multishot.emitFixedRule
     pellet.emitFixedRule
     status.scheduleResolvedTicksRule
+    `punch-through`.expandResolvedTargetsRule
     critical.resolveExpectedBranchesRule
     `direct-hit`.rule
     radial.constructRule
@@ -109,5 +114,6 @@ ruleset: ruleModel.Ruleset = new {
     multishot.aggregateFixedRule
     pellet.aggregateFixedRule
     status.aggregateResolvedTicksRule
+    `punch-through`.aggregateResolvedTargetsRule
   }
 }
