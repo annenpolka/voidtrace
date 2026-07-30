@@ -79,7 +79,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 16:42:45Z) Domain／Kernel／Trace／CLI／skillを実装し、機能を `9c0ed5c` としてコミットした。
 - [x] (2026-07-30 16:42:45Z) empirical-prompt-tuningはfeature commit後に対応・非対応を2回ずつ、破損入力hold-outを1回評価し、全checklist 100%、不明点0を確認した。対応側のtool-useは3回と8回で変動したため、定量的な速度収束は主張しない。
 - [x] (2026-07-30 16:42:45Z) Node 26.0.0とNode 24.18.0で49 Clauses、8 Contracts、生成24ファイル、21テストファイル368テストを含む全ゲートを通した。
-- [ ] Ruleset `0.16.0`マイルストーンをpublic mainへpushし、GitHub Actionsの成功を確認する。
+- [x] (2026-07-30 16:44:52Z) Ruleset `0.16.0`マイルストーンをpublic mainへpushし、`db357ae`に対するGitHub Actions `Check` run `30562770873`の成功を確認した。
 
 ## Surprises & Discoveries
 
