@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:ee6cc97c9382690c57e6d1ba3dd74be7f666f0006e757cef7ac2002841bec0e5",
+  "sourceFingerprint": "sha256:0c31b659ee3dfdbb169862e3ef1c82b810cea167388bddb98118b84281505fa0",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -72,6 +72,15 @@
       "activeClauseRefs": [
         "GOL-006",
         "PLT-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.resolved-pellet-allocation",
+      "status": "supported",
+      "activeClauseRefs": [
+        "GOL-013",
+        "PLT-002"
       ],
       "plannedClauseRefs": []
     },

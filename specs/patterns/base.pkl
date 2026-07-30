@@ -99,6 +99,12 @@ class FixedPelletExpansion extends Clause {
   area = "mechanics"
 }
 
+class ResolvedPelletAllocation extends Clause {
+  pattern = "resolved_pellet_allocation"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
 class ResolvedRadialFalloff extends Clause {
   pattern = "resolved_radial_falloff"
   guarantee = "property-tested"

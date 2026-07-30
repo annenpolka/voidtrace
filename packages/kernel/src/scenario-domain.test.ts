@@ -21,6 +21,9 @@ import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.s
 import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
   type: "json",
 };
+import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
+  type: "json",
+};
 import { parseScenarioDomain } from "./scenario-domain.ts";
 
 type MutableScenarioFixture = {
@@ -131,6 +134,15 @@ async function changedRadialTargetsScenario(
   change: (scenario: MutableScenarioFixture) => void,
 ): Promise<unknown> {
   const mutable = structuredClone(radialTargetsScenarioFixture) as MutableScenarioFixture;
+  change(mutable);
+  const { contentHash: _contentHash, ...withoutHash } = mutable;
+  return attachArtifactContentHash(withoutHash);
+}
+
+async function changedPelletAllocationScenario(
+  change: (scenario: MutableScenarioFixture) => void,
+): Promise<unknown> {
+  const mutable = structuredClone(pelletAllocationScenarioFixture) as MutableScenarioFixture;
   change(mutable);
   const { contentHash: _contentHash, ...withoutHash } = mutable;
   return attachArtifactContentHash(withoutHash);
@@ -420,6 +432,49 @@ describe("parseScenarioDomain", () => {
       code: "unsupported-radial-resolution",
       path: "/actionPlan/0/parameters/falloffEndMeters",
       mechanicId: "mechanic.radial.resolved-targets",
+    });
+  });
+
+  it("accepts resolved target-specific Pellet counts and explicit misses", async () => {
+    const result = await parseScenarioDomain(structuredClone(pelletAllocationScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          kind: "resolved-pellet-allocation",
+          allocationId: "pellet-allocation.shot-1",
+          pelletCount: 4,
+          hitCount: 3,
+          pathTargetIds: ["actor.target-a", "actor.target-c", "actor.target-b"],
+          pelletAllocationRelations: [
+            { targetId: "actor.target-a", resolvedHitCount: 2 },
+            { targetId: "actor.target-c", resolvedHitCount: 0 },
+            { targetId: "actor.target-b", resolvedHitCount: 1 },
+          ],
+        },
+        targets: [
+          { id: "actor.target-a", resolvedHealth: 150, resolvedArmor: 300 },
+          { id: "actor.target-c", resolvedHealth: 90, resolvedArmor: 900 },
+          { id: "actor.target-b", resolvedHealth: 80, resolvedArmor: 0 },
+        ],
+      },
+    });
+  });
+
+  it("rejects resolved Pellet hit totals above the declared pellet count", async () => {
+    const scenario = await changedPelletAllocationScenario((mutable) => {
+      const relation = mutable.targetGraph.relations[1];
+      if (relation === undefined) {
+        throw new Error("Resolved Pellet golden must contain the C allocation relation");
+      }
+      relation.resolvedHitCount = 2;
+    });
+
+    await expectFailure(scenario, {
+      code: "unsupported-pellet-resolution",
+      path: "/targetGraph/relations/2/resolvedHitCount",
+      mechanicId: "mechanic.pellet.resolved-allocation",
     });
   });
 

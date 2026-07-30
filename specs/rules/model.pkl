@@ -120,6 +120,15 @@ class ExpandFixedPellets extends RuleOperation {
   maximumPellets: UInt(isPositive)
 }
 
+class ExpandResolvedPelletAllocation extends RuleOperation {
+  kind = "event.expand-resolved-pellet-allocation"
+  maximumPellets: UInt(isPositive)
+}
+
+class AggregateResolvedPelletAllocation extends RuleOperation {
+  kind = "damage-vector.aggregate-resolved-pellet-allocation"
+}
+
 class Rule {
   id: String(matches(Regex(#"[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*"#)))
   description: String(length > 0)

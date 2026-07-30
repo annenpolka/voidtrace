@@ -28,6 +28,8 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "multishot.hit-count",
   "damage.multishot.total",
   "pellet.count",
+  "pellet.hit-count",
+  "pellet.miss-count",
   "damage.pellet.total",
   "radial.falloff.multiplier",
   "damage.radial.base.total",
@@ -101,12 +103,16 @@ export type ScenarioDomain = {
       | "resolved-punch-through"
       | "resolved-ricochet"
       | "resolved-chain"
-      | "resolved-radial-targets";
+      | "resolved-radial-targets"
+      | "resolved-pellet-allocation";
     readonly targetId: string;
     readonly targetPathRelationId: string | null;
     readonly pathTargetIds: readonly string[];
     readonly impactId: string | null;
     readonly radialTargetRelations: readonly ScenarioDomainRadialTargetRelation[];
+    readonly allocationId: string | null;
+    readonly pelletCount: number;
+    readonly pelletAllocationRelations: readonly ScenarioDomainPelletAllocationRelation[];
     readonly hitLocation: "hit-location.neutral-body" | null;
     readonly damageLayer: "health";
     readonly criticalResolution: "fixed" | "roll" | "expected" | "none";
@@ -134,6 +140,12 @@ export type ScenarioDomainRadialTargetRelation = {
   readonly lineOfSightClear: boolean;
   readonly hit: boolean;
   readonly falloffMultiplier: number | null;
+};
+
+export type ScenarioDomainPelletAllocationRelation = {
+  readonly id: string;
+  readonly targetId: string;
+  readonly resolvedHitCount: number;
 };
 
 export type ScenarioDomainTarget = {
@@ -192,6 +204,13 @@ const FIXED_PELLET_PARAMETER_KEYS = Object.freeze([
   "criticalTier",
   "pelletCount",
 ] as const);
+const RESOLVED_PELLET_ALLOCATION_PARAMETER_KEYS = Object.freeze([
+  "allocationId",
+  "hitLocation",
+  "damageLayer",
+  "criticalTier",
+  "pelletCount",
+] as const);
 const FIXED_RADIAL_PARAMETER_KEYS = Object.freeze([
   ...ACTION_PARAMETER_COMMON_KEYS,
   "criticalTier",
@@ -227,6 +246,19 @@ const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
 const PELLET_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "pellet.count",
   "damage.pellet.total",
+]);
+const PELLET_ALLOCATION_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "pellet.hit-count",
+  "pellet.miss-count",
+]);
+const PELLET_ALLOCATION_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "pellet.count",
+  "pellet.hit-count",
+  "pellet.miss-count",
+  "damage.pellet.total",
+  "damage.health.total",
+  "targets.health.remaining-total",
+  "targets.defeated-count",
 ]);
 const RADIAL_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "radial.falloff.multiplier",
@@ -784,6 +816,9 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       pathTargetIds: Object.freeze(radialTargetRelations.map((relation) => relation.targetId)),
       impactId: impactId.value,
       radialTargetRelations: Object.freeze(radialTargetRelations),
+      allocationId: null,
+      pelletCount: 0,
+      pelletAllocationRelations: Object.freeze([]),
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
       criticalResolution: "fixed",
@@ -804,6 +839,375 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
     fingerprintSeed: 0,
   });
   return Object.freeze({ ok: true, value });
+}
+
+function parseResolvedPelletAllocationDomain(scenario: Scenario): ScenarioDomainParseResult {
+  const mechanicId = "mechanic.pellet.resolved-allocation";
+  if (scenario.simulation.mode !== "deterministic") {
+    return failure(
+      "unsupported-simulation-mode",
+      "/simulation/mode",
+      "Resolved Pellet allocation currently requires deterministic mode",
+      mechanicId,
+    );
+  }
+  if (
+    scenario.targetGraph.relations.length < 1 ||
+    scenario.targetGraph.relations.length > 64 ||
+    scenario.targetGraph.relations.some(
+      (relation) => relation.kind !== "target-relation.pellet-allocation",
+    )
+  ) {
+    return failure(
+      "unsupported-target-graph",
+      "/targetGraph/relations",
+      "Resolved Pellet allocation requires 1 to 64 pellet-allocation relations",
+      mechanicId,
+    );
+  }
+  if (
+    scenario.targets.length !== scenario.targetGraph.relations.length ||
+    scenario.actionPlan.length !== 1
+  ) {
+    return failure(
+      "unsupported-scenario-shape",
+      scenario.actionPlan.length !== 1 ? "/actionPlan" : "/targets",
+      "Resolved Pellet allocation requires exactly one action and one relation per target",
+      mechanicId,
+    );
+  }
+  if (Object.keys(scenario.initialState).length > 0) {
+    return failure(
+      "unsupported-configuration-key",
+      "/initialState",
+      "Resolved Pellet allocation requires an empty initialState",
+      mechanicId,
+    );
+  }
+
+  const attackerKeyError = exactKeys(
+    scenario.attacker.configuration,
+    ATTACKER_CONFIGURATION_KEYS,
+    "/attacker/configuration",
+  );
+  if (attackerKeyError !== undefined) {
+    return attackerKeyError;
+  }
+  const weaponId = readStableString(
+    scenario.attacker.configuration,
+    "weaponId",
+    "/attacker/configuration",
+  );
+  if (!weaponId.ok) {
+    return weaponId;
+  }
+  const attackModeId = readStableString(
+    scenario.attacker.configuration,
+    "attackModeId",
+    "/attacker/configuration",
+  );
+  if (!attackModeId.ok) {
+    return attackModeId;
+  }
+
+  const action = scenario.actionPlan[0];
+  if (action === undefined || action.kind !== "action.resolved-pellet-allocation") {
+    return failure(
+      "unsupported-action-kind",
+      "/actionPlan/0/kind",
+      "Pellet allocation relations require action.resolved-pellet-allocation",
+      action?.kind ?? "action.missing",
+    );
+  }
+  const actionKeyError = exactKeys(
+    action.parameters,
+    RESOLVED_PELLET_ALLOCATION_PARAMETER_KEYS,
+    "/actionPlan/0/parameters",
+  );
+  if (actionKeyError !== undefined) {
+    return actionKeyError;
+  }
+  const allocationId = readStableString(
+    action.parameters,
+    "allocationId",
+    "/actionPlan/0/parameters",
+  );
+  if (!allocationId.ok) {
+    return allocationId;
+  }
+  const pelletCount = action.parameters.pelletCount;
+  if (
+    typeof pelletCount !== "number" ||
+    !Number.isSafeInteger(pelletCount) ||
+    pelletCount < 1 ||
+    pelletCount > 64
+  ) {
+    return failure(
+      "unsupported-pellet-resolution",
+      "/actionPlan/0/parameters/pelletCount",
+      "Resolved Pellet allocation pelletCount must be a safe integer from 1 to 64",
+      mechanicId,
+    );
+  }
+  const criticalTier = action.parameters.criticalTier;
+  if (typeof criticalTier !== "number" || !Number.isSafeInteger(criticalTier) || criticalTier < 0) {
+    return failure(
+      "unsupported-critical-tier",
+      "/actionPlan/0/parameters/criticalTier",
+      "Resolved Pellet allocation criticalTier must be a non-negative safe integer",
+      "mechanic.critical.tier-multiplier",
+    );
+  }
+  if (action.parameters.hitLocation !== "hit-location.neutral-body") {
+    return failure(
+      "unsupported-hit-location",
+      "/actionPlan/0/parameters/hitLocation",
+      `Unsupported hit location: ${String(action.parameters.hitLocation)}`,
+      "mechanic.hit-location",
+    );
+  }
+  if (action.parameters.damageLayer !== "health") {
+    return failure(
+      "unsupported-damage-layer",
+      "/actionPlan/0/parameters/damageLayer",
+      `Unsupported damage layer: ${String(action.parameters.damageLayer)}`,
+      "mechanic.damage-layer",
+    );
+  }
+
+  const configuredTargets = new Map(scenario.targets.map((target) => [target.id, target]));
+  if (configuredTargets.size !== scenario.targets.length) {
+    return failure(
+      "invalid-target-reference",
+      "/targets",
+      "Scenario target IDs must be unique",
+      mechanicId,
+    );
+  }
+  const seenRelationIds = new Set<string>();
+  const seenTargetIds = new Set<string>();
+  const targets: ScenarioDomainTarget[] = [];
+  const pelletAllocationRelations: ScenarioDomainPelletAllocationRelation[] = [];
+  let hitCount = 0;
+  for (const [relationIndex, relation] of scenario.targetGraph.relations.entries()) {
+    if (relation.kind !== "target-relation.pellet-allocation") {
+      return failure(
+        "unsupported-target-graph",
+        `/targetGraph/relations/${relationIndex}`,
+        "Resolved Pellet allocation cannot mix relation kinds",
+        mechanicId,
+      );
+    }
+    if (relation.allocationId !== allocationId.value) {
+      return failure(
+        "invalid-target-reference",
+        `/targetGraph/relations/${relationIndex}/allocationId`,
+        `Pellet relation ${relation.id} does not reference ${allocationId.value}`,
+        mechanicId,
+      );
+    }
+    if (
+      seenRelationIds.has(relation.id) ||
+      seenTargetIds.has(relation.targetId) ||
+      !Number.isSafeInteger(relation.resolvedHitCount)
+    ) {
+      return failure(
+        "invalid-target-reference",
+        `/targetGraph/relations/${relationIndex}`,
+        "Resolved Pellet allocation relation and target IDs must be unique with safe hit counts",
+        mechanicId,
+      );
+    }
+    const target = configuredTargets.get(relation.targetId);
+    if (target === undefined) {
+      return failure(
+        "invalid-target-reference",
+        `/targetGraph/relations/${relationIndex}/targetId`,
+        `Unknown Pellet allocation target: ${relation.targetId}`,
+        mechanicId,
+      );
+    }
+    const targetIndex = scenario.targets.indexOf(target);
+    const basePath = `/targets/${targetIndex}/configuration`;
+    const keyError = exactKeys(target.configuration, TARGET_CONFIGURATION_KEYS, basePath);
+    if (keyError !== undefined) {
+      return keyError;
+    }
+    const catalogTargetId = readStableString(target.configuration, "catalogTargetId", basePath);
+    if (!catalogTargetId.ok) {
+      return catalogTargetId;
+    }
+    const resolvedHealth = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedHealth",
+      basePath,
+    );
+    if (!resolvedHealth.ok) {
+      return resolvedHealth;
+    }
+    const resolvedShield = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedShield",
+      basePath,
+    );
+    if (!resolvedShield.ok) {
+      return resolvedShield;
+    }
+    const resolvedArmor = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedArmor",
+      basePath,
+    );
+    if (!resolvedArmor.ok) {
+      return resolvedArmor;
+    }
+    const resolvedOverguard = readNonNegativeFiniteNumber(
+      target.configuration,
+      "resolvedOverguard",
+      basePath,
+    );
+    if (!resolvedOverguard.ok) {
+      return resolvedOverguard;
+    }
+    if (resolvedShield.value !== 0 || resolvedOverguard.value !== 0) {
+      return failure(
+        "unsupported-target-defense",
+        basePath,
+        "Resolved Pellet allocation supports Health and Armor only",
+        resolvedShield.value !== 0 ? "mechanic.shield" : "mechanic.overguard",
+      );
+    }
+    hitCount += relation.resolvedHitCount;
+    if (!Number.isSafeInteger(hitCount) || hitCount > pelletCount) {
+      return failure(
+        "unsupported-pellet-resolution",
+        `/targetGraph/relations/${relationIndex}/resolvedHitCount`,
+        "Resolved Pellet hit count sum must not exceed pelletCount",
+        mechanicId,
+      );
+    }
+    seenRelationIds.add(relation.id);
+    seenTargetIds.add(relation.targetId);
+    targets.push(
+      Object.freeze({
+        id: target.id,
+        catalogTargetId: catalogTargetId.value,
+        resolvedHealth: resolvedHealth.value,
+        resolvedShield: 0,
+        resolvedArmor: resolvedArmor.value,
+        resolvedOverguard: 0,
+      }),
+    );
+    pelletAllocationRelations.push(
+      Object.freeze({
+        id: relation.id,
+        targetId: relation.targetId,
+        resolvedHitCount: relation.resolvedHitCount,
+      }),
+    );
+  }
+  if (
+    seenTargetIds.size !== configuredTargets.size ||
+    new Set(targets.map((target) => target.catalogTargetId)).size !== 1
+  ) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/targets",
+      "Resolved Pellet allocation requires every target exactly once and one shared Catalog target definition",
+      mechanicId,
+    );
+  }
+
+  const metrics: SupportedMetricId[] = [];
+  const seenMetrics = new Set<string>();
+  for (const [index, metric] of scenario.metrics.entries()) {
+    if (!SUPPORTED_METRIC_SET.has(metric)) {
+      return failure(
+        "unsupported-metric",
+        `/metrics/${index}`,
+        `Unsupported metric: ${metric}`,
+        metric,
+      );
+    }
+    const supportedMetric = metric as SupportedMetricId;
+    if (!PELLET_ALLOCATION_AVAILABLE_METRIC_IDS.has(supportedMetric)) {
+      return failure(
+        "unsupported-metric",
+        `/metrics/${index}`,
+        `Metric ${metric} is unavailable for resolved Pellet allocation`,
+        metric,
+      );
+    }
+    if (seenMetrics.has(metric)) {
+      return failure(
+        "duplicate-metric",
+        `/metrics/${index}`,
+        `Duplicate metric: ${metric}`,
+        metric,
+      );
+    }
+    seenMetrics.add(metric);
+    metrics.push(supportedMetric);
+  }
+  if (metrics.length === 0) {
+    return failure(
+      "unsupported-scenario-shape",
+      "/metrics",
+      "At least one resolved Pellet allocation metric is required",
+      mechanicId,
+    );
+  }
+
+  const frozenScenario = deepFreeze(scenario);
+  const frozenTargets = Object.freeze(targets);
+  const primaryTarget = frozenTargets[0];
+  if (primaryTarget === undefined) {
+    return failure("unsupported-scenario-shape", "/targets", "At least one target is required");
+  }
+  return Object.freeze({
+    ok: true,
+    value: Object.freeze({
+      scenario: frozenScenario,
+      attacker: Object.freeze({
+        id: frozenScenario.attacker.id,
+        weaponId: weaponId.value,
+        attackModeId: attackModeId.value,
+      }),
+      target: primaryTarget,
+      targets: frozenTargets,
+      action: Object.freeze({
+        id: action.id,
+        kind: "resolved-pellet-allocation",
+        targetId: primaryTarget.id,
+        targetPathRelationId: null,
+        pathTargetIds: Object.freeze(
+          pelletAllocationRelations.map((relation) => relation.targetId),
+        ),
+        impactId: null,
+        radialTargetRelations: Object.freeze([]),
+        allocationId: allocationId.value,
+        pelletCount,
+        pelletAllocationRelations: Object.freeze(pelletAllocationRelations),
+        hitLocation: "hit-location.neutral-body",
+        damageLayer: "health",
+        criticalResolution: "fixed",
+        criticalTier,
+        criticalRoll: null,
+        hitCount,
+        resolvedRadialFalloffMultiplier: 1,
+        statusId: null,
+        resolvedHealthDamagePerTick: 0,
+        statusTickCount: 0,
+        statusTickIntervalMs: 0,
+      }),
+      simulation: Object.freeze({
+        mode: "deterministic",
+        timeLimitMs: frozenScenario.simulation.timeLimitMs,
+      }),
+      metrics: Object.freeze(metrics),
+      fingerprintSeed: 0,
+    }),
+  });
 }
 
 function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseResult {
@@ -1140,6 +1544,9 @@ function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseR
       pathTargetIds: Object.freeze([...relation.targetIds]),
       impactId: null,
       radialTargetRelations: Object.freeze([]),
+      allocationId: null,
+      pelletCount: 0,
+      pelletAllocationRelations: Object.freeze([]),
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
       criticalResolution: "fixed",
@@ -1194,9 +1601,12 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
 
   if (scenario.targetGraph.relations.length > 0) {
-    return scenario.targetGraph.relations[0]?.kind === "target-relation.impact-distance"
+    const relationKind = scenario.targetGraph.relations[0]?.kind;
+    return relationKind === "target-relation.impact-distance"
       ? parseResolvedRadialTargetsDomain(scenario)
-      : parseResolvedTargetPathDomain(scenario);
+      : relationKind === "target-relation.pellet-allocation"
+        ? parseResolvedPelletAllocationDomain(scenario)
+        : parseResolvedTargetPathDomain(scenario);
   }
 
   if (scenario.targets.length !== 1) {
@@ -1504,6 +1914,9 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
         pathTargetIds: Object.freeze([]),
         impactId: null,
         radialTargetRelations: Object.freeze([]),
+        allocationId: null,
+        pelletCount: 0,
+        pelletAllocationRelations: Object.freeze([]),
         hitLocation: null,
         damageLayer: "health",
         criticalResolution: "none",
@@ -1735,6 +2148,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       (criticalResolution === "expected" && REALIZED_CRITICAL_METRIC_IDS.has(supportedMetric)) ||
       (actionKind !== "fixed-multishot" && MULTISHOT_ONLY_METRIC_IDS.has(supportedMetric)) ||
       (actionKind !== "fixed-pellets" && PELLET_ONLY_METRIC_IDS.has(supportedMetric)) ||
+      PELLET_ALLOCATION_ONLY_METRIC_IDS.has(supportedMetric) ||
       (actionKind !== "radial-hit" && RADIAL_ONLY_METRIC_IDS.has(supportedMetric)) ||
       STATUS_ONLY_METRIC_IDS.has(supportedMetric) ||
       PUNCH_THROUGH_ONLY_METRIC_IDS.has(supportedMetric)
@@ -1792,6 +2206,9 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       pathTargetIds: Object.freeze([]),
       impactId: null,
       radialTargetRelations: Object.freeze([]),
+      allocationId: null,
+      pelletCount: actionKind === "fixed-pellets" ? hitCount : 0,
+      pelletAllocationRelations: Object.freeze([]),
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
       criticalResolution,

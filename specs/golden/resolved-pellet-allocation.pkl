@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for resolved target-specific Pellet allocation.
+module voidtrace.golden.resolvedPelletAllocation
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-013"
+  desc =
+    "data/fixtures/golden/resolved-pellet-allocation.scenario.jsonはtargets配列B→A→Cと異なるrelation順A→C→Bへ総pellet 4をA=2、C=0、B=1として配分し、残る1 pelletをmissとする。固定Critical tier 0とtarget別ArmorによりHealthをA 150→50、C 90→90、B 80→0へ更新し、命中Damage合計200、全target残Health合計140、撃破1をliteral expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

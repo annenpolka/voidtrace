@@ -1,7 +1,7 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.3.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.3.0",
   "id": "scenario.golden-probability-critical-armor",
   "revision": 1,
   "createdFrom": {
@@ -23,10 +23,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.12.0",
+    "schemaVersion": "0.13.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:448726631b8f022d7248235f194b00a05bb283c57d35e4aef6641597e0b54146",
+    "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -95,5 +95,5 @@
       "description": "This explicit-roll Scenario does not generate randomness or perform expected-value aggregation."
     }
   ],
-  "contentHash": "sha256:bdbb018d091c5e2e2283b10c1fa96b4c13e1148c212d5ddd8e93c07a461dd198"
+  "contentHash": "sha256:3cbc432002f298374da7602101a01c16a0f6cd3d0f11bef25fa62abf7ec69fe5"
 }

@@ -27,9 +27,9 @@ function artifactRef(kind: string, id: string): ArtifactRef {
 }
 
 const scenario = {
-  $schema: "urn:voidtrace:schema:scenario:0.2.0",
+  $schema: "urn:voidtrace:schema:scenario:0.3.0",
   kind: "voidtrace.scenario",
-  schemaVersion: "0.2.0",
+  schemaVersion: "0.3.0",
   id: "scenario.example",
   revision: 0,
   contentHash: HASH,
@@ -77,7 +77,7 @@ const scenario = {
 const fingerprint = {
   productVersion: "0.1.0",
   engineVersion: "0.1.0",
-  scenarioSchemaVersion: "0.1.0",
+  scenarioSchemaVersion: "0.3.0",
   catalogHash: HASH,
   rulesetHash: HASH,
   scenarioHash: HASH,
@@ -220,6 +220,13 @@ describe("generated Contract validation", () => {
             pathKind: "punch-through",
             targetIds: ["target.primary", "target.secondary"],
           },
+          {
+            id: "relation.pellet-target",
+            kind: "target-relation.pellet-allocation",
+            allocationId: "pellet-allocation.example",
+            targetId: "target.primary",
+            resolvedHitCount: 2,
+          },
         ],
       },
     };
@@ -246,6 +253,19 @@ describe("generated Contract validation", () => {
             {
               ...withRelations.targetGraph.relations[1],
               targetIds: [],
+            },
+          ],
+        },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("scenario", {
+        ...withRelations,
+        targetGraph: {
+          relations: [
+            {
+              ...withRelations.targetGraph.relations[2],
+              resolvedHitCount: -1,
             },
           ],
         },

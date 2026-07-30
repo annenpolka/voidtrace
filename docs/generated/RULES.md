@@ -3,7 +3,7 @@
 # Runtime rules
 
 - Ruleset: `ruleset.synthetic-core`
-- Version: `0.12.0`
+- Version: `0.13.0`
 - Revision: `1`
 - Game build: `synthetic-fixture-0`
 - Generated IR: `packages/spec-artifacts/src/rulesets/core.generated.json`
@@ -14,6 +14,7 @@
 | --- | --- | --- | --- | --- |
 | `rule.multishot.emit-fixed-hits` | `attack.emit` | `event.expand-fixed-multishot` | `experimental` | Expand one action with an explicit positive safe-integer hit count into that many stable ordered Direct Hit child events, bounded by the operation execution limit. |
 | `rule.pellet.emit-fixed-hits` | `attack.emit` | `event.expand-fixed-pellets` | `experimental` | Expand one action with an explicit positive safe-integer pellet count into that many stable ordered Direct Hit child events, bounded by the operation execution limit. |
+| `rule.pellet.expand-resolved-allocation` | `attack.emit` | `event.expand-resolved-pellet-allocation` | `experimental` | Expand explicit target-specific resolved pellet hit counts into bounded Direct Hit child events. |
 | `rule.status.schedule-resolved-ticks` | `attack.emit` | `event.expand-resolved-status-ticks` | `experimental` | Expand one explicit resolved Status action into a bounded count of ordered logical-time tick events. |
 | `rule.punch-through.expand-resolved-targets` | `attack.emit` | `event.expand-resolved-punch-through-targets` | `experimental` | Expand one explicit resolved punch-through path into a bounded ordered sequence of target Direct Hit events. |
 | `rule.ricochet.expand-resolved-targets` | `attack.emit` | `event.expand-resolved-ricochet-targets` | `experimental` | Expand one explicit resolved ricochet path into a bounded ordered sequence of target Direct Hit events. |
@@ -35,6 +36,7 @@
 | `rule.critical.aggregate-expected-branches` | `result.aggregate` | `damage-vector.aggregate-weighted-branches` | `experimental` | After every reachable adjacent Critical tier branch reaches terminal Health commit, weight its final Damage Vector and remaining Health by the branch probability. |
 | `rule.multishot.aggregate-fixed-hits` | `result.aggregate` | `damage-vector.aggregate-sequential-hits` | `experimental` | After every emitted Direct Hit reaches terminal Health commit in stable index order, sum the hit Damage Vectors and preserve the final sequential remaining Health. |
 | `rule.pellet.aggregate-fixed-hits` | `result.aggregate` | `damage-vector.aggregate-sequential-pellets` | `experimental` | After every emitted pellet Direct Hit reaches terminal Health commit in stable index order, sum the hit Damage Vectors and preserve the final sequential remaining Health. |
+| `rule.pellet.aggregate-resolved-allocation` | `result.aggregate` | `damage-vector.aggregate-resolved-pellet-allocation` | `experimental` | Aggregate terminal Damage and target-specific Health for every target in one resolved pellet allocation, preserving explicit misses. |
 | `rule.status.aggregate-resolved-ticks` | `result.aggregate` | `damage-vector.aggregate-sequential-status-ticks` | `experimental` | Aggregate every terminal Status tick Damage Vector and preserve the final sequential remaining Health. |
 | `rule.punch-through.aggregate-resolved-targets` | `result.aggregate` | `damage-vector.aggregate-resolved-punch-through-targets` | `experimental` | Aggregate terminal Damage and target-specific Health from every target visited by one resolved punch-through path. |
 | `rule.ricochet.aggregate-resolved-targets` | `result.aggregate` | `damage-vector.aggregate-resolved-ricochet-targets` | `experimental` | Aggregate terminal Damage and target-specific Health from every target visited by one resolved ricochet path. |

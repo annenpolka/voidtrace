@@ -1,0 +1,49 @@
+{
+  "id": "golden.resolved-pellet-allocation",
+  "scenarioId": "scenario.golden-resolved-pellet-allocation",
+  "metrics": {
+    "pellet.count": 4,
+    "pellet.hit-count": 3,
+    "pellet.miss-count": 1,
+    "damage.pellet.total": 200,
+    "damage.health.total": 200,
+    "targets.health.remaining-total": 140,
+    "targets.defeated-count": 1
+  },
+  "damageBySource": {
+    "action.resolved-pellet-allocation-1": 200
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 200
+  },
+  "targetStates": {
+    "actor.target-a": {
+      "health": 50
+    },
+    "actor.target-b": {
+      "health": 0
+    },
+    "actor.target-c": {
+      "health": 90
+    }
+  },
+  "appliedRuleIds": [
+    "rule.pellet.expand-resolved-allocation",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.pellet.aggregate-resolved-allocation"
+  ],
+  "rejectedRules": [],
+  "targetOrder": ["actor.target-a", "actor.target-a", "actor.target-b"],
+  "tolerance": 0.000001
+}

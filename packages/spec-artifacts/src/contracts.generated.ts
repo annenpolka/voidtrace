@@ -213,11 +213,11 @@ export type Result = {
 /** Generated finite Rule IR interpreted by the Kernel-facing Rules package. */
 export type Ruleset = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:ruleset:0.12.0";
+  readonly "$schema": "urn:voidtrace:schema:ruleset:0.13.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "ruleset";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.12.0";
+  readonly "schemaVersion": "0.13.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -252,6 +252,11 @@ export type Ruleset = {
       /** Expand one resolved pellet action into an explicit bounded count of ordered Direct Hit events. */
       readonly "kind": "event.expand-fixed-pellets";
       /** Positive safe execution bound for one resolved pellet action. */
+      readonly "maximumPellets": number;
+    } | {
+      /** Expand one resolved target-specific pellet allocation into an explicit bounded count of Direct Hit events. */
+      readonly "kind": "event.expand-resolved-pellet-allocation";
+      /** Positive safe execution bound for one resolved pellet allocation. */
       readonly "maximumPellets": number;
     } | {
       /** Expand one resolved Status action into an explicit bounded count of ordered logical-time tick events. */
@@ -314,6 +319,9 @@ export type Ruleset = {
       /** Aggregate ordered terminal pellet Damage Vectors and preserve the final sequential Health state. */
       readonly "kind": "damage-vector.aggregate-sequential-pellets";
     } | {
+      /** Aggregate terminal Damage and target-specific Health for one resolved pellet allocation. */
+      readonly "kind": "damage-vector.aggregate-resolved-pellet-allocation";
+    } | {
       /** Aggregate ordered terminal Status tick Damage Vectors and preserve the final sequential Health state. */
       readonly "kind": "damage-vector.aggregate-sequential-status-ticks";
     } | {
@@ -339,11 +347,11 @@ export type Ruleset = {
 /** Immutable, reproducible evaluation input with explicit structured extension points. */
 export type Scenario = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:scenario:0.2.0";
+  readonly "$schema": "urn:voidtrace:schema:scenario:0.3.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "voidtrace.scenario";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.2.0";
+  readonly "schemaVersion": "0.3.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -397,6 +405,17 @@ export type Scenario = {
       readonly "pathKind": "punch-through" | "chain" | "ricochet";
       /** Non-empty target order resolved outside the Kernel. */
       readonly "targetIds": ReadonlyArray<string>;
+    } | {
+      /** Scenario-local stable identity of this resolved pellet allocation relation. */
+      readonly "id": string;
+      /** Resolved target-specific pellet allocation relation discriminator. */
+      readonly "kind": "target-relation.pellet-allocation";
+      /** Scenario-local stable identity of the already resolved pellet allocation. */
+      readonly "allocationId": string;
+      /** Scenario-local target identity receiving the resolved pellet hits. */
+      readonly "targetId": string;
+      /** Non-negative safe-integer pellet hits already resolved outside the Kernel. */
+      readonly "resolvedHitCount": number;
     }>;
   };
   /** Explicit flat scalar state present before the first action. */

@@ -4,8 +4,8 @@ module voidtrace.contracts.scenario
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:scenario:0.2.0"
-local contractVersion = "0.2.0"
+local schemaIdentifier = "urn:voidtrace:schema:scenario:0.3.0"
+local contractVersion = "0.3.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -172,6 +172,45 @@ function resolvedOrderedPathRelation(): model.ObjectNode = new model.ObjectNode 
   }
 }
 
+function resolvedPelletAllocationRelation(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Scenario-local stable identity of this resolved pellet allocation relation."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "kind"
+      description = "Resolved target-specific pellet allocation relation discriminator."
+      required = true
+      schema = new model.LiteralNode {
+        value = "target-relation.pellet-allocation"
+      }
+    }
+    new model.Field {
+      name = "allocationId"
+      description = "Scenario-local stable identity of the already resolved pellet allocation."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "targetId"
+      description = "Scenario-local target identity receiving the resolved pellet hits."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "resolvedHitCount"
+      description = "Non-negative safe-integer pellet hits already resolved outside the Kernel."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 0
+      }
+    }
+  }
+}
+
 function targetGraph(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
@@ -184,6 +223,7 @@ function targetGraph(): model.ObjectNode = new model.ObjectNode {
           variants = new {
             resolvedImpactDistanceRelation()
             resolvedOrderedPathRelation()
+            resolvedPelletAllocationRelation()
           }
         }
       }

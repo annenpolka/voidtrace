@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:scenario:0.2.0",
+  "$id": "urn:voidtrace:schema:scenario:0.3.0",
   "title": "Scenario",
   "description": "Immutable, reproducible evaluation input with explicit structured extension points.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:scenario:0.2.0"
+      "const": "urn:voidtrace:schema:scenario:0.3.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.2.0"
+      "const": "0.3.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -271,6 +271,47 @@
                   "kind",
                   "pathKind",
                   "targetIds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "description": "Scenario-local stable identity of this resolved pellet allocation relation.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "kind": {
+                    "description": "Resolved target-specific pellet allocation relation discriminator.",
+                    "type": "string",
+                    "const": "target-relation.pellet-allocation"
+                  },
+                  "allocationId": {
+                    "description": "Scenario-local stable identity of the already resolved pellet allocation.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "targetId": {
+                    "description": "Scenario-local target identity receiving the resolved pellet hits.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+                  },
+                  "resolvedHitCount": {
+                    "description": "Non-negative safe-integer pellet hits already resolved outside the Kernel.",
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "allocationId",
+                  "targetId",
+                  "resolvedHitCount"
                 ],
                 "additionalProperties": false
               }

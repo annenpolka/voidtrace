@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, resolved multi-target Radial distance/LoS, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, Catalog- or current-game-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, resolved target-specific Pellet allocation, standalone resolved Radial falloff, resolved multi-target Radial distance/LoS, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, Catalog- or current-game-derived Radial falloff, probabilistic Multishot, unresolved pellet allocation, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -47,6 +47,9 @@ contains three explicit targets, and the checked-in four-target resolved Radial 
 - the repository-local resolved multi-target Radial Scenario through the formal CLI, where four
   same-impact relations declare distance and LoS, two targets receive Radial Hits through a
   synthetic linear falloff and two preserve Health as resolved non-hits;
+- the repository-local resolved Pellet allocation Scenario through the formal CLI, where four
+  declared pellets are resolved as A×2, C×0, B×1, and one miss, with all target Health preserved
+  or updated through the fixed-tier Direct Hit pipeline;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
@@ -55,12 +58,13 @@ contains three explicit targets, and the checked-in four-target resolved Radial 
 
 The helper does not synthesize or vary Critical chance or rolls. The formal CLI can evaluate the
 repository-local explicit-roll, expected, resolved fixed-count Multishot, resolved
-punch-through, resolved ricochet, resolved chain, and resolved multi-target Radial Scenarios. The
+punch-through, resolved ricochet, resolved chain, resolved multi-target Radial, and resolved
+Pellet allocation Scenarios. The
 helper does not accept a Multishot count, pellet count, target path, impact relation, or per-target
 override. Generated random rolls, custom Critical
 chance, probabilistic or custom-count Multishot, custom-count or probabilistic pellets,
 Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, Multishot or pellet
-expected values, hit distribution, Spread, unsafe or unrepresentable tiers, Monte Carlo
+expected values, unresolved or probabilistic hit distribution, Spread, unsafe or unrepresentable tiers, Monte Carlo
 aggregation, mods, headshots, Shield, Overguard, projectiles, real-game imports, and build
 recommendations are unsupported. Catalog- or current-game-derived Radial falloff, physical
 geometry, Direct and Radial sibling composition, Projectile parents, custom multi-target Radial
@@ -77,7 +81,10 @@ either `relations: []` or exactly one checked-in-style `target-relation.ordered-
 resolved action. It also accepts the checked-in-style set of 1 to 64
 `target-relation.impact-distance` relations sharing one impact ID when referenced by
 `action.resolved-radial-targets`. The relations supply resolved distance and LoS; the action
-supplies explicit synthetic linear falloff bounds. Geometry or collision derivation, wall
+supplies explicit synthetic linear falloff bounds. It also accepts one
+`target-relation.pellet-allocation` per configured target when all relations share the action's
+allocation ID and their hit counts sum to no more than the declared 1 to 64 pellets; the remainder
+is an explicit miss count. Geometry or collision derivation, wall
 thickness, reflection angles, target selection, chain candidate search, branching, distance or
 LoS derivation, revisit behavior, path derivation, attenuation, per-target Critical variation,
 and rolls remain unsupported. Do not silently reduce another Target Graph to a supported path or
@@ -135,6 +142,10 @@ pnpm exec vt trace data/fixtures/golden/resolved-chain.scenario.json \
 pnpm exec vt run data/fixtures/golden/resolved-radial-targets.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-radial-targets.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-pellet-allocation.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-pellet-allocation.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -259,6 +270,15 @@ for another agent or script. `--help` lists the finite adapter options.
   2 / 67.5 / 67.5 / 242.5 / 0 with Health A=70, C=72.5, B=60, D=40 and 12 Trace decisions. Do not
   infer coordinates, terrain, LoS, distance, Catalog/current-game falloff parameters, a Direct
   sibling, Projectile parent, or a roll.
+- Resolved Pellet allocation starts with `rule.pellet.expand-resolved-allocation`, applies the
+  four-rule Direct Hit pipeline in relation order and then target-local pellet index order, and
+  ends with `rule.pellet.aggregate-resolved-allocation`. Report `pellet.count`,
+  `pellet.hit-count`, `pellet.miss-count`, `damage.pellet.total`, `damage.health.total`,
+  `targets.health.remaining-total`, `targets.defeated-count`, and every target Health. The Golden
+  targets array is B→A→C, relations are A→C→B, emitted hits are A→A→B, and the result is
+  4 / 3 / 1 / 200 / 200 / 140 / 1 with Health A=50, C=90, B=0 and 14 Trace decisions. Do not
+  infer Spread, hit tests, a probability distribution, per-pellet Critical rolls, or Multishot
+  composition.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
 For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,

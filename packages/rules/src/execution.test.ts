@@ -4,6 +4,8 @@ import {
   executeExpectedAggregateRule,
   executeFixedMultishotRule,
   executeFixedPelletRule,
+  executeResolvedPelletAllocationAggregateRule,
+  executeResolvedPelletAllocationExpansionRule,
   executeResolvedRadialFalloffRule,
   executeResolvedPunchThroughAggregateRule,
   executeResolvedPunchThroughExpansionRule,
@@ -123,6 +125,8 @@ describe("generated core Rule execution", async () => {
   const chainAggregate = loaded.resolveRule("rule.chain.aggregate-resolved-targets");
   const radialTargetsExpansion = loaded.resolveRule("rule.radial.expand-resolved-targets");
   const radialTargetsAggregate = loaded.resolveRule("rule.radial.aggregate-resolved-targets");
+  const pelletAllocationExpansion = loaded.resolveRule("rule.pellet.expand-resolved-allocation");
+  const pelletAllocationAggregate = loaded.resolveRule("rule.pellet.aggregate-resolved-allocation");
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -482,6 +486,55 @@ describe("generated core Rule execution", async () => {
       damage: { "damage.synthetic": 50 },
       damageTotal: 50,
       health: 100,
+    });
+  });
+
+  it("expands and aggregates resolved target-specific Pellet allocation", () => {
+    const expansion = executeResolvedPelletAllocationExpansionRule(pelletAllocationExpansion, {
+      pelletCount: 4,
+      hitCount: 3,
+      initialHealthTotal: 320,
+      zeroDamage: { "damage.synthetic": 0 },
+    });
+    expect(expansion.operationKind).toBe("event.expand-resolved-pellet-allocation");
+    expect(expansion.parameters).toMatchObject({ pelletCount: 4, hitCount: 3, missCount: 1 });
+
+    const aggregate = executeResolvedPelletAllocationAggregateRule(pelletAllocationAggregate, {
+      pelletCount: 4,
+      hitCount: 3,
+      initialHealthTotal: 320,
+      targets: [
+        {
+          id: "pellet-target.0",
+          targetId: "actor.target-a",
+          index: 0,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 150,
+          healthAfter: 50,
+        },
+        {
+          id: "pellet-target.1",
+          targetId: "actor.target-c",
+          index: 1,
+          damage: { "damage.synthetic": 0 },
+          healthBefore: 90,
+          healthAfter: 90,
+        },
+        {
+          id: "pellet-target.2",
+          targetId: "actor.target-b",
+          index: 2,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 80,
+          healthAfter: 0,
+        },
+      ],
+    });
+    expect(aggregate.operationKind).toBe("damage-vector.aggregate-resolved-pellet-allocation");
+    expect(aggregate.after).toEqual({
+      damage: { "damage.synthetic": 200 },
+      damageTotal: 200,
+      health: 140,
     });
   });
 

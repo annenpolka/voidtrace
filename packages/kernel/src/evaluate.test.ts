@@ -72,6 +72,12 @@ import radialTargetsExpectedFixture from "../../../data/fixtures/golden/resolved
 import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
   type: "json",
 };
+import pelletAllocationExpectedFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.expected.json" with {
+  type: "json",
+};
+import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
+  type: "json",
+};
 import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
   type: "json",
 };
@@ -184,6 +190,14 @@ async function evaluateChainGolden() {
 async function evaluateRadialTargetsGolden() {
   return evaluateScenario({
     scenario: structuredClone(radialTargetsScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluatePelletAllocationGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(pelletAllocationScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -1342,6 +1356,128 @@ describe("evaluateScenario", () => {
     ).toBe(true);
   });
 
+  it("matches the independently authored resolved Pellet allocation golden", async () => {
+    const outcome = await evaluatePelletAllocationGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(pelletAllocationExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(pelletAllocationExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(pelletAllocationExpectedFixture.damageByType);
+    expect(outcome.result.targetStates).toEqual(pelletAllocationExpectedFixture.targetStates);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(pelletAllocationExpectedFixture.appliedRuleIds);
+    expect(
+      outcome.trace.decisions.flatMap((decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.damage.direct-hit"
+          ? [decision.operations[0]?.parameters["target.id"]]
+          : [],
+      ),
+    ).toEqual(pelletAllocationExpectedFixture.targetOrder);
+    expect(outcome.trace.decisions).toHaveLength(14);
+    expect(outcome.result.coverage.experimental).toContain("mechanic.pellet.resolved-allocation");
+    expect(
+      await replayTraceTargetStates(outcome.trace, {
+        "actor.target-a": 150,
+        "actor.target-b": 80,
+        "actor.target-c": 90,
+      }),
+    ).toEqual({
+      damage: pelletAllocationExpectedFixture.damageByType,
+      health: 140,
+      healthByTarget: {
+        "actor.target-a": 50,
+        "actor.target-c": 90,
+        "actor.target-b": 0,
+      },
+    });
+    expect(
+      await verifyResultTraceIntegrity(
+        outcome.result,
+        outcome.trace,
+        pelletAllocationScenarioFixture,
+      ),
+    ).toBe(true);
+  });
+
+  it("property-tests resolved Pellet allocation counts, misses, and target Health", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc
+          .tuple(
+            fc.integer({ min: 0, max: 3 }),
+            fc.integer({ min: 0, max: 3 }),
+            fc.integer({ min: 0, max: 3 }),
+            fc.integer({ min: 0, max: 3 }),
+          )
+          .filter((counts) => {
+            const total = counts.reduce((sum, count) => sum + count, 0);
+            return total >= 1 && total <= 8;
+          }),
+        async ([aHits, cHits, bHits, misses]) => {
+          const changed = structuredClone(pelletAllocationScenarioFixture);
+          const counts = new Map([
+            ["actor.target-a", aHits],
+            ["actor.target-c", cHits],
+            ["actor.target-b", bHits],
+          ]);
+          for (const relation of changed.targetGraph.relations) {
+            if (relation.kind !== "target-relation.pellet-allocation") {
+              throw new Error("Resolved Pellet golden contains an unexpected relation");
+            }
+            relation.resolvedHitCount = counts.get(relation.targetId) ?? 0;
+          }
+          const action = changed.actionPlan[0];
+          if (action === undefined) {
+            throw new Error("Resolved Pellet golden omitted its action");
+          }
+          action.parameters.pelletCount = aHits + cHits + bHits + misses;
+          const scenario = await rehash(changed);
+          const outcome = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(outcome.ok).toBe(true);
+          if (!outcome.ok) {
+            return;
+          }
+          const expectedDamage = aHits * 50 + cHits * 25 + bHits * 100;
+          const expectedHealth = {
+            "actor.target-a": Math.max(0, 150 - aHits * 50),
+            "actor.target-c": Math.max(0, 90 - cHits * 25),
+            "actor.target-b": Math.max(0, 80 - bHits * 100),
+          };
+          expect(outcome.result.metrics["pellet.hit-count"]).toBe(aHits + cHits + bHits);
+          expect(outcome.result.metrics["pellet.miss-count"]).toBe(misses);
+          expect(outcome.result.metrics["damage.pellet.total"]).toBe(expectedDamage);
+          expect(outcome.result.targetStates).toEqual(
+            Object.fromEntries(
+              Object.entries(expectedHealth).map(([targetId, health]) => [targetId, { health }]),
+            ),
+          );
+          expect(
+            await replayTraceTargetStates(outcome.trace, {
+              "actor.target-a": 150,
+              "actor.target-b": 80,
+              "actor.target-c": 90,
+            }),
+          ).toMatchObject({
+            damage: { "damage.synthetic-kinetic": expectedDamage },
+            healthByTarget: expectedHealth,
+          });
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
   it("property-tests resolved Radial linear falloff and LoS gating", async () => {
     const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
     const ruleset = await loadCoreRuleset();
@@ -1746,6 +1882,8 @@ describe("evaluateScenario", () => {
         metric !== "multishot.hit-count" &&
         metric !== "damage.multishot.total" &&
         metric !== "pellet.count" &&
+        metric !== "pellet.hit-count" &&
+        metric !== "pellet.miss-count" &&
         metric !== "damage.pellet.total" &&
         metric !== "radial.falloff.multiplier" &&
         metric !== "damage.radial.base.total" &&

@@ -14,6 +14,10 @@ import {
   executeFixedMultishotRule,
   type FixedPelletContext,
   executeFixedPelletRule,
+  type ResolvedPelletAllocationAggregateContext,
+  type ResolvedPelletAllocationExpansionContext,
+  executeResolvedPelletAllocationAggregateRule,
+  executeResolvedPelletAllocationExpansionRule,
   type ResolvedRadialFalloffContext,
   executeResolvedRadialFalloffRule,
   type ResolvedStatusTickDamageContext,
@@ -55,6 +59,14 @@ export type LoadedRuleset = {
   executeExpectedAggregateRule(id: string, context: ExpectedAggregateContext): RuleExecution;
   executeFixedMultishotRule(id: string, context: FixedMultishotContext): RuleExecution;
   executeFixedPelletRule(id: string, context: FixedPelletContext): RuleExecution;
+  executeResolvedPelletAllocationExpansionRule(
+    id: string,
+    context: ResolvedPelletAllocationExpansionContext,
+  ): RuleExecution;
+  executeResolvedPelletAllocationAggregateRule(
+    id: string,
+    context: ResolvedPelletAllocationAggregateContext,
+  ): RuleExecution;
   executeResolvedRadialFalloffRule(
     id: string,
     context: ResolvedRadialFalloffContext,
@@ -160,6 +172,12 @@ const OPERATION_DECLARATIONS = {
     reads: ["action.pellet-count"],
     writes: ["event.direct-hit-count"],
   },
+  "event.expand-resolved-pellet-allocation": {
+    phase: "attack.emit",
+    eventKind: "action.resolved-pellet-allocation",
+    reads: ["action.pellet-count", "action.pellet-hit-count"],
+    writes: ["event.direct-hit-count", "event.pellet-miss-count"],
+  },
   "event.expand-resolved-status-ticks": {
     phase: "attack.emit",
     eventKind: "action.resolved-status-ticks",
@@ -256,6 +274,12 @@ const OPERATION_DECLARATIONS = {
     eventKind: "action.pellet-direct-hit",
     reads: ["hit.damage", "hit.health-before", "hit.health-after"],
     writes: ["event.damage", "target.health"],
+  },
+  "damage-vector.aggregate-resolved-pellet-allocation": {
+    phase: "result.aggregate",
+    eventKind: "action.resolved-pellet-allocation",
+    reads: ["pellet-hit.damage", "target.health-before", "target.health-after"],
+    writes: ["event.damage", "targets.health"],
   },
   "damage-vector.scale-resolved-radial-falloff": {
     phase: "damage.radial-falloff",
@@ -355,6 +379,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
       }
       break;
     case "event.expand-fixed-pellets":
+    case "event.expand-resolved-pellet-allocation":
       if (
         typeof operation.maximumPellets === "number" &&
         Number.isSafeInteger(operation.maximumPellets) &&
@@ -392,6 +417,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     case "damage-vector.aggregate-weighted-branches":
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
+    case "damage-vector.aggregate-resolved-pellet-allocation":
     case "damage-vector.scale-resolved-radial-falloff":
     case "damage-vector.copy-resolved-status-tick":
     case "damage-vector.aggregate-sequential-status-ticks":
@@ -504,6 +530,14 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       executeFixedMultishotRule(resolveRule(id), context),
     executeFixedPelletRule: (id: string, context: FixedPelletContext): RuleExecution =>
       executeFixedPelletRule(resolveRule(id), context),
+    executeResolvedPelletAllocationExpansionRule: (
+      id: string,
+      context: ResolvedPelletAllocationExpansionContext,
+    ): RuleExecution => executeResolvedPelletAllocationExpansionRule(resolveRule(id), context),
+    executeResolvedPelletAllocationAggregateRule: (
+      id: string,
+      context: ResolvedPelletAllocationAggregateContext,
+    ): RuleExecution => executeResolvedPelletAllocationAggregateRule(resolveRule(id), context),
     executeResolvedRadialFalloffRule: (
       id: string,
       context: ResolvedRadialFalloffContext,

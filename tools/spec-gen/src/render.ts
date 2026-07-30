@@ -219,7 +219,10 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
     (clause) => clause.id.startsWith("MSH-") || clause.id === "GOL-005",
   );
   const pelletClauses = spec.clauses.filter(
-    (clause) => clause.id.startsWith("PLT-") || clause.id === "GOL-006",
+    (clause) => clause.id === "PLT-001" || clause.id === "GOL-006",
+  );
+  const pelletAllocationClauses = spec.clauses.filter(
+    (clause) => clause.id === "PLT-002" || clause.id === "GOL-013",
   );
   const radialClauses = spec.clauses.filter(
     (clause) => clause.id === "RAD-001" || clause.id === "GOL-007",
@@ -244,6 +247,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       clause.area === "mechanics" &&
       !multishotClauses.includes(clause) &&
       !pelletClauses.includes(clause) &&
+      !pelletAllocationClauses.includes(clause) &&
       !radialClauses.includes(clause) &&
       !radialTargetClauses.includes(clause) &&
       !statusClauses.includes(clause) &&
@@ -316,6 +320,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       capability("mechanics.direct-critical-armor", directCriticalArmorClauses),
       capability("mechanics.fixed-multishot", multishotClauses),
       capability("mechanics.fixed-pellets", pelletClauses),
+      capability("mechanics.resolved-pellet-allocation", pelletAllocationClauses),
       capability("mechanics.resolved-radial", radialClauses),
       capability("mechanics.resolved-radial-targets", radialTargetClauses),
       capability("mechanics.resolved-status-ticks", statusClauses),

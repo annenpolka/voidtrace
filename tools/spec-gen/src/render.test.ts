@@ -185,6 +185,12 @@ describe("renderGeneratedFiles", () => {
         },
         {
           ...clause,
+          id: "PLT-002",
+          area: "mechanics",
+          maturity: "active",
+        },
+        {
+          ...clause,
           id: "RAD-001",
           area: "mechanics",
           maturity: "active",
@@ -244,6 +250,11 @@ describe("renderGeneratedFiles", () => {
           id: "mechanics.fixed-pellets",
           status: "supported",
           activeClauseRefs: ["PLT-001"],
+        }),
+        expect.objectContaining({
+          id: "mechanics.resolved-pellet-allocation",
+          status: "supported",
+          activeClauseRefs: ["PLT-002"],
         }),
         expect.objectContaining({
           id: "mechanics.resolved-radial",

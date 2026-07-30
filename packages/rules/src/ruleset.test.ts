@@ -22,12 +22,13 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.schemaVersion).toBe("0.12.0");
+    expect(loaded.snapshot.schemaVersion).toBe("0.13.0");
     expect(loaded.snapshot.revision).toBe(1);
-    expect(loaded.snapshot.rules).toHaveLength(28);
+    expect(loaded.snapshot.rules).toHaveLength(30);
     expect(loaded.snapshot.rules.map((rule) => rule.id)).toEqual([
       "rule.multishot.emit-fixed-hits",
       "rule.pellet.emit-fixed-hits",
+      "rule.pellet.expand-resolved-allocation",
       "rule.status.schedule-resolved-ticks",
       "rule.punch-through.expand-resolved-targets",
       "rule.ricochet.expand-resolved-targets",
@@ -49,6 +50,7 @@ describe("loadRuleset", () => {
       "rule.critical.aggregate-expected-branches",
       "rule.multishot.aggregate-fixed-hits",
       "rule.pellet.aggregate-fixed-hits",
+      "rule.pellet.aggregate-resolved-allocation",
       "rule.status.aggregate-resolved-ticks",
       "rule.punch-through.aggregate-resolved-targets",
       "rule.ricochet.aggregate-resolved-targets",

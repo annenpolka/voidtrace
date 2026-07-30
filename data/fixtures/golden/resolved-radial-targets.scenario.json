@@ -1,7 +1,7 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.3.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.3.0",
   "id": "scenario.golden-resolved-radial-targets",
   "revision": 0,
   "gameBuild": "synthetic-fixture-0",
@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.12.0",
+    "schemaVersion": "0.13.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:448726631b8f022d7248235f194b00a05bb283c57d35e4aef6641597e0b54146",
+    "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -143,5 +143,5 @@
       "description": "The fixture does not derive impact coordinates, terrain, LoS, distance, or current-game falloff parameters."
     }
   ],
-  "contentHash": "sha256:e92a6cb5336df269ff966b227a3ac21a9870016d6e819df116cf64c1b3320d0e"
+  "contentHash": "sha256:5831ee5b82471fe2930705e129eeb42ba43a1d5549ba24d1eea073d5edea578a"
 }

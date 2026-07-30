@@ -13,6 +13,7 @@ export const KNOWN_PATTERNS = [
   "expected_critical_branches",
   "fixed_multishot_expansion",
   "fixed_pellet_expansion",
+  "resolved_pellet_allocation",
   "resolved_radial_falloff",
   "resolved_radial_targets",
   "resolved_status_ticks",
@@ -86,6 +87,10 @@ export type RuleOperation =
       maximumPellets: number;
     }
   | {
+      kind: "event.expand-resolved-pellet-allocation";
+      maximumPellets: number;
+    }
+  | {
       kind: "event.expand-resolved-status-ticks";
       maximumTicks: number;
     }
@@ -138,6 +143,9 @@ export type RuleOperation =
     }
   | {
       kind: "damage-vector.aggregate-sequential-pellets";
+    }
+  | {
+      kind: "damage-vector.aggregate-resolved-pellet-allocation";
     }
   | {
       kind: "damage-vector.aggregate-sequential-status-ticks";
@@ -197,6 +205,7 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "expected_critical_branches",
   "fixed_multishot_expansion",
   "fixed_pellet_expansion",
+  "resolved_pellet_allocation",
   "resolved_radial_falloff",
   "resolved_radial_targets",
   "resolved_status_ticks",
@@ -326,6 +335,7 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
         ),
       };
     case "event.expand-fixed-pellets":
+    case "event.expand-resolved-pellet-allocation":
       assertExactKeys(value, ["kind", "maximumPellets"], path);
       return {
         kind,
@@ -396,6 +406,7 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
       assertExactKeys(value, ["kind"], path);
       return { kind };
     case "damage-vector.aggregate-sequential-pellets":
+    case "damage-vector.aggregate-resolved-pellet-allocation":
       assertExactKeys(value, ["kind"], path);
       return { kind };
     case "damage-vector.aggregate-sequential-status-ticks":

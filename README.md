@@ -5,9 +5,9 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The current repository state is **Commit 18: resolved multi-target Radial**. It establishes the
+The current repository state is **Commit 19: resolved Pellet allocation**. It establishes the
 normative Pkl specification, deterministic generated artifacts, eight versioned public contracts,
-and Ruleset `0.12.0` revision `1` on the Kernel foundation: an ordered Event Queue,
+and Ruleset `0.13.0` revision `1` on the Kernel foundation: an ordered Event Queue,
 logical-coordinate RNG, explicit World State transitions, and generated finite Rule IR. Strictly
 validated synthetic mini catalogs supply one hitscan weapon and one target to deterministic or
 analytic expected Direct Hit / Critical / Armor round trips. Critical resolution accepts either a fixed
@@ -32,11 +32,16 @@ synthetic linear falloff bounds. It evaluates clear-LoS targets within the end d
 the existing Radial pipeline, preserves blocked or out-of-range target Health, and aggregates
 terminal Damage and target states without deriving coordinates, terrain, LoS, distance, or
 current-game falloff parameters.
-Scenario Contract `0.2.0` also makes the resolved Target Graph explicit. Its finite input
+Resolved Pellet allocation consumes one target relation per configured target, 1 to 64 total
+pellets, target-specific non-negative hit counts, and a fixed Critical tier. It evaluates hits in
+relation order, preserves zero-hit target Health, and records the remainder as explicit misses
+without deriving Spread or hit probability.
+Scenario Contract `0.3.0` also makes the resolved Target Graph explicit. Its finite input
 vocabulary covers impact-to-target distance with a resolved LoS result and ordered
-punch-through/chain/ricochet paths. Current evaluation accepts an empty graph, one resolved
+punch-through/chain/ricochet paths plus resolved Pellet allocation. Current evaluation accepts an empty graph, one resolved
 punch-through, ricochet, or chain ordered path referenced by a matching action, or same-impact
-distance/LoS relations referenced by resolved multi-target Radial. Every multi-target slice records
+distance/LoS relations referenced by resolved multi-target Radial, or one complete target-specific
+Pellet allocation. Every multi-target slice records
 target-specific terminal Health in Result `targetStates` and aggregates Damage, remaining Health,
 and defeated count. Geometry, collision, wall penetration, attenuation, reflection angles, chain
 candidate search, branching, distance, revisit behavior, target selection, and rolls are not
@@ -47,10 +52,11 @@ statements of current Warframe mechanics. Generated random rolls, Monte Carlo,
 Critical inputs whose tiers or resulting multiplier cannot be represented safely, mods,
 headshots, Shield, Overguard, projectiles, Status chance or type rolls, probabilistic Multishot,
 custom-count helper variation, Multishot-plus-pellet composition, variable or probabilistic
-pellets, per-pellet rolls, pellet hit distribution, Spread, Multishot or pellet expected values,
+pellets, per-pellet rolls, unresolved or probabilistic pellet hit distribution, Spread, Multishot or pellet expected values,
 Trace queries, comparisons, Catalog- or current-game-derived Radial falloff, physical geometry,
 Direct-plus-Radial or Projectile parent composition, Target Graph evaluation outside the resolved
-punch-through, ricochet, chain ordered-path, and resolved Radial distance/LoS slices,
+punch-through, ricochet, chain ordered-path, resolved Radial distance/LoS, and resolved Pellet
+allocation slices,
 and the Lab remain unsupported.
 Real Status formulas, application from Direct or Radial hits, Critical or Armor derivation,
 stacking, refresh, snapshots, defense changes, expected values, and generated Status rolls also
@@ -87,7 +93,7 @@ Pkl under `specs/contracts/` is the sole contract source. It generates:
 
 The handwritten `@voidtrace/contracts` package registers every generated Schema with Ajv in strict mode. It validates without coercion or default insertion and provides RFC 8785 canonical JSON, SHA-256 Artifact fingerprints, stable ID checks, and cross-Artifact integrity checks. `Fingerprint.resultHash` identifies canonical execution inputs; Result and Trace content hashes independently identify their complete stored payloads. The package contains no game mechanics.
 
-This commit intentionally stops at the eight contracts and generated Ruleset `0.12.0` required by
+This commit intentionally stops at the eight contracts and generated Ruleset `0.13.0` required by
 the deterministic, single-hit expected, resolved fixed-count Multishot, and resolved fixed-count
 pellet round trips, standalone resolved Radial falloff, and resolved synthetic Status ticks plus
 the resolved punch-through, ricochet, and chain target paths, resolved multi-target Radial, and
@@ -146,6 +152,10 @@ pnpm exec vt run data/fixtures/golden/resolved-radial-targets.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-radial-targets.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-pellet-allocation.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-pellet-allocation.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt run - --catalog data/fixtures/catalog-mini/catalog.json \
   < data/fixtures/golden/direct-critical-armor.scenario.json
 ```
@@ -162,7 +172,7 @@ formal-CLI golden inspection helper. It accepts non-negative safe-integer determ
 an analytic expected preset through its helper, and documents the resolved fixed-count Multishot
 and pellet fixtures plus standalone resolved Radial falloff and resolved Status ticks through the
 formal CLI, along with the resolved punch-through, ricochet, and chain ordered target paths and
-the resolved multi-target Radial fixture. It is not a second public CLI and does not synthesize
+the resolved multi-target Radial and resolved Pellet allocation fixtures. It is not a second public CLI and does not synthesize
 Critical chance, rolls, Multishot counts, pellet counts, distance, geometry, LoS, or target-path
 selection:
 
@@ -182,6 +192,8 @@ pnpm exec vt run data/fixtures/golden/resolved-chain.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt run data/fixtures/golden/resolved-radial-targets.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-pellet-allocation.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
 .agents/skills/voidtrace/scripts/smoke.sh
 ```
 
@@ -190,15 +202,17 @@ reported explicitly rather than approximated.
 
 ## Specification maturity
 
-Of thirty-two Clauses, thirty-one are `active`; `TRC-002` remains a planned rejection-trace
+Of forty-three Clauses, forty-two are `active`; `TRC-002` remains a planned rejection-trace
 obligation. `CRT-001` covers the generalized adjacent-tier distribution for safely representable
 non-negative Critical chance and an explicit deterministic roll. `CRT-002` covers the
 `1 + tier * (criticalMultiplier - 1)` scale. `CRT-003` covers terminal-branch analytic expected
 values, including per-branch Health-zero clamp before weighting. All runtime Rules retain
 `experimental` evidence status. `MSH-001` covers bounded expansion into ordered fixed-count child
 hits without implicit randomness. `PLT-001` separately covers bounded fixed-count pellets from one
-shot without Multishot composition, hit distribution, Spread, or implicit randomness. `TRC-001`
-replays final Damage and terminal Health from Trace, anchored to the Scenario's initial Health.
+shot without Multishot composition, hit distribution, Spread, or implicit randomness.
+`PLT-002` covers bounded resolved target-specific hit counts and explicit misses without deriving
+Spread, hit probability, per-pellet rolls, or Multishot composition.
+`TRC-001` replays final Damage and terminal Health from Trace, anchored to the Scenario's initial Health.
 `RAD-001` covers a standalone Radial Hit whose resolved falloff multiplier is applied between
 Critical and Armor without deriving it from distance or geometry.
 `STS-001` covers bounded resolved synthetic Status ticks scheduled within the Scenario time

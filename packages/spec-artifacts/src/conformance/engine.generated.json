@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:ee6cc97c9382690c57e6d1ba3dd74be7f666f0006e757cef7ac2002841bec0e5",
+  "sourceFingerprint": "sha256:0c31b659ee3dfdbb169862e3ef1c82b810cea167388bddb98118b84281505fa0",
   "activeClauses": [
     {
       "id": "CHN-001",
@@ -228,6 +228,14 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-013",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-pellet-allocation.scenario.jsonはtargets配列B→A→Cと異なるrelation順A→C→Bへ総pellet 4をA=2、C=0、B=1として配分し、残る1 pelletをmissとする。固定Critical tier 0とtarget別ArmorによりHealthをA 150→50、C 90→90、B 80→0へ更新し、命中Damage合計200、全target残Health合計140、撃破1をliteral expected vectorとしてResultおよびTraceと照合する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "MSH-001",
       "pattern": "fixed_multishot_expansion",
       "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
@@ -239,6 +247,14 @@
       "id": "PLT-001",
       "pattern": "fixed_pellet_expansion",
       "desc": "action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "PLT-002",
+      "pattern": "resolved_pellet_allocation",
+      "desc": "action.resolved-pellet-allocationは一つのallocation ID、1以上64以下の総pellet数、固定Critical tierと、同じallocation IDを持つ全target分の非負safe-integer resolved hit countを受理する。hit count合計は総pellet数以下でなければならず、差分はmissとする。relation順、次にtarget内pellet index順でDirect Hitを評価し、0-hit targetもHealth不変で終端状態へ残す。Spread、命中判定、確率分布、pellet別Critical roll、Multishot合成、暗黙rollは生成しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"
@@ -302,7 +318,7 @@
     {
       "id": "SCP-003",
       "pattern": "unsupported_mechanic_rejected",
-      "desc": "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relations、resolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered path、またはresolved multi-target Radialが参照する同一impactの1以上64以下のimpact-distance relationsだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する",
+      "desc": "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoS、ordered path、またはtarget別Pellet配分だけを有限構造として保持する。Runtimeは空relations、resolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered path、resolved multi-target Radialが参照する同一impactの1以上64以下のimpact-distance relations、またはresolved Pellet allocationが参照する全target分のallocation relationsだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "scope"

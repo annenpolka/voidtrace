@@ -36,7 +36,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.12.0";
+export const KERNEL_ENGINE_VERSION = "0.13.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -240,6 +240,28 @@ function artifactRef<TKind extends string>(artifact: {
 function zeroVector(baseDamage: DamageVector): DamageVector {
   return Object.freeze(
     Object.fromEntries(Object.keys(baseDamage).map((damageTypeId) => [damageTypeId, 0])),
+  );
+}
+
+function addDamageVectors(left: DamageVector, right: DamageVector): DamageVector {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (
+    leftKeys.length !== rightKeys.length ||
+    leftKeys.some((id, index) => id !== rightKeys[index])
+  ) {
+    throw new TypeError("Damage Vectors do not share canonical component keys");
+  }
+  return Object.freeze(
+    Object.fromEntries(
+      leftKeys.map((id) => {
+        const value = (left[id] ?? 0) + (right[id] ?? 0);
+        if (!Number.isFinite(value) || value < 0) {
+          throw new TypeError(`Damage component ${id} overflowed finite arithmetic`);
+        }
+        return [id, value];
+      }),
+    ),
   );
 }
 
@@ -453,6 +475,7 @@ function updateMetricValues(
   switch (execution.operationKind) {
     case "event.expand-fixed-multishot":
     case "event.expand-fixed-pellets":
+    case "event.expand-resolved-pellet-allocation":
     case "event.expand-resolved-status-ticks":
     case "event.expand-resolved-punch-through-targets":
     case "event.expand-resolved-ricochet-targets":
@@ -460,6 +483,7 @@ function updateMetricValues(
     case "event.expand-resolved-radial-targets":
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
+    case "damage-vector.aggregate-resolved-pellet-allocation":
     case "damage-vector.aggregate-sequential-status-ticks":
     case "damage-vector.aggregate-resolved-punch-through-targets":
     case "damage-vector.aggregate-resolved-ricochet-targets":
@@ -588,6 +612,9 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "event.expand-fixed-pellets":
     case "damage-vector.aggregate-sequential-pellets":
       return "mechanic.pellet.fixed-count";
+    case "event.expand-resolved-pellet-allocation":
+    case "damage-vector.aggregate-resolved-pellet-allocation":
+      return "mechanic.pellet.resolved-allocation";
     case "event.expand-resolved-status-ticks":
     case "damage-vector.copy-resolved-status-tick":
     case "damage-vector.aggregate-sequential-status-ticks":
@@ -1287,6 +1314,254 @@ function evaluateResolvedTargetPathRuntime(
     damage: aggregateExecution.after.damage,
     targetHealthById: Object.freeze(
       Object.fromEntries(targetHits.map((target) => [target.targetId, target.healthAfter])),
+    ),
+  });
+}
+
+function evaluateResolvedPelletAllocationRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (
+    domain.action.kind !== "resolved-pellet-allocation" ||
+    domain.action.criticalResolution !== "fixed" ||
+    domain.action.criticalTier === null ||
+    domain.action.allocationId === null ||
+    domain.action.pelletCount < 1 ||
+    domain.action.pelletAllocationRelations.length !== domain.targets.length
+  ) {
+    throw new TypeError("Invalid input reached resolved Pellet allocation evaluation");
+  }
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  const zeroDamage = zeroVector(references.attackMode.baseDamage);
+  const initialHealthTotal = domain.targets.reduce(
+    (total, target) => total + target.resolvedHealth,
+    0,
+  );
+  let world = createWorldState(
+    domain.targets.map((target) => ({
+      id: target.id,
+      values: Object.freeze({ health: target.resolvedHealth }),
+    })),
+  );
+  let decisionSequence = 0;
+  let expansionExecution: RuleExecution | undefined;
+  let expansionEventId: string | undefined;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-pellet-allocation",
+    phases: FIXED_MULTISHOT_EMISSION_PHASES,
+  }).drain()) {
+    expansionEventId = event.id;
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeResolvedPelletAllocationExpansionRule(rule.id, {
+        pelletCount: domain.action.pelletCount,
+        hitCount: domain.action.hitCount,
+        initialHealthTotal,
+        zeroDamage,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          0,
+          {
+            readOverrides: {
+              "action.pellet-count": domain.action.pelletCount,
+              "action.pellet-hit-count": domain.action.hitCount,
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        expansionExecution = execution;
+      }
+    }
+  }
+  if (
+    expansionExecution?.operationKind !== "event.expand-resolved-pellet-allocation" ||
+    expansionEventId === undefined
+  ) {
+    throw new TypeError("Ruleset did not apply resolved Pellet allocation expansion");
+  }
+
+  const targetSummaries: ResolvedPunchThroughTargetHit[] = [];
+  let globalHitIndex = 0;
+  for (const [targetIndex, target] of domain.targets.entries()) {
+    const relation = domain.action.pelletAllocationRelations[targetIndex];
+    if (relation === undefined || relation.targetId !== target.id) {
+      throw new TypeError("Resolved Pellet allocation relation order does not match targets");
+    }
+    const healthBefore = readHealth(world, target.id);
+    let targetDamage = zeroVector(references.attackMode.baseDamage);
+    for (let targetHitIndex = 0; targetHitIndex < relation.resolvedHitCount; targetHitIndex += 1) {
+      let hitDamage = zeroVector(references.attackMode.baseDamage);
+      const pathTarget: PathTargetTraceMetadata = Object.freeze({
+        pathId: domain.action.allocationId,
+        targetId: target.id,
+        index: globalHitIndex,
+        count: domain.action.hitCount,
+      });
+      for (const event of createPhaseEvents({
+        actionId: domain.action.id,
+        namespace: `${domain.action.id}.allocation-${targetIndex}.pellet-${targetHitIndex}`,
+        logicalId: `${domain.action.id}.${target.id}.${targetHitIndex}`,
+        parentEventId: expansionEventId,
+        phases: FIXED_CRITICAL_PHASES,
+      }).drain()) {
+        for (const rule of ruleset.snapshot.rules) {
+          if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+            continue;
+          }
+          const execution = ruleset.executeRule(
+            rule.id,
+            ruleContext(
+              references,
+              hitDamage,
+              domain.action.criticalTier,
+              null,
+              target.resolvedArmor,
+              readHealth(world, target.id),
+            ),
+          );
+          decisions.push(
+            decisionForExecution(
+              decisionSequence,
+              event,
+              rule,
+              execution,
+              references,
+              domain.action.criticalTier,
+              null,
+              target.resolvedArmor,
+              { pathTarget },
+            ),
+          );
+          decisionSequence += 1;
+          if (execution.outcome === "applied") {
+            appliedRules.push(rule);
+            hitDamage = execution.after.damage;
+            world = replaceEntityState(world, target.id, { health: execution.after.health });
+          }
+        }
+      }
+      targetDamage = addDamageVectors(targetDamage, hitDamage);
+      globalHitIndex += 1;
+    }
+    targetSummaries.push(
+      Object.freeze({
+        id: `pellet-target.${targetIndex}`,
+        targetId: target.id,
+        index: targetIndex,
+        damage: targetDamage,
+        healthBefore,
+        healthAfter: readHealth(world, target.id),
+      }),
+    );
+  }
+  if (globalHitIndex !== domain.action.hitCount) {
+    throw new TypeError("Resolved Pellet allocation emitted the wrong hit count");
+  }
+
+  let aggregateExecution: RuleExecution | undefined;
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-pellet-allocation",
+    parentEventId: expansionEventId,
+    phases: FIXED_MULTISHOT_AGGREGATION_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeResolvedPelletAllocationAggregateRule(rule.id, {
+        pelletCount: domain.action.pelletCount,
+        hitCount: domain.action.hitCount,
+        initialHealthTotal,
+        targets: targetSummaries,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          0,
+          {
+            readOverrides: {
+              "pellet-hit.damage": canonicalizeJson(
+                targetSummaries.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  damage: { ...target.damage },
+                })),
+              ),
+              "target.health-before": canonicalizeJson(
+                targetSummaries.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  healthBefore: target.healthBefore,
+                })),
+              ),
+              "target.health-after": canonicalizeJson(
+                targetSummaries.map((target) => ({
+                  id: target.id,
+                  targetId: target.targetId,
+                  index: target.index,
+                  healthAfter: target.healthAfter,
+                })),
+              ),
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        aggregateExecution = execution;
+      }
+    }
+  }
+  if (aggregateExecution?.operationKind !== "damage-vector.aggregate-resolved-pellet-allocation") {
+    throw new TypeError("Ruleset did not apply resolved Pellet allocation aggregation");
+  }
+
+  metricValues["pellet.count"] = domain.action.pelletCount;
+  metricValues["pellet.hit-count"] = domain.action.hitCount;
+  metricValues["pellet.miss-count"] = domain.action.pelletCount - domain.action.hitCount;
+  metricValues["damage.pellet.total"] = aggregateExecution.after.damageTotal;
+  metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
+  metricValues["targets.health.remaining-total"] = aggregateExecution.after.health;
+  metricValues["targets.defeated-count"] = targetSummaries.filter(
+    (target) => target.healthAfter === 0,
+  ).length;
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage: aggregateExecution.after.damage,
+    targetHealthById: Object.freeze(
+      Object.fromEntries(targetSummaries.map((target) => [target.targetId, target.healthAfter])),
     ),
   });
 }
@@ -2251,19 +2526,21 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     runtime =
       domain.action.kind === "resolved-status-ticks"
         ? evaluateResolvedStatusTicksRuntime(domain, references, ruleset)
-        : domain.action.kind === "resolved-radial-targets"
-          ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset)
-          : domain.action.kind === "resolved-punch-through" ||
-              domain.action.kind === "resolved-ricochet" ||
-              domain.action.kind === "resolved-chain"
-            ? evaluateResolvedTargetPathRuntime(domain, references, ruleset)
-            : domain.action.kind === "radial-hit"
-              ? evaluateFixedRadialRuntime(domain, references, ruleset)
-              : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
-                ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
-                : domain.action.criticalResolution === "expected"
-                  ? evaluateExpectedRuntime(domain, references, ruleset)
-                  : evaluateDeterministicRuntime(domain, references, ruleset);
+        : domain.action.kind === "resolved-pellet-allocation"
+          ? evaluateResolvedPelletAllocationRuntime(domain, references, ruleset)
+          : domain.action.kind === "resolved-radial-targets"
+            ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset)
+            : domain.action.kind === "resolved-punch-through" ||
+                domain.action.kind === "resolved-ricochet" ||
+                domain.action.kind === "resolved-chain"
+              ? evaluateResolvedTargetPathRuntime(domain, references, ruleset)
+              : domain.action.kind === "radial-hit"
+                ? evaluateFixedRadialRuntime(domain, references, ruleset)
+                : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
+                  ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
+                  : domain.action.criticalResolution === "expected"
+                    ? evaluateExpectedRuntime(domain, references, ruleset)
+                    : evaluateDeterministicRuntime(domain, references, ruleset);
   } catch (error) {
     if (error instanceof RulesError && error.code === "unsupported-critical-multiplier") {
       const path = attackModeFieldPath(catalog, references, "criticalMultiplier");
@@ -2375,7 +2652,8 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       domain.action.kind === "resolved-punch-through" ||
       domain.action.kind === "resolved-ricochet" ||
       domain.action.kind === "resolved-chain" ||
-      domain.action.kind === "resolved-radial-targets"
+      domain.action.kind === "resolved-radial-targets" ||
+      domain.action.kind === "resolved-pellet-allocation"
     ) {
       try {
         const replayed = await replayTraceTargetStates(

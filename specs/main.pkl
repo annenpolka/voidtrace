@@ -17,6 +17,7 @@ import "golden/pellet-critical-armor.pkl"
 import "golden/probability-critical-armor.pkl"
 import "golden/radial-critical-armor.pkl"
 import "golden/resolved-chain.pkl"
+import "golden/resolved-pellet-allocation.pkl"
 import "golden/resolved-punch-through.pkl"
 import "golden/resolved-radial-targets.pkl"
 import "golden/resolved-ricochet.pkl"
@@ -57,6 +58,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.criticalExpectedValueUsesTerminalBranches
   mechanicsClauses.fixedMultishotEmitsOrderedHits
   mechanicsClauses.fixedPelletActionEmitsOrderedHits
+  mechanicsClauses.resolvedPelletAllocationUsesExplicitCounts
   mechanicsClauses.resolvedRadialFalloffScalesDamage
   mechanicsClauses.resolvedRadialTargetsUseDistanceAndLos
   mechanicsClauses.resolvedStatusTicksCommitInTimeOrder
@@ -79,6 +81,7 @@ clauses: Listing<base.Clause> = new {
   `resolved-punch-through`.roundTrip
   `resolved-ricochet`.roundTrip
   `resolved-chain`.roundTrip
+  `resolved-pellet-allocation`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
   cliSurface.streamExitDiscipline
@@ -100,12 +103,13 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.12.0"
+  version = "0.13.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
     multishot.emitFixedRule
     pellet.emitFixedRule
+    pellet.expandResolvedAllocationRule
     status.scheduleResolvedTicksRule
     `punch-through`.expandResolvedTargetsRule
     ricochet.expandResolvedTargetsRule
@@ -127,6 +131,7 @@ ruleset: ruleModel.Ruleset = new {
     critical.aggregateExpectedBranchesRule
     multishot.aggregateFixedRule
     pellet.aggregateFixedRule
+    pellet.aggregateResolvedAllocationRule
     status.aggregateResolvedTicksRule
     `punch-through`.aggregateResolvedTargetsRule
     ricochet.aggregateResolvedTargetsRule

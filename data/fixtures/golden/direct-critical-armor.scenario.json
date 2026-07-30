@@ -1,7 +1,7 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.3.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.3.0",
   "id": "scenario.golden-direct-critical-armor",
   "revision": 2,
   "createdFrom": {
@@ -23,10 +23,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.12.0",
+    "schemaVersion": "0.13.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:448726631b8f022d7248235f194b00a05bb283c57d35e4aef6641597e0b54146",
+    "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -87,5 +87,5 @@
       "description": "This Scenario supplies a fixed Critical tier, so it does not evaluate Critical probability or a roll."
     }
   ],
-  "contentHash": "sha256:564f41e82cc10e4800d921f367645a44359f04dd81bd2dc011c709c802b2c57b"
+  "contentHash": "sha256:6609f7082755a9bcb83b0948bd1c6d65921ff5bba1b891e73fa3b8ac90af1791"
 }

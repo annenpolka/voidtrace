@@ -41,3 +41,44 @@ aggregateFixedRule: model.Rule = new {
   evidenceStatus = "experimental"
   evidenceIds = new {}
 }
+
+expandResolvedAllocationRule: model.Rule = new {
+  id = "rule.pellet.expand-resolved-allocation"
+  description =
+    "Expand explicit target-specific resolved pellet hit counts into bounded Direct Hit child events."
+  phase = "attack.emit"
+  eventKind = "action.resolved-pellet-allocation"
+  reads {
+    "action.pellet-count"
+    "action.pellet-hit-count"
+  }
+  writes {
+    "event.direct-hit-count"
+    "event.pellet-miss-count"
+  }
+  operation = new model.ExpandResolvedPelletAllocation {
+    maximumPellets = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateResolvedAllocationRule: model.Rule = new {
+  id = "rule.pellet.aggregate-resolved-allocation"
+  description =
+    "Aggregate terminal Damage and target-specific Health for every target in one resolved pellet allocation, preserving explicit misses."
+  phase = "result.aggregate"
+  eventKind = "action.resolved-pellet-allocation"
+  reads {
+    "pellet-hit.damage"
+    "target.health-before"
+    "target.health-after"
+  }
+  writes {
+    "event.damage"
+    "targets.health"
+  }
+  operation = new model.AggregateResolvedPelletAllocation {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

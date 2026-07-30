@@ -50,6 +50,13 @@ fixedPelletActionEmitsOrderedHits: base.FixedPelletExpansion = new {
   maturity = "active"
 }
 
+resolvedPelletAllocationUsesExplicitCounts: base.ResolvedPelletAllocation = new {
+  id = "PLT-002"
+  desc =
+    "action.resolved-pellet-allocationは一つのallocation ID、1以上64以下の総pellet数、固定Critical tierと、同じallocation IDを持つ全target分の非負safe-integer resolved hit countを受理する。hit count合計は総pellet数以下でなければならず、差分はmissとする。relation順、次にtarget内pellet index順でDirect Hitを評価し、0-hit targetもHealth不変で終端状態へ残す。Spread、命中判定、確率分布、pellet別Critical roll、Multishot合成、暗黙rollは生成しない"
+  maturity = "active"
+}
+
 resolvedRadialFalloffScalesDamage: base.ResolvedRadialFalloff = new {
   id = "RAD-001"
   desc =

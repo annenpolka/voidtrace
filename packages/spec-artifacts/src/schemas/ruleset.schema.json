@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.12.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.13.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.12.0"
+      "const": "urn:voidtrace:schema:ruleset:0.13.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.12.0"
+      "const": "0.13.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -151,6 +151,26 @@
                   },
                   "maximumPellets": {
                     "description": "Positive safe execution bound for one resolved pellet action.",
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "maximumPellets"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Expand one resolved target-specific pellet allocation into an explicit bounded count of Direct Hit events.",
+                    "type": "string",
+                    "const": "event.expand-resolved-pellet-allocation"
+                  },
+                  "maximumPellets": {
+                    "description": "Positive safe execution bound for one resolved pellet allocation.",
                     "type": "integer",
                     "minimum": 1
                   }
@@ -414,6 +434,20 @@
                     "description": "Aggregate ordered terminal pellet Damage Vectors and preserve the final sequential Health state.",
                     "type": "string",
                     "const": "damage-vector.aggregate-sequential-pellets"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Aggregate terminal Damage and target-specific Health for one resolved pellet allocation.",
+                    "type": "string",
+                    "const": "damage-vector.aggregate-resolved-pellet-allocation"
                   }
                 },
                 "required": [

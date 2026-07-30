@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.12.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.13.0",
   "kind": "ruleset",
-  "schemaVersion": "0.12.0",
+  "schemaVersion": "0.13.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:448726631b8f022d7248235f194b00a05bb283c57d35e4aef6641597e0b54146",
+  "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -38,6 +38,26 @@
       ],
       "operation": {
         "kind": "event.expand-fixed-pellets",
+        "maximumPellets": 64
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.pellet.expand-resolved-allocation",
+      "description": "Expand explicit target-specific resolved pellet hit counts into bounded Direct Hit child events.",
+      "phase": "attack.emit",
+      "eventKind": "action.resolved-pellet-allocation",
+      "reads": [
+        "action.pellet-count",
+        "action.pellet-hit-count"
+      ],
+      "writes": [
+        "event.direct-hit-count",
+        "event.pellet-miss-count"
+      ],
+      "operation": {
+        "kind": "event.expand-resolved-pellet-allocation",
         "maximumPellets": 64
       },
       "evidenceStatus": "experimental",
@@ -433,6 +453,26 @@
       ],
       "operation": {
         "kind": "damage-vector.aggregate-sequential-pellets"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.pellet.aggregate-resolved-allocation",
+      "description": "Aggregate terminal Damage and target-specific Health for every target in one resolved pellet allocation, preserving explicit misses.",
+      "phase": "result.aggregate",
+      "eventKind": "action.resolved-pellet-allocation",
+      "reads": [
+        "pellet-hit.damage",
+        "target.health-before",
+        "target.health-after"
+      ],
+      "writes": [
+        "event.damage",
+        "targets.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-resolved-pellet-allocation"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

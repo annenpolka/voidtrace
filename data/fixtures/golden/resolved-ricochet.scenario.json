@@ -1,7 +1,7 @@
 {
-  "$schema": "urn:voidtrace:schema:scenario:0.2.0",
+  "$schema": "urn:voidtrace:schema:scenario:0.3.0",
   "kind": "voidtrace.scenario",
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.3.0",
   "id": "scenario.golden-resolved-ricochet",
   "revision": 0,
   "gameBuild": "synthetic-fixture-0",
@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.12.0",
+    "schemaVersion": "0.13.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:448726631b8f022d7248235f194b00a05bb283c57d35e4aef6641597e0b54146",
+    "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -104,5 +104,5 @@
       "description": "Each target receives one independent Direct Hit without angle, trajectory, collision, selection, or ricochet attenuation."
     }
   ],
-  "contentHash": "sha256:f178736c5daacfbe1edebc681ba389b927fd3448fcdb9b373976179e126872dd"
+  "contentHash": "sha256:50a1d5e0f1cbd56aa977eca0c3366162c8d4e324decdac45cceda10944c73ff4"
 }

@@ -2,7 +2,7 @@
   "$schema": "urn:voidtrace:schema:scenario:0.3.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.3.0",
-  "id": "scenario.golden-resolved-punch-through",
+  "id": "scenario.golden-resolved-pellet-allocation",
   "revision": 0,
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
@@ -30,16 +30,6 @@
   },
   "targets": [
     {
-      "id": "actor.target-a",
-      "configuration": {
-        "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 150,
-        "resolvedShield": 0,
-        "resolvedArmor": 300,
-        "resolvedOverguard": 0
-      }
-    },
-    {
       "id": "actor.target-b",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
@@ -50,10 +40,20 @@
       }
     },
     {
+      "id": "actor.target-a",
+      "configuration": {
+        "catalogTargetId": "target.synthetic-calibration",
+        "resolvedHealth": 150,
+        "resolvedShield": 0,
+        "resolvedArmor": 300,
+        "resolvedOverguard": 0
+      }
+    },
+    {
       "id": "actor.target-c",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 60,
+        "resolvedHealth": 90,
         "resolvedShield": 0,
         "resolvedArmor": 900,
         "resolvedOverguard": 0
@@ -63,23 +63,39 @@
   "targetGraph": {
     "relations": [
       {
-        "id": "target-relation.punch-through-1",
-        "kind": "target-relation.ordered-path",
-        "pathKind": "punch-through",
-        "targetIds": ["actor.target-a", "actor.target-b", "actor.target-c"]
+        "id": "target-relation.pellet-a",
+        "kind": "target-relation.pellet-allocation",
+        "allocationId": "pellet-allocation.shot-1",
+        "targetId": "actor.target-a",
+        "resolvedHitCount": 2
+      },
+      {
+        "id": "target-relation.pellet-c",
+        "kind": "target-relation.pellet-allocation",
+        "allocationId": "pellet-allocation.shot-1",
+        "targetId": "actor.target-c",
+        "resolvedHitCount": 0
+      },
+      {
+        "id": "target-relation.pellet-b",
+        "kind": "target-relation.pellet-allocation",
+        "allocationId": "pellet-allocation.shot-1",
+        "targetId": "actor.target-b",
+        "resolvedHitCount": 1
       }
     ]
   },
   "initialState": {},
   "actionPlan": [
     {
-      "id": "action.resolved-punch-through-1",
-      "kind": "action.resolved-punch-through-direct-hits",
+      "id": "action.resolved-pellet-allocation-1",
+      "kind": "action.resolved-pellet-allocation",
       "parameters": {
-        "targetPathRelationId": "target-relation.punch-through-1",
+        "allocationId": "pellet-allocation.shot-1",
         "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
-        "criticalTier": 1
+        "criticalTier": 0,
+        "pelletCount": 4
       }
     }
   ],
@@ -88,21 +104,23 @@
     "timeLimitMs": 1
   },
   "metrics": [
-    "punch-through.target-count",
-    "damage.punch-through.total",
+    "pellet.count",
+    "pellet.hit-count",
+    "pellet.miss-count",
+    "damage.pellet.total",
     "damage.health.total",
     "targets.health.remaining-total",
     "targets.defeated-count"
   ],
   "assumptions": [
     {
-      "id": "assumption.synthetic-resolved-punch-through",
-      "description": "Synthetic resolved punch-through order; not a verified current-game Warframe punch-through or attenuation rule."
+      "id": "assumption.synthetic-resolved-pellet-allocation",
+      "description": "Synthetic resolved target-specific Pellet hit counts; not a verified current-game Warframe rule."
     },
     {
-      "id": "assumption.no-punch-through-attenuation",
-      "description": "Each target receives one independent Direct Hit without wall, collision, or penetration attenuation."
+      "id": "assumption.no-pellet-spread",
+      "description": "The fixture does not derive Spread, hit tests, probabilistic distributions, pellet-specific Critical rolls, or Multishot composition."
     }
   ],
-  "contentHash": "sha256:9eab9fce0c049b973fc435c5fc5114740b6da2f7826aa83fcbd6684d209c503a"
+  "contentHash": "sha256:b5d84977ddbe3cac5d44d4cc60a72b855c1c3fa984a96881009316528498c79c"
 }

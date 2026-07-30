@@ -96,6 +96,19 @@ export type ResolvedRadialTargetAggregateContext = {
   readonly hitCount: number;
   readonly targets: ReadonlyArray<ResolvedRadialTargetHit>;
 };
+export type ResolvedPelletAllocationExpansionContext = {
+  readonly pelletCount: number;
+  readonly hitCount: number;
+  readonly initialHealthTotal: number;
+  readonly zeroDamage: DamageVector;
+};
+export type ResolvedPelletAllocationTarget = ResolvedPunchThroughTargetHit;
+export type ResolvedPelletAllocationAggregateContext = {
+  readonly pelletCount: number;
+  readonly hitCount: number;
+  readonly initialHealthTotal: number;
+  readonly targets: ReadonlyArray<ResolvedPelletAllocationTarget>;
+};
 
 export type SequentialHit = {
   readonly id: string;
@@ -657,6 +670,67 @@ function snapshotResolvedRadialTargetAggregateContext(
     invalidContext("initialHealthTotal must equal the target Health sum", "initialHealthTotal");
   }
   return Object.freeze({ initialHealthTotal, hitCount, targets });
+}
+
+function snapshotResolvedPelletAllocationExpansionContext(
+  value: ResolvedPelletAllocationExpansionContext,
+): ResolvedPelletAllocationExpansionContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["pelletCount", "hitCount", "initialHealthTotal", "zeroDamage"],
+    "context",
+  );
+  const pelletCount = dataProperty(context, "pelletCount", "context");
+  const hitCount = dataProperty(context, "hitCount", "context");
+  if (!isNonNegativeSafeInteger(pelletCount) || pelletCount < 1) {
+    invalidContext("pelletCount must be a positive safe integer", "pelletCount");
+  }
+  if (!isNonNegativeSafeInteger(hitCount) || hitCount > pelletCount) {
+    invalidContext(
+      "hitCount must be a non-negative safe integer no greater than pelletCount",
+      "hitCount",
+    );
+  }
+  return Object.freeze({
+    pelletCount,
+    hitCount,
+    initialHealthTotal: nonNegativeFinite(
+      dataProperty(context, "initialHealthTotal", "context"),
+      "initialHealthTotal",
+    ),
+    zeroDamage: snapshotDamageVector(dataProperty(context, "zeroDamage", "context"), "zeroDamage"),
+  });
+}
+
+function snapshotResolvedPelletAllocationAggregateContext(
+  value: ResolvedPelletAllocationAggregateContext,
+): ResolvedPelletAllocationAggregateContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["pelletCount", "hitCount", "initialHealthTotal", "targets"],
+    "context",
+  );
+  const pelletCount = dataProperty(context, "pelletCount", "context");
+  const hitCount = dataProperty(context, "hitCount", "context");
+  if (!isNonNegativeSafeInteger(pelletCount) || pelletCount < 1) {
+    invalidContext("pelletCount must be a positive safe integer", "pelletCount");
+  }
+  if (!isNonNegativeSafeInteger(hitCount) || hitCount > pelletCount) {
+    invalidContext(
+      "hitCount must be a non-negative safe integer no greater than pelletCount",
+      "hitCount",
+    );
+  }
+  const initialHealthTotal = nonNegativeFinite(
+    dataProperty(context, "initialHealthTotal", "context"),
+    "initialHealthTotal",
+  );
+  const targets = snapshotResolvedPunchThroughTargets(dataProperty(context, "targets", "context"));
+  const summedInitialHealth = targets.reduce((total, target) => total + target.healthBefore, 0);
+  if (!Number.isFinite(summedInitialHealth) || summedInitialHealth !== initialHealthTotal) {
+    invalidContext("initialHealthTotal must equal the target Health sum", "initialHealthTotal");
+  }
+  return Object.freeze({ pelletCount, hitCount, initialHealthTotal, targets });
 }
 
 function snapshotSequentialHits(value: unknown): ReadonlyArray<SequentialHit> {
@@ -1405,6 +1479,55 @@ export function executeResolvedRadialTargetExpansionRule(
   );
 }
 
+export function executeResolvedPelletAllocationExpansionRule(
+  rule: RuleDefinition,
+  context: ResolvedPelletAllocationExpansionContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "event.expand-resolved-pellet-allocation") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved pellet allocation expansion operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const operation = rule.operation as {
+    readonly kind: "event.expand-resolved-pellet-allocation";
+    readonly maximumPellets: unknown;
+  };
+  if (
+    typeof operation.maximumPellets !== "number" ||
+    !Number.isSafeInteger(operation.maximumPellets) ||
+    operation.maximumPellets < 1
+  ) {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid pellet limit`, {
+      ruleId: rule.id,
+    });
+  }
+  const input = snapshotResolvedPelletAllocationExpansionContext(context);
+  if (input.pelletCount > operation.maximumPellets) {
+    throw new RulesError(
+      "execution-limit-exceeded",
+      `Resolved pelletCount ${input.pelletCount} exceeds limit ${operation.maximumPellets}`,
+      { maximumPellets: operation.maximumPellets, pelletCount: input.pelletCount },
+    );
+  }
+  const projection = stateProjection(input.zeroDamage, input.initialHealthTotal);
+  return applied(
+    rule,
+    1,
+    parameters({
+      factor: 1,
+      maximumPellets: operation.maximumPellets,
+      pelletCount: input.pelletCount,
+      hitCount: input.hitCount,
+      missCount: input.pelletCount - input.hitCount,
+    }),
+    projection,
+    projection,
+  );
+}
+
 export function executeExpectedAggregateRule(
   rule: RuleDefinition,
   context: ExpectedAggregateContext,
@@ -1828,6 +1951,74 @@ export function executeResolvedRadialTargetAggregateRule(
         throw new RulesError(
           "arithmetic-invalid",
           `Resolved Radial aggregate overflowed damage component ${id}`,
+          { id, targetId: target.targetId },
+        );
+      }
+      aggregateDamage[id] = component;
+      values[`target.${index}.damage.${id}`] = target.damage[id] ?? 0;
+    }
+  }
+  const damage = Object.freeze(aggregateDamage);
+  return applied(
+    rule,
+    1,
+    parameters(values),
+    stateProjection(damage, input.initialHealthTotal),
+    stateProjection(damage, remainingHealthTotal),
+  );
+}
+
+export function executeResolvedPelletAllocationAggregateRule(
+  rule: RuleDefinition,
+  context: ResolvedPelletAllocationAggregateContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "damage-vector.aggregate-resolved-pellet-allocation") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved pellet allocation aggregate operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const input = snapshotResolvedPelletAllocationAggregateContext(context);
+  const expectedDamageKeys = Object.keys(input.targets[0]?.damage ?? {});
+  const aggregateDamage: Record<string, number> = Object.fromEntries(
+    expectedDamageKeys.map((id) => [id, 0]),
+  );
+  const values: Record<string, RuleParameterValue> = {
+    pelletCount: input.pelletCount,
+    hitCount: input.hitCount,
+    missCount: input.pelletCount - input.hitCount,
+    targetCount: input.targets.length,
+  };
+  let remainingHealthTotal = 0;
+  for (const [index, target] of input.targets.entries()) {
+    const damageKeys = Object.keys(target.damage);
+    if (
+      damageKeys.length !== expectedDamageKeys.length ||
+      damageKeys.some((id, keyIndex) => id !== expectedDamageKeys[keyIndex])
+    ) {
+      invalidContext(
+        "All resolved pellet allocation targets must contain the same Damage Vector keys",
+        "targets",
+      );
+    }
+    values[`target.${index}.id`] = target.targetId;
+    values[`target.${index}.event-id`] = target.id;
+    values[`target.${index}.index`] = target.index;
+    values[`target.${index}.damageTotal`] = sumValidatedDamageVector(target.damage);
+    values[`target.${index}.healthBefore`] = target.healthBefore;
+    values[`target.${index}.healthAfter`] = target.healthAfter;
+    remainingHealthTotal += target.healthAfter;
+    if (!Number.isFinite(remainingHealthTotal)) {
+      throw new RulesError("arithmetic-invalid", "Target Health sum overflowed finite arithmetic");
+    }
+    for (const id of expectedDamageKeys) {
+      const component = (aggregateDamage[id] ?? 0) + (target.damage[id] ?? 0);
+      if (!Number.isFinite(component) || component < 0) {
+        throw new RulesError(
+          "arithmetic-invalid",
+          `Resolved pellet allocation overflowed damage component ${id}`,
           { id, targetId: target.targetId },
         );
       }

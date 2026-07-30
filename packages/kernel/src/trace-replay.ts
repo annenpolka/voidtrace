@@ -632,6 +632,7 @@ async function replayTrace(
   let expectedTickIntervalMs: number | undefined;
   let expectedPathTargetCount: number | undefined;
   let expectedPathId: string | undefined;
+  let terminalHealthByTarget: Readonly<Record<string, number>> | undefined;
 
   for (const decision of trace.decisions) {
     if (decision.outcome !== "applied") {
@@ -652,6 +653,8 @@ async function replayTrace(
     const operationTickId = operationTick?.id;
     const operationPathTarget = pathTargetMetadata(operation.parameters);
     const operationPathTargetId = operationPathTarget?.targetId;
+    const operationPathTargetKey =
+      operationPathTarget === undefined ? undefined : String(operationPathTarget.index);
     if (
       [operationBranchId, operationHitId, operationTickId, operationPathTargetId].filter(
         (id) => id !== undefined,
@@ -666,7 +669,7 @@ async function replayTrace(
     const hitState = operationHitId === undefined ? undefined : hits.get(operationHitId);
     const tickState = operationTickId === undefined ? undefined : ticks.get(operationTickId);
     const pathTargetState =
-      operationPathTargetId === undefined ? undefined : pathTargets.get(operationPathTargetId);
+      operationPathTargetKey === undefined ? undefined : pathTargets.get(operationPathTargetKey);
     if (
       operationBranch !== undefined &&
       branchState !== undefined &&
@@ -721,6 +724,58 @@ async function replayTrace(
               : health;
 
     switch (operation.kind) {
+      case "event.expand-resolved-pellet-allocation": {
+        const pelletCount = operation.parameters.pelletCount;
+        const hitCount = operation.parameters.hitCount;
+        const missCount = operation.parameters.missCount;
+        const maximumPellets = operation.parameters.maximumPellets;
+        if (
+          anchoredInitialHealthByTarget === undefined ||
+          typeof pelletCount !== "number" ||
+          !Number.isSafeInteger(pelletCount) ||
+          pelletCount < 1 ||
+          typeof hitCount !== "number" ||
+          !Number.isSafeInteger(hitCount) ||
+          hitCount < 0 ||
+          hitCount > pelletCount ||
+          missCount !== pelletCount - hitCount ||
+          typeof maximumPellets !== "number" ||
+          !Number.isSafeInteger(maximumPellets) ||
+          maximumPellets < pelletCount ||
+          decision.reads["action.pellet-count"] !== pelletCount ||
+          decision.reads["action.pellet-hit-count"] !== hitCount ||
+          decision.eventTimeMs !== 0
+        ) {
+          invalidParameters("Trace resolved Pellet allocation expansion has invalid parameters");
+        }
+        const initialHealthTotal = Object.values(anchoredInitialHealthByTarget).reduce(
+          (total, value) => total + value,
+          0,
+        );
+        const beforeDamage = projectionDamage(
+          decision.before,
+          `Trace decision ${decision.sequence} before`,
+        );
+        if (sumDamageVector(beforeDamage) !== 0) {
+          invalidParameters("Trace Pellet allocation expansion does not start at zero Damage");
+        }
+        assertProjection(
+          decision.before,
+          beforeDamage,
+          initialHealthTotal,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          beforeDamage,
+          initialHealthTotal,
+          `Trace decision ${decision.sequence} after`,
+        );
+        expectedPathTargetCount = hitCount;
+        damage = beforeDamage;
+        health = initialHealthTotal;
+        break;
+      }
       case "event.expand-resolved-punch-through-targets":
       case "event.expand-resolved-ricochet-targets":
       case "event.expand-resolved-chain-targets":
@@ -894,7 +949,10 @@ async function replayTrace(
         }
         const copyHealth =
           operationPathTargetId !== undefined
-            ? anchoredInitialHealthByTarget?.[operationPathTargetId]
+            ? ([...pathTargets.values()]
+                .filter((target) => target.targetId === operationPathTargetId && target.committed)
+                .toSorted((left, right) => right.index - left.index)[0]?.health ??
+              anchoredInitialHealthByTarget?.[operationPathTargetId])
             : operationHitId === undefined && operationTickId === undefined
               ? initialHealth
               : requiredNonNegativeNumber(
@@ -925,7 +983,8 @@ async function replayTrace(
             expectedPathTargetCount === undefined ||
             metadata.count !== expectedPathTargetCount ||
             [...pathTargets.values()].some((target) => target.index === metadata.index) ||
-            pathTargets.has(operationPathTargetId) ||
+            operationPathTargetKey === undefined ||
+            pathTargets.has(operationPathTargetKey) ||
             (expectedPathId !== undefined && metadata.pathId !== expectedPathId)
           ) {
             invalidParameters(
@@ -934,7 +993,7 @@ async function replayTrace(
           }
           expectedPathId = metadata.pathId;
           pathTargets.set(
-            operationPathTargetId,
+            operationPathTargetKey,
             Object.freeze({
               targetId: operationPathTargetId,
               pathId: metadata.pathId,
@@ -1119,7 +1178,7 @@ async function replayTrace(
             invalidParameters(`Trace scales unknown path target ${operationPathTargetId}`);
           }
           pathTargets.set(
-            operationPathTargetId,
+            operationPathTargetKey as string,
             Object.freeze({
               ...pathTargetState,
               damage: scaled,
@@ -1213,7 +1272,7 @@ async function replayTrace(
             invalidParameters(`Trace commits invalid path target ${operationPathTargetId}`);
           }
           pathTargets.set(
-            operationPathTargetId,
+            operationPathTargetKey as string,
             Object.freeze({
               ...pathTargetState,
               damage: currentDamage,
@@ -1479,6 +1538,168 @@ async function replayTrace(
         committed = true;
         break;
       }
+      case "damage-vector.aggregate-resolved-pellet-allocation": {
+        const pelletCount = operation.parameters.pelletCount;
+        const hitCount = operation.parameters.hitCount;
+        const missCount = operation.parameters.missCount;
+        const targetCount = operation.parameters.targetCount;
+        if (
+          anchoredInitialHealthByTarget === undefined ||
+          expectedPathTargetCount === undefined ||
+          pathTargets.size !== expectedPathTargetCount ||
+          hitCount !== expectedPathTargetCount ||
+          typeof pelletCount !== "number" ||
+          !Number.isSafeInteger(pelletCount) ||
+          pelletCount < hitCount ||
+          missCount !== pelletCount - hitCount ||
+          targetCount !== Object.keys(anchoredInitialHealthByTarget).length
+        ) {
+          invalidParameters(
+            "Trace aggregates resolved Pellet allocation before complete hit expansion",
+          );
+        }
+        const orderedHits = [...pathTargets.values()].toSorted(
+          (left, right) => left.index - right.index,
+        );
+        for (const [index, hit] of orderedHits.entries()) {
+          if (!hit.committed || hit.index !== index || hit.count !== hitCount) {
+            invalidParameters(`Trace resolved Pellet hit ${index} is incomplete`);
+          }
+        }
+        const aggregateDamage: Record<string, number> = {};
+        const damageReads: Array<Record<string, unknown>> = [];
+        const beforeReads: Array<Record<string, unknown>> = [];
+        const afterReads: Array<Record<string, unknown>> = [];
+        const healthByTarget: Record<string, number> = {};
+        const seenTargetIds = new Set<string>();
+        let initialHealthTotal = 0;
+        let remainingHealthTotal = 0;
+        for (let index = 0; index < targetCount; index += 1) {
+          const targetId = operation.parameters[`target.${index}.id`];
+          const eventId = operation.parameters[`target.${index}.event-id`];
+          const targetIndex = operation.parameters[`target.${index}.index`];
+          const damageTotal = operation.parameters[`target.${index}.damageTotal`];
+          const healthBefore = operation.parameters[`target.${index}.healthBefore`];
+          const healthAfter = operation.parameters[`target.${index}.healthAfter`];
+          if (
+            typeof targetId !== "string" ||
+            !isStableId(targetId) ||
+            seenTargetIds.has(targetId) ||
+            eventId !== `pellet-target.${index}` ||
+            targetIndex !== index ||
+            typeof damageTotal !== "number" ||
+            !Number.isFinite(damageTotal) ||
+            damageTotal < 0 ||
+            typeof healthBefore !== "number" ||
+            !Number.isFinite(healthBefore) ||
+            healthBefore < 0 ||
+            anchoredInitialHealthByTarget[targetId] !== healthBefore ||
+            typeof healthAfter !== "number" ||
+            !Number.isFinite(healthAfter) ||
+            healthAfter < 0
+          ) {
+            invalidParameters(`Trace resolved Pellet target ${index} is invalid`);
+          }
+          const targetDamage: Record<string, number> = {};
+          const damagePrefix = `target.${index}.damage.`;
+          for (const [key, value] of Object.entries(operation.parameters)) {
+            if (!key.startsWith(damagePrefix)) {
+              continue;
+            }
+            const damageTypeId = key.slice(damagePrefix.length);
+            if (
+              damageTypeId.length === 0 ||
+              typeof value !== "number" ||
+              !Number.isFinite(value) ||
+              value < 0
+            ) {
+              invalidParameters(`Trace resolved Pellet target ${index} has invalid Damage`);
+            }
+            targetDamage[damageTypeId] = value;
+          }
+          const targetHits = orderedHits.filter((hit) => hit.targetId === targetId);
+          const replayedTargetDamage: Record<string, number> = Object.fromEntries(
+            Object.keys(targetDamage).map((damageTypeId) => [damageTypeId, 0]),
+          );
+          let replayedHealth = healthBefore;
+          for (const hit of targetHits) {
+            if (hit.healthBefore !== replayedHealth) {
+              invalidParameters(`Trace resolved Pellet target ${targetId} breaks Health order`);
+            }
+            replayedHealth = hit.health;
+            for (const [damageTypeId, component] of Object.entries(hit.damage)) {
+              const total = (replayedTargetDamage[damageTypeId] ?? 0) + component;
+              if (!Number.isFinite(total)) {
+                invalidParameters("Trace resolved Pellet target Damage overflowed");
+              }
+              replayedTargetDamage[damageTypeId] = total;
+            }
+          }
+          if (
+            Object.keys(targetDamage).length === 0 ||
+            sumDamageVector(targetDamage) !== damageTotal ||
+            canonicalizeJson(targetDamage) !== canonicalizeJson(replayedTargetDamage) ||
+            healthAfter !== replayedHealth
+          ) {
+            invalidParameters(`Trace resolved Pellet target ${targetId} summary is inconsistent`);
+          }
+          seenTargetIds.add(targetId);
+          healthByTarget[targetId] = healthAfter;
+          initialHealthTotal += healthBefore;
+          remainingHealthTotal += healthAfter;
+          for (const [damageTypeId, component] of Object.entries(targetDamage)) {
+            const total = (aggregateDamage[damageTypeId] ?? 0) + component;
+            if (!Number.isFinite(total)) {
+              invalidParameters("Trace resolved Pellet aggregate overflowed Damage");
+            }
+            aggregateDamage[damageTypeId] = total;
+          }
+          damageReads.push({
+            id: `pellet-target.${index}`,
+            targetId,
+            index,
+            damage: targetDamage,
+          });
+          beforeReads.push({
+            id: `pellet-target.${index}`,
+            targetId,
+            index,
+            healthBefore,
+          });
+          afterReads.push({
+            id: `pellet-target.${index}`,
+            targetId,
+            index,
+            healthAfter,
+          });
+        }
+        if (
+          seenTargetIds.size !== Object.keys(anchoredInitialHealthByTarget).length ||
+          decision.reads["pellet-hit.damage"] !== canonicalizeJson(damageReads) ||
+          decision.reads["target.health-before"] !== canonicalizeJson(beforeReads) ||
+          decision.reads["target.health-after"] !== canonicalizeJson(afterReads)
+        ) {
+          invalidParameters("Trace resolved Pellet aggregate reads are inconsistent");
+        }
+        const aggregate = Object.freeze(aggregateDamage);
+        assertProjection(
+          decision.before,
+          aggregate,
+          initialHealthTotal,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          aggregate,
+          remainingHealthTotal,
+          `Trace decision ${decision.sequence} after`,
+        );
+        damage = aggregate;
+        health = remainingHealthTotal;
+        terminalHealthByTarget = Object.freeze(healthByTarget);
+        committed = true;
+        break;
+      }
       case "damage-vector.aggregate-resolved-radial-targets": {
         if (
           anchoredInitialHealthByTarget === undefined ||
@@ -1550,13 +1771,15 @@ async function replayTrace(
               `Trace resolved Radial target ${index} has an invalid Health transition`,
             );
           }
-          const hitState = pathTargets.get(targetId);
+          const hitState = [...pathTargets.values()].find(
+            (candidate) => candidate.targetId === targetId,
+          );
           if (hitState === undefined) {
             if (damageTotal !== 0 || healthAfter !== healthBefore) {
               invalidParameters(`Trace non-hit Radial target ${targetId} changed Damage or Health`);
             }
             pathTargets.set(
-              targetId,
+              String(index),
               Object.freeze({
                 targetId,
                 pathId: expectedPathId ?? "impact.resolved-radial",
@@ -1656,9 +1879,12 @@ async function replayTrace(
       ? {}
       : {
           healthByTarget: Object.freeze(
-            Object.fromEntries(
-              [...pathTargets.values()].map((target) => [target.targetId, target.health]),
-            ),
+            terminalHealthByTarget ??
+              Object.fromEntries(
+                [...pathTargets.values()]
+                  .toSorted((left, right) => left.index - right.index)
+                  .map((target) => [target.targetId, target.health]),
+              ),
           ),
         }),
   });
