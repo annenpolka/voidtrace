@@ -49,7 +49,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 10:34:00Z) repository-local skillへresolved punch-through操作例と非対応境界を追加し、empirical-prompt-tuningを2回とhold-outで実行した。対応・非対応はいずれも100%、不明点0、retry 0で、impact-distanceの暗黙変換も拒否した。
 - [x] (2026-07-30 10:34:00Z) Node 26.0.0とNode 24.18.0で35 Clauses、8 Contracts、生成24ファイル、21テストファイル311テストを含む `just check` を通した。
 - [x] (2026-07-30 10:35:00Z) Resolved punch-throughマイルストーンを `bd0b659` としてコミットした。
-- [ ] 次の複数target sliceとして、明示されたresolved ricochet順序に沿う固定Critical Direct Hit列を実装する。（2026-07-30 10:38:00Z開始。Goldenはtargets配列と異なるC→A→B順、固定tier 2、target別Armor/Health、反射角・自動選択・減衰なし）
+- [x] (2026-07-30 10:45:00Z) 次の複数target sliceとして、明示されたresolved ricochet順序に沿う固定Critical Direct Hit列を実装した。Goldenはtargets配列と異なるC→A→B順、固定tier 2、target別Armor/Health、反射角・自動選択・減衰なしである。
+- [x] (2026-07-30 10:45:00Z) Ruleset `0.10.0`のricochet展開／集約Rule、Golden、property、Runtime、formal CLI、installed CLI aliasを追加し、Node 26/24で37 Clauses、8 Contracts、生成24ファイル、21ファイル320テストを通した。
+- [x] (2026-07-30 10:45:00Z) repository-local skillへresolved ricochet操作例と停止境界を追加した。empirical-prompt-tuningは2回連続で対応・非対応100%、不明点0、retry 0となり、relation/action不一致のhold-outも暗黙修正せず拒否した。
+- [x] (2026-07-30 10:45:00Z) Resolved ricochetマイルストーンを `27aaefd` としてコミットした。
 
 ## Surprises & Discoveries
 
@@ -91,6 +94,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: Resultへtarget別終端状態を追加すると、既存の単一target sliceも同じ公開Contractを満たす必要がある。
   Evidence: Result Contract `0.2.0`は `targetStates` を必須化し、Direct、expected、Multishot、Pellet、Radial、Statusも単一キーの終端Health projectionを出す。全既存GoldenとCLI契約試験が同時に通る。
+
+- Observation: Scenarioの `targets` 配列順を安定IDの一覧として保持しながら、実行順をTarget Graph relationだけで決定できる。
+  Evidence: Ricochet Goldenのtargets配列はA→B→C、relationはC→A→Bである。Domain、14 decisionのpath metadata、target別Health replayは一貫してC→A→Bとなり、Result `targetStates` は順序に依存しないID keyとして一致する。
 
 ## Decision Log
 
@@ -181,6 +187,8 @@ Statusマイルストーンでは、`status.synthetic-resolved-dot` の最終Hea
 Target Graph契約境界では、Scenario `0.2.0`にKernel外で解決済みのimpact距離／LoSとordered pathを表す有限relation unionを追加した。全既存Goldenは空graphを明示し、既存の単一target Result／Traceを維持する。非空graphは構造化unsupportedとなり、関係を無視した単体計算へ縮退しない。複数target Damage評価、falloff導出、punch-through減衰、chain／ricochet選択は次の実行sliceである。
 
 Resolved punch-throughマイルストーンでは、一つの `pathKind: punch-through` ordered pathを参照する固定Critical Direct Hit actionを実行可能にした。3-target GoldenはA→B→Cの順に既存Direct／Critical／Armor／Health commit Ruleを適用し、Healthを `150→50`、`80→0`、`60→10` へ独立更新する。ResultはDamage合計350、残Health合計60、撃破1とtarget別終端Healthを持ち、Traceの14 decisionはtarget identityを含めて再生できる。壁厚、衝突、貫通減衰、geometry、target選択、impact-distance、chain、ricochet、target別Critical、rollは引き続き非対応である。
+
+Resolved ricochetマイルストーンでは、一つの `pathKind: ricochet` ordered pathとmatching actionを、punch-throughと別Rule、operation、capability、metricで実行可能にした。Goldenはtargets配列A→B→Cに対してrelation順C→A→Bを使い、固定Critical tier 2とtarget別ArmorによりHealthを `100→25`、`250→100`、`80→0` へ更新する。ResultはDamage合計525、残Health合計125、撃破1を持つ。反射角、軌道、衝突、自動target選択、減衰、chain、rollは引き続き非対応である。
 
 ## Context and Orientation
 
@@ -359,6 +367,18 @@ Resolved punch-throughマイルストーンの検証記録は次のとおりで�
     Trace decisions: 14
     empirical skill evaluation: supported 100%, unsupported 100%, hold-out accepted, retry 0
 
+Resolved ricochetマイルストーンの検証記録は次のとおりである。
+
+    Ruleset / Result Contract: 0.10.0 / 0.2.0
+    Clauses / Contracts / generated files: 37 / 8 / 24
+    Node.js 26.0.0: 21 files, 320 tests passed
+    Node.js 24.18.0: 21 files, 320 tests passed
+    targets array / target path: A-B-C / C-A-B
+    path target Health: 25 / 100 / 0
+    aggregate Damage / remaining Health / defeated: 525 / 125 / 1
+    Trace decisions: 14
+    empirical skill evaluation: supported 100%, unsupported 100%, hold-out accepted, retry 0
+
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
 
 Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むローカル基準線は `92019a6 feat: add fixed multishot vertical slice` としてコミット済みである。
@@ -368,6 +388,8 @@ Ruleset `0.6.0` revision `1` と解決済み固定count Pelletを含むローカ
 Ruleset `0.7.0` revision `1` と単独解決済みRadial falloffを含むローカル基準線は `1e7a3ea feat: add resolved radial vertical slice` としてコミット済みである。
 
 Ruleset `0.9.0` revision `1`、Result Contract `0.2.0`、resolved punch-through target pathを含むローカル基準線は `bd0b659 feat: add resolved punch-through target path` としてコミット済みである。
+
+Ruleset `0.10.0` revision `1` とresolved ricochet target pathを含むローカル基準線は `27aaefd feat: add resolved ricochet target path` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
