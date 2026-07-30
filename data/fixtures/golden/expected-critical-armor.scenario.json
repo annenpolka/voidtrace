@@ -4,7 +4,7 @@
   "schemaVersion": "0.1.0",
   "id": "scenario.golden-expected-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:e11dc2fc6fa8000aa137c081cd45010f3c035526ed85d4d1325f86d6a4ac1dda",
+  "contentHash": "sha256:0c737428360ba9657714c04ca3d5b2e4bb8b38d137307be6d4a012a1e85a0728",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +16,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.4.0",
+    "schemaVersion": "0.5.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:731859a274f3bb7f914987e4fd561a62b2faa343787ccee3c0fb962d75bd4264",
+    "contentHash": "sha256:a3b84464735cca2dbbe8ee3c169abc38cdbc5e54e31810cb29cd712c92ff765f",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {

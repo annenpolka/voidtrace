@@ -26,16 +26,19 @@
 5. Run `just check`.
 
 The current implemented boundary ends at the synthetic Direct Hit / generalized fixed, explicit
-roll, or analytic expected Critical / Armor vertical slices backed by generated Ruleset `0.4.0`
-revision `1`, and their formal `describe` / `run` / `trace` JSON CLI. Fixed Critical input is a
-non-negative safe-integer tier. Explicit-roll and expected resolution accept non-negative Critical
-chance only while adjacent tiers are safely representable. Expected mode evaluates reachable
-tiers through terminal Health commit before weighting Damage and remaining Health; it does not
-emit a realized roll or tier. These Rules remain `experimental` evidence, not verified
-current-Warframe claims.
+roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot,
+backed by generated Ruleset `0.5.0` revision `1` and their formal `describe` / `run` / `trace`
+JSON CLI. Fixed Critical input is a non-negative safe-integer tier. Explicit-roll and expected
+resolution accept non-negative Critical chance only while adjacent tiers are safely representable.
+Expected mode evaluates reachable tiers through terminal Health commit before weighting Damage and
+remaining Health; it does not emit a realized roll or tier. Resolved Multishot accepts an explicit
+positive safe-integer hit count up to 64 and a shared fixed Critical tier, evaluates ordered child
+hits against sequential Health, and does not generate a Multishot or per-hit Critical roll. These
+Rules remain `experimental` evidence, not verified current-Warframe claims.
 
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
 repository-local analytic expected preset; it is not the formal CLI boundary and does not
-synthesize Critical chance or rolls. Generated random rolls and Monte Carlo remain unsupported.
-Do not add further CLI commands, Lab, API, or MCP implementations until their planned vertical
-slice begins.
+synthesize Critical chance, rolls, or Multishot counts. The formal CLI can run the repository-local
+resolved fixed-count Multishot fixture. Probabilistic Multishot, per-hit Critical rolls, generated
+random rolls, Multishot expected values, and Monte Carlo remain unsupported. Do not add further CLI
+commands, Lab, API, or MCP implementations until their planned vertical slice begins.

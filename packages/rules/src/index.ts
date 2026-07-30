@@ -6,6 +6,8 @@ export {
   type ExpectedAggregateContext,
   type ExpectedBranch,
   executeExpectedAggregateRule,
+  type FixedMultishotContext,
+  executeFixedMultishotRule,
   executeRule,
   type PredicateRejectedRuleExecution,
   type RuleContext,
@@ -15,6 +17,9 @@ export {
   type RuleParameterValue,
   type RulePhase,
   type RuleStateProjection,
+  type SequentialHit,
+  type SequentialHitAggregateContext,
+  executeSequentialHitAggregateRule,
   scaleDamageVector,
   sumDamageVector,
 } from "./execution.ts";

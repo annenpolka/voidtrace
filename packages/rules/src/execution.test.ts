@@ -2,6 +2,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   executeExpectedAggregateRule,
+  executeFixedMultishotRule,
+  executeSequentialHitAggregateRule,
   executeRule,
   type ExpectedAggregateContext,
   type RuleContext,
@@ -85,12 +87,124 @@ describe("DamageVector operations", () => {
 describe("generated core Rule execution", async () => {
   const loaded = await loadRuleset();
   const directHit = loaded.resolveRule("rule.damage.direct-hit");
+  const fixedMultishot = loaded.resolveRule("rule.multishot.emit-fixed-hits");
   const criticalRoll = loaded.resolveRule("rule.critical.resolve-tier-roll");
   const expectedCritical = loaded.resolveRule("rule.critical.resolve-expected-branches");
   const criticalScale = loaded.resolveRule("rule.critical.scale-tier");
   const armorRule = loaded.resolveRule("rule.defense.standard-armor");
   const commitHealth = loaded.resolveRule("rule.damage.commit-health");
   const aggregateExpected = loaded.resolveRule("rule.critical.aggregate-expected-branches");
+  const aggregateMultishot = loaded.resolveRule("rule.multishot.aggregate-fixed-hits");
+
+  it("expands only bounded positive safe-integer fixed Multishot counts", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 64 }), (hitCount) => {
+        const result = executeFixedMultishotRule(fixedMultishot, {
+          hitCount,
+          initialHealth: 1000,
+          zeroDamage: { "damage.synthetic": 0 },
+        });
+
+        expect(result.parameters).toEqual({
+          factor: 1,
+          hitCount,
+          maximumHits: 64,
+        });
+        expect(result.before).toEqual(result.after);
+      }),
+    );
+
+    for (const hitCount of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() =>
+        executeFixedMultishotRule(fixedMultishot, {
+          hitCount,
+          initialHealth: 1000,
+          zeroDamage: { "damage.synthetic": 0 },
+        }),
+      ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    }
+    expect(() =>
+      executeFixedMultishotRule(fixedMultishot, {
+        hitCount: 65,
+        initialHealth: 1000,
+        zeroDamage: { "damage.synthetic": 0 },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "execution-limit-exceeded" }));
+  });
+
+  it("aggregates ordered terminal Multishot hits and preserves sequential Health", () => {
+    const result = executeSequentialHitAggregateRule(aggregateMultishot, {
+      initialHealth: 250,
+      hits: [
+        {
+          id: "hit.multishot-0",
+          index: 0,
+          damage: { "damage.synthetic-a": 40, "damage.synthetic-b": 60 },
+          healthBefore: 250,
+          healthAfter: 150,
+        },
+        {
+          id: "hit.multishot-1",
+          index: 1,
+          damage: { "damage.synthetic-a": 40, "damage.synthetic-b": 60 },
+          healthBefore: 150,
+          healthAfter: 50,
+        },
+        {
+          id: "hit.multishot-2",
+          index: 2,
+          damage: { "damage.synthetic-a": 40, "damage.synthetic-b": 60 },
+          healthBefore: 50,
+          healthAfter: 0,
+        },
+      ],
+    });
+
+    expect(result.after).toEqual({
+      damage: { "damage.synthetic-a": 120, "damage.synthetic-b": 180 },
+      damageTotal: 300,
+      health: 0,
+    });
+    expect(result.parameters).toMatchObject({
+      hitCount: 3,
+      "hit.0.healthBefore": 250,
+      "hit.0.healthAfter": 150,
+      "hit.2.healthBefore": 50,
+      "hit.2.healthAfter": 0,
+    });
+  });
+
+  it("rejects non-sequential or arithmetically inconsistent Multishot hit histories", () => {
+    expect(() =>
+      executeSequentialHitAggregateRule(aggregateMultishot, {
+        initialHealth: 250,
+        hits: [
+          {
+            id: "hit.multishot-0",
+            index: 0,
+            damage: { "damage.synthetic": 100 },
+            healthBefore: 250,
+            healthAfter: 149,
+          },
+        ],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+
+    expect(() =>
+      executeSequentialHitAggregateRule(aggregateMultishot, {
+        initialHealth: 250,
+        hits: [
+          {
+            id: "hit.multishot-0",
+            index: 0,
+            damage: { "damage.synthetic": 100 },
+            healthBefore: 200,
+            healthAfter: 100,
+          },
+        ],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+  });
 
   it("copies base damage and exposes trace-ready scalar before/after values", () => {
     fc.assert(

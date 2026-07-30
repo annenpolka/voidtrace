@@ -25,6 +25,8 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "damage.expected.health.total",
   "target.health.remaining",
   "target.health.expected-remaining",
+  "multishot.hit-count",
+  "damage.multishot.total",
 ] as const);
 
 export type SupportedMetricId = (typeof SUPPORTED_METRIC_IDS)[number];
@@ -43,6 +45,7 @@ export type ScenarioDomainErrorCode =
   | "unsupported-hit-location"
   | "unsupported-damage-layer"
   | "invalid-critical-resolution"
+  | "unsupported-multishot-resolution"
   | "unsupported-critical-tier"
   | "unsupported-metric"
   | "duplicate-metric";
@@ -71,12 +74,14 @@ export type ScenarioDomain = {
   };
   readonly action: {
     readonly id: string;
+    readonly kind: "direct-hit" | "fixed-multishot";
     readonly targetId: string;
     readonly hitLocation: "hit-location.neutral-body";
     readonly damageLayer: "health";
     readonly criticalResolution: "fixed" | "roll" | "expected";
     readonly criticalTier: number | null;
     readonly criticalRoll: number | null;
+    readonly hitCount: number;
   };
   readonly simulation: {
     readonly mode: "deterministic" | "expected";
@@ -123,6 +128,15 @@ const ROLLED_CRITICAL_PARAMETER_KEYS = Object.freeze([
   "criticalRoll",
 ] as const);
 const EXPECTED_CRITICAL_PARAMETER_KEYS = ACTION_PARAMETER_COMMON_KEYS;
+const FIXED_MULTISHOT_PARAMETER_KEYS = Object.freeze([
+  ...ACTION_PARAMETER_COMMON_KEYS,
+  "criticalTier",
+  "hitCount",
+] as const);
+const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "multishot.hit-count",
+  "damage.multishot.total",
+]);
 const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "critical.base-tier",
   "critical.next-tier",
@@ -392,7 +406,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
 
   const action = scenario.actionPlan[0] as Scenario["actionPlan"][number];
-  if (action.kind !== "action.direct-hit") {
+  if (action.kind !== "action.direct-hit" && action.kind !== "action.multishot-direct-hit") {
     return failure(
       "unsupported-action-kind",
       "/actionPlan/0/kind",
@@ -400,8 +414,21 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       action.kind,
     );
   }
+  const actionKind =
+    action.kind === "action.multishot-direct-hit" ? "fixed-multishot" : "direct-hit";
   const hasCriticalTier = Object.hasOwn(action.parameters, "criticalTier");
   const hasCriticalRoll = Object.hasOwn(action.parameters, "criticalRoll");
+  if (
+    actionKind === "fixed-multishot" &&
+    (scenario.simulation.mode !== "deterministic" || !hasCriticalTier || hasCriticalRoll)
+  ) {
+    return failure(
+      "unsupported-multishot-resolution",
+      "/actionPlan/0/parameters",
+      "The first Multishot slice requires deterministic mode with fixed criticalTier and no criticalRoll",
+      "mechanic.multishot.fixed-count",
+    );
+  }
   const criticalResolution =
     scenario.simulation.mode === "expected" ? "expected" : hasCriticalTier ? "fixed" : "roll";
   if (
@@ -419,11 +446,13 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
   const actionKeyError = exactKeys(
     action.parameters,
-    criticalResolution === "fixed"
-      ? FIXED_CRITICAL_PARAMETER_KEYS
-      : criticalResolution === "roll"
-        ? ROLLED_CRITICAL_PARAMETER_KEYS
-        : EXPECTED_CRITICAL_PARAMETER_KEYS,
+    actionKind === "fixed-multishot"
+      ? FIXED_MULTISHOT_PARAMETER_KEYS
+      : criticalResolution === "fixed"
+        ? FIXED_CRITICAL_PARAMETER_KEYS
+        : criticalResolution === "roll"
+          ? ROLLED_CRITICAL_PARAMETER_KEYS
+          : EXPECTED_CRITICAL_PARAMETER_KEYS,
     "/actionPlan/0/parameters",
   );
   if (actionKeyError !== undefined) {
@@ -465,6 +494,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
   let criticalTier: number | null = null;
   let criticalRoll: number | null = null;
+  let hitCount = 1;
   if (criticalResolution === "fixed") {
     const candidate = action.parameters.criticalTier;
     if (typeof candidate !== "number" || !Number.isSafeInteger(candidate) || candidate < 0) {
@@ -493,6 +523,18 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
     }
     criticalRoll = candidate;
   }
+  if (actionKind === "fixed-multishot") {
+    const candidate = action.parameters.hitCount;
+    if (typeof candidate !== "number" || !Number.isSafeInteger(candidate) || candidate < 1) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/hitCount",
+        `Fixed Multishot hitCount must be a positive safe integer; received ${String(candidate)}`,
+        "mechanic.multishot.fixed-count",
+      );
+    }
+    hitCount = candidate;
+  }
 
   if (scenario.metrics.length === 0) {
     return failure(
@@ -516,7 +558,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
     if (
       (criticalResolution === "fixed" && FIXED_UNAVAILABLE_METRIC_IDS.has(supportedMetric)) ||
       (criticalResolution !== "expected" && EXPECTED_CRITICAL_METRIC_IDS.has(supportedMetric)) ||
-      (criticalResolution === "expected" && REALIZED_CRITICAL_METRIC_IDS.has(supportedMetric))
+      (criticalResolution === "expected" && REALIZED_CRITICAL_METRIC_IDS.has(supportedMetric)) ||
+      (actionKind !== "fixed-multishot" && MULTISHOT_ONLY_METRIC_IDS.has(supportedMetric))
     ) {
       return failure(
         "unsupported-metric",
@@ -555,12 +598,14 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
     }),
     action: Object.freeze({
       id: action.id,
+      kind: actionKind,
       targetId: actionTargetId.value,
       hitLocation: "hit-location.neutral-body",
       damageLayer: "health",
       criticalResolution,
       criticalTier,
       criticalRoll,
+      hitCount,
     }),
     simulation: Object.freeze({
       mode: scenario.simulation.mode === "expected" ? "expected" : "deterministic",

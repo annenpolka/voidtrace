@@ -24,6 +24,12 @@ import expectedExpectedFixture from "../../../data/fixtures/golden/expected-crit
 import expectedScenarioFixture from "../../../data/fixtures/golden/expected-critical-armor.scenario.json" with {
   type: "json",
 };
+import multishotExpectedFixture from "../../../data/fixtures/golden/multishot-critical-armor.expected.json" with {
+  type: "json",
+};
+import multishotScenarioFixture from "../../../data/fixtures/golden/multishot-critical-armor.scenario.json" with {
+  type: "json",
+};
 import probabilityExpectedFixture from "../../../data/fixtures/golden/probability-critical-armor.expected.json" with {
   type: "json",
 };
@@ -68,6 +74,14 @@ async function evaluateExpectedGolden() {
   return evaluateScenario({
     scenario: structuredClone(expectedScenarioFixture),
     catalog: structuredClone(tier2CatalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateMultishotGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(multishotScenarioFixture),
+    catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
 }
@@ -472,6 +486,118 @@ describe("evaluateScenario", () => {
     ).toBe(true);
   });
 
+  it("matches the independently authored fixed Multishot golden and sequential Trace", async () => {
+    const outcome = await evaluateMultishotGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(multishotExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(multishotExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(multishotExpectedFixture.damageByType);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(multishotExpectedFixture.appliedRuleIds);
+    expect(outcome.trace.decisions).toHaveLength(14);
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      phase: "attack.emit",
+      ruleId: "rule.multishot.emit-fixed-hits",
+      reads: {
+        "action.multishot-hit-count": 3,
+      },
+      operations: [
+        {
+          kind: "event.expand-fixed-multishot",
+          parameters: {
+            hitCount: 3,
+            maximumHits: 64,
+          },
+        },
+      ],
+    });
+    expect(
+      outcome.trace.decisions.flatMap((decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.damage.commit-health"
+          ? [decision.after["target.health"]]
+          : [],
+      ),
+    ).toEqual([150, 50, 0]);
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      phase: "result.aggregate",
+      ruleId: "rule.multishot.aggregate-fixed-hits",
+      after: {
+        "damage.total": 300,
+        "target.health": 0,
+      },
+    });
+    expect(await replayTraceState(outcome.trace, 250)).toEqual({
+      damage: multishotExpectedFixture.damageByType,
+      health: 0,
+    });
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, multishotScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("property-tests fixed Multishot expansion count, order, aggregation, and Health clamp", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 16 }),
+        fc.integer({ min: 0, max: 8 }),
+        fc.integer({ min: 0, max: 2_000 }),
+        fc.integer({ min: 0, max: 10_000 }),
+        async (hitCount, criticalTier, armor, health) => {
+          const changed = structuredClone(multishotScenarioFixture);
+          const action = changed.actionPlan[0];
+          const target = changed.targets[0];
+          if (action === undefined || target === undefined) {
+            throw new Error("Multishot golden must contain one action and target");
+          }
+          action.parameters.hitCount = hitCount;
+          action.parameters.criticalTier = criticalTier;
+          target.configuration.resolvedArmor = armor;
+          target.configuration.resolvedHealth = health;
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+
+          const perHit = 100 * (1 + criticalTier) * (300 / (armor + 300));
+          let remainingHealth = health;
+          for (let index = 0; index < hitCount; index += 1) {
+            remainingHealth = perHit >= remainingHealth ? 0 : remainingHealth - perHit;
+          }
+          expect(first.result.metrics["multishot.hit-count"]).toBe(hitCount);
+          expect(first.result.metrics["damage.multishot.total"]).toBeCloseTo(perHit * hitCount, 6);
+          expect(first.result.metrics["target.health.remaining"]).toBeCloseTo(remainingHealth, 6);
+          expect(
+            first.trace.decisions.filter(
+              (decision) => decision.ruleId === "rule.damage.commit-health",
+            ),
+          ).toHaveLength(hitCount);
+          expect(await replayTraceState(first.trace, health)).toEqual({
+            damage: first.result.damageByType,
+            health: first.result.metrics["target.health.remaining"],
+          });
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
   it("is canonically deterministic for identical Scenario, Catalog, Ruleset, and seed", async () => {
     const first = await evaluateGolden();
     const second = await evaluateGolden();
@@ -666,7 +792,9 @@ describe("evaluateScenario", () => {
         metric !== "critical.expected.multiplier" &&
         metric !== "damage.expected.post-critical.total" &&
         metric !== "damage.expected.health.total" &&
-        metric !== "target.health.expected-remaining",
+        metric !== "target.health.expected-remaining" &&
+        metric !== "multishot.hit-count" &&
+        metric !== "damage.multishot.total",
     );
     const metricSubset = fc.uniqueArray(fc.constantFrom(...fixedMetricIds), {
       minLength: 1,

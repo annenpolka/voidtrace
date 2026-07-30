@@ -113,12 +113,14 @@ describe("parseScenarioDomain", () => {
         },
         action: {
           id: "action.direct-hit-1",
+          kind: "direct-hit",
           targetId: "actor.target",
           hitLocation: "hit-location.neutral-body",
           damageLayer: "health",
           criticalResolution: "fixed",
           criticalTier: 1,
           criticalRoll: null,
+          hitCount: 1,
         },
         simulation: {
           mode: "deterministic",
@@ -381,6 +383,76 @@ describe("parseScenarioDomain", () => {
       code: "unsupported-action-kind",
       path: "/actionPlan/0/kind",
       mechanicId: "action.radial-hit",
+    });
+  });
+
+  it("accepts resolved fixed-count Multishot without inventing rolls", async () => {
+    const scenario = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.id = "action.multishot-1";
+      action.kind = "action.multishot-direct-hit";
+      action.parameters.hitCount = 3;
+      mutable.metrics.push("multishot.hit-count", "damage.multishot.total");
+    });
+
+    const result = await parseScenarioDomain(scenario);
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          id: "action.multishot-1",
+          kind: "fixed-multishot",
+          criticalResolution: "fixed",
+          criticalTier: 1,
+          criticalRoll: null,
+          hitCount: 3,
+        },
+      },
+    });
+  });
+
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid fixed Multishot hitCount %s",
+    async (hitCount) => {
+      const scenario = await changedScenario((mutable) => {
+        const action = firstAction(mutable);
+        action.kind = "action.multishot-direct-hit";
+        action.parameters.hitCount = hitCount;
+      });
+
+      await expectFailure(scenario, {
+        code: "invalid-configuration-value",
+        path: "/actionPlan/0/parameters/hitCount",
+        mechanicId: "mechanic.multishot.fixed-count",
+      });
+    },
+  );
+
+  it("rejects expected or explicit-roll Multishot in the fixed-count slice", async () => {
+    const expected = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.kind = "action.multishot-direct-hit";
+      action.parameters.hitCount = 3;
+      delete action.parameters.criticalTier;
+      mutable.simulation = { mode: "expected", timeLimitMs: 1 };
+    });
+    await expectFailure(expected, {
+      code: "unsupported-multishot-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.multishot.fixed-count",
+    });
+
+    const rolled = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.kind = "action.multishot-direct-hit";
+      action.parameters.hitCount = 3;
+      delete action.parameters.criticalTier;
+      action.parameters.criticalRoll = 0.2;
+    });
+    await expectFailure(rolled, {
+      code: "unsupported-multishot-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.multishot.fixed-count",
     });
   });
 

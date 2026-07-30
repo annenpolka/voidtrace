@@ -23,6 +23,7 @@ import {
   type RuleDefinition,
   type RuleExecution,
   RulesError,
+  type SequentialHit,
   sumDamageVector,
 } from "@voidtrace/rules";
 import { EventQueue, type KernelEvent } from "./event-queue.ts";
@@ -34,7 +35,7 @@ import {
 import { replayTraceState, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.4.0";
+export const KERNEL_ENGINE_VERSION = "0.5.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -104,11 +105,23 @@ const EXPECTED_RESOLUTION_PHASES = ["critical.expected"] as const satisfies Read
 const EXPECTED_AGGREGATION_PHASES = ["result.aggregate"] as const satisfies ReadonlyArray<
   RuleDefinition["phase"]
 >;
+const FIXED_MULTISHOT_EMISSION_PHASES = ["attack.emit"] as const satisfies ReadonlyArray<
+  RuleDefinition["phase"]
+>;
+const FIXED_MULTISHOT_AGGREGATION_PHASES = ["result.aggregate"] as const satisfies ReadonlyArray<
+  RuleDefinition["phase"]
+>;
 
 type BranchTraceMetadata = {
   readonly id: string;
   readonly tier: number;
   readonly weight: number;
+};
+
+type HitTraceMetadata = {
+  readonly id: string;
+  readonly index: number;
+  readonly count: number;
 };
 
 function failure(
@@ -247,7 +260,11 @@ function ruleReads(
   return Object.freeze(reads);
 }
 
-function operationParameters(execution: RuleExecution, branch?: BranchTraceMetadata): ScalarRecord {
+function operationParameters(
+  execution: RuleExecution,
+  branch?: BranchTraceMetadata,
+  hit?: HitTraceMetadata,
+): ScalarRecord {
   const values: Record<string, string | number | boolean | null> = {
     ...execution.parameters,
     ...(branch === undefined
@@ -256,6 +273,13 @@ function operationParameters(execution: RuleExecution, branch?: BranchTraceMetad
           "branch.id": branch.id,
           "branch.tier": branch.tier,
           "branch.weight": branch.weight,
+        }),
+    ...(hit === undefined
+      ? {}
+      : {
+          "hit.id": hit.id,
+          "hit.index": hit.index,
+          "hit.count": hit.count,
         }),
   };
   if (execution.operationKind === "damage-vector.copy") {
@@ -277,6 +301,7 @@ function decisionForExecution(
   armor: number,
   options: {
     readonly branch?: BranchTraceMetadata;
+    readonly hit?: HitTraceMetadata;
     readonly readOverrides?: ScalarRecord;
   } = {},
 ): Trace["decisions"][number] {
@@ -320,7 +345,7 @@ function decisionForExecution(
     operations: Object.freeze([
       Object.freeze({
         kind: execution.operationKind,
-        parameters: operationParameters(execution, options.branch),
+        parameters: operationParameters(execution, options.branch, options.hit),
       }),
     ]),
     before: traceState(execution.before.damage, execution.before.health),
@@ -333,6 +358,7 @@ function createPhaseEvents(options: {
   readonly namespace?: string;
   readonly logicalId?: string;
   readonly parentEventId?: string;
+  readonly kind?: string;
   readonly phases: ReadonlyArray<RuleDefinition["phase"]>;
 }): EventQueue<PhasePayload> {
   const queue = new EventQueue<PhasePayload>();
@@ -346,7 +372,7 @@ function createPhaseEvents(options: {
       ...(parentEventId === undefined ? {} : { parentEventId }),
       timeMs: 0,
       sequence,
-      kind: "damage.direct",
+      kind: options.kind ?? "damage.direct",
       payload: Object.freeze({ phase }),
     });
     parentEventId = id;
@@ -371,6 +397,9 @@ function updateMetricValues(
     return;
   }
   switch (execution.operationKind) {
+    case "event.expand-fixed-multishot":
+    case "damage-vector.aggregate-sequential-hits":
+      return;
     case "damage-vector.copy":
       metricValues["damage.direct-hit.total"] = execution.after.damageTotal;
       return;
@@ -478,6 +507,9 @@ function projectRequestedMetrics(
 
 function mechanicForRule(rule: RuleDefinition): string {
   switch (rule.operation.kind) {
+    case "event.expand-fixed-multishot":
+    case "damage-vector.aggregate-sequential-hits":
+      return "mechanic.multishot.fixed-count";
     case "damage-vector.copy":
       return "mechanic.damage.direct-hit";
     case "critical-tier.resolve-tier-roll":
@@ -613,7 +645,7 @@ function evaluateDeterministicRuntime(
     phases,
   }).drain()) {
     for (const rule of ruleset.snapshot.rules) {
-      if (rule.phase !== event.payload.phase) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
         continue;
       }
       const execution = ruleset.executeRule(
@@ -662,6 +694,224 @@ function evaluateDeterministicRuntime(
   });
 }
 
+function evaluateFixedMultishotRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (
+    domain.action.kind !== "fixed-multishot" ||
+    domain.action.criticalResolution !== "fixed" ||
+    domain.action.criticalTier === null
+  ) {
+    throw new TypeError("Non-fixed Multishot input reached fixed Multishot evaluation");
+  }
+
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  const zeroDamage = zeroVector(references.attackMode.baseDamage);
+  let world = createWorldState([
+    {
+      id: domain.target.id,
+      values: Object.freeze({ health: domain.target.resolvedHealth }),
+    },
+  ]);
+  let decisionSequence = 0;
+  let expansionExecution: RuleExecution | undefined;
+  let expansionEventId: string | undefined;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.multishot-direct-hit",
+    phases: FIXED_MULTISHOT_EMISSION_PHASES,
+  }).drain()) {
+    expansionEventId = event.id;
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeFixedMultishotRule(rule.id, {
+        hitCount: domain.action.hitCount,
+        initialHealth: domain.target.resolvedHealth,
+        zeroDamage,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          domain.target.resolvedArmor,
+          {
+            readOverrides: {
+              "action.multishot-hit-count": domain.action.hitCount,
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        expansionExecution = execution;
+      }
+    }
+  }
+  if (
+    expansionExecution === undefined ||
+    expansionExecution.operationKind !== "event.expand-fixed-multishot" ||
+    expansionEventId === undefined ||
+    requiredNumber(expansionExecution.parameters, "hitCount") !== domain.action.hitCount
+  ) {
+    throw new TypeError("Ruleset did not apply fixed Multishot expansion");
+  }
+
+  const hits: SequentialHit[] = [];
+  for (let index = 0; index < domain.action.hitCount; index += 1) {
+    const hit: HitTraceMetadata = Object.freeze({
+      id: `hit.multishot-${index}`,
+      index,
+      count: domain.action.hitCount,
+    });
+    const healthBefore = readHealth(world, domain.target.id);
+    let hitDamage = zeroVector(references.attackMode.baseDamage);
+
+    for (const event of createPhaseEvents({
+      actionId: domain.action.id,
+      namespace: `${domain.action.id}.${hit.id}`,
+      logicalId: `${domain.action.id}.${hit.id}`,
+      parentEventId: expansionEventId,
+      phases: FIXED_CRITICAL_PHASES,
+    }).drain()) {
+      for (const rule of ruleset.snapshot.rules) {
+        if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+          continue;
+        }
+        const execution = ruleset.executeRule(
+          rule.id,
+          ruleContext(
+            references,
+            hitDamage,
+            domain.action.criticalTier,
+            null,
+            domain.target.resolvedArmor,
+            readHealth(world, domain.target.id),
+          ),
+        );
+        decisions.push(
+          decisionForExecution(
+            decisionSequence,
+            event,
+            rule,
+            execution,
+            references,
+            domain.action.criticalTier,
+            null,
+            domain.target.resolvedArmor,
+            { hit },
+          ),
+        );
+        decisionSequence += 1;
+        updateMetricValues(metricValues, execution, domain.action.criticalTier);
+        if (execution.outcome === "applied") {
+          appliedRules.push(rule);
+          hitDamage = execution.after.damage;
+          world = replaceEntityState(world, domain.target.id, {
+            health: execution.after.health,
+          });
+        }
+      }
+    }
+
+    hits.push(
+      Object.freeze({
+        id: hit.id,
+        index,
+        damage: hitDamage,
+        healthBefore,
+        healthAfter: readHealth(world, domain.target.id),
+      }),
+    );
+  }
+
+  let aggregateExecution: RuleExecution | undefined;
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.multishot-direct-hit",
+    parentEventId: expansionEventId,
+    phases: FIXED_MULTISHOT_AGGREGATION_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeSequentialHitAggregateRule(rule.id, {
+        initialHealth: domain.target.resolvedHealth,
+        hits,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          domain.target.resolvedArmor,
+          {
+            readOverrides: {
+              "hit.damage": canonicalizeJson(
+                hits.map((hit) => ({ id: hit.id, index: hit.index, damage: { ...hit.damage } })),
+              ),
+              "hit.health-before": canonicalizeJson(
+                hits.map((hit) => ({
+                  id: hit.id,
+                  index: hit.index,
+                  healthBefore: hit.healthBefore,
+                })),
+              ),
+              "hit.health-after": canonicalizeJson(
+                hits.map((hit) => ({
+                  id: hit.id,
+                  index: hit.index,
+                  healthAfter: hit.healthAfter,
+                })),
+              ),
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        aggregateExecution = execution;
+      }
+    }
+  }
+  if (
+    aggregateExecution === undefined ||
+    aggregateExecution.operationKind !== "damage-vector.aggregate-sequential-hits"
+  ) {
+    throw new TypeError("Ruleset did not apply fixed Multishot aggregation");
+  }
+
+  metricValues["multishot.hit-count"] = domain.action.hitCount;
+  metricValues["damage.multishot.total"] = aggregateExecution.after.damageTotal;
+  metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
+  metricValues["target.health.remaining"] = aggregateExecution.after.health;
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage: aggregateExecution.after.damage,
+  });
+}
+
 function requiredNumber(
   parameters: Readonly<Record<string, string | number>>,
   key: string,
@@ -693,7 +943,7 @@ function evaluateExpectedRuntime(
     phases: EXPECTED_RESOLUTION_PHASES,
   }).drain()) {
     for (const rule of ruleset.snapshot.rules) {
-      if (rule.phase !== event.payload.phase) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
         continue;
       }
       const execution = ruleset.executeRule(
@@ -782,7 +1032,7 @@ function evaluateExpectedRuntime(
       phases: FIXED_CRITICAL_PHASES,
     }).drain()) {
       for (const rule of ruleset.snapshot.rules) {
-        if (rule.phase !== event.payload.phase) {
+        if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
           continue;
         }
         const execution = ruleset.executeRule(
@@ -850,7 +1100,7 @@ function evaluateExpectedRuntime(
     phases: EXPECTED_AGGREGATION_PHASES,
   }).drain()) {
     for (const rule of ruleset.snapshot.rules) {
-      if (rule.phase !== event.payload.phase) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
         continue;
       }
       const execution = ruleset.executeExpectedAggregateRule(rule.id, {
@@ -1020,9 +1270,11 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
   let runtime: RuntimeEvaluation;
   try {
     runtime =
-      domain.action.criticalResolution === "expected"
-        ? evaluateExpectedRuntime(domain, references, ruleset)
-        : evaluateDeterministicRuntime(domain, references, ruleset);
+      domain.action.kind === "fixed-multishot"
+        ? evaluateFixedMultishotRuntime(domain, references, ruleset)
+        : domain.action.criticalResolution === "expected"
+          ? evaluateExpectedRuntime(domain, references, ruleset)
+          : evaluateDeterministicRuntime(domain, references, ruleset);
   } catch (error) {
     if (error instanceof RulesError && error.code === "unsupported-critical-multiplier") {
       const path = attackModeFieldPath(catalog, references, "criticalMultiplier");

@@ -8,6 +8,7 @@ export type RulesErrorCode =
   | "invalid-reference"
   | "invalid-context"
   | "invalid-damage-vector"
+  | "execution-limit-exceeded"
   | "unsupported-rule"
   | "unsupported-critical-multiplier"
   | "unknown-operation"

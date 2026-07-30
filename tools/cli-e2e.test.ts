@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { validateContract } from "../packages/contracts/src/index.ts";
+import { attachArtifactContentHash, validateContract } from "../packages/contracts/src/index.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const bins = {
@@ -13,6 +13,7 @@ const scenarioPath = "data/fixtures/golden/direct-critical-armor.scenario.json";
 const probabilityScenarioPath = "data/fixtures/golden/probability-critical-armor.scenario.json";
 const tier2ScenarioPath = "data/fixtures/golden/tier-2-critical-armor.scenario.json";
 const expectedScenarioPath = "data/fixtures/golden/expected-critical-armor.scenario.json";
+const multishotScenarioPath = "data/fixtures/golden/multishot-critical-armor.scenario.json";
 const catalogPath = "data/fixtures/catalog-mini/catalog.json";
 const tier2CatalogPath = "data/fixtures/catalog-mini/catalog-tier-2.json";
 
@@ -65,6 +66,8 @@ describe("installed VoidTrace CLI aliases", () => {
     ["trace", tier2ScenarioPath, "--catalog", tier2CatalogPath],
     ["run", expectedScenarioPath, "--catalog", tier2CatalogPath],
     ["trace", expectedScenarioPath, "--catalog", tier2CatalogPath],
+    ["run", multishotScenarioPath, "--catalog", catalogPath],
+    ["trace", multishotScenarioPath, "--catalog", catalogPath],
     ["run", "--help"],
     ["unknown"],
   ])("are byte-equivalent for %j", async (...argv) => {
@@ -214,6 +217,72 @@ describe("installed VoidTrace CLI aliases", () => {
       },
     });
     expect(validateContract("trace", traceArtifact).ok).toBe(true);
+  });
+
+  it("exposes resolved fixed Multishot Result and Trace through the installed CLI", async () => {
+    const result = await execute("vt", ["run", multishotScenarioPath, "--catalog", catalogPath]);
+    const trace = await execute("vt", ["trace", multishotScenarioPath, "--catalog", catalogPath]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    const resultArtifact = JSON.parse(result.stdout);
+    expect(resultArtifact).toMatchObject({
+      metrics: {
+        "multishot.hit-count": 3,
+        "damage.direct-hit.total": 100,
+        "damage.multishot.total": 300,
+        "damage.health.total": 300,
+        "target.health.remaining": 0,
+      },
+      damageByType: {
+        "damage.synthetic-kinetic": 300,
+      },
+    });
+    expect(validateContract("result", resultArtifact).ok).toBe(true);
+
+    expect(trace.exitCode).toBe(0);
+    expect(trace.stderr).toBe("");
+    const traceArtifact = JSON.parse(trace.stdout) as {
+      decisions: Array<{ ruleId: string }>;
+    };
+    expect(traceArtifact.decisions[0]).toMatchObject({
+      ruleId: "rule.multishot.emit-fixed-hits",
+    });
+    expect(traceArtifact.decisions.at(-1)).toMatchObject({
+      ruleId: "rule.multishot.aggregate-fixed-hits",
+    });
+    expect(validateContract("trace", traceArtifact).ok).toBe(true);
+  });
+
+  it("returns one limit Problem and no partial Artifact above the Multishot bound", async () => {
+    const fixture = JSON.parse(
+      await readFile(new URL(`../${multishotScenarioPath}`, import.meta.url), "utf8"),
+    ) as {
+      contentHash: string;
+      actionPlan: Array<{ parameters: { hitCount: number } }>;
+    } & Record<string, unknown>;
+    const action = fixture.actionPlan[0];
+    if (action === undefined) {
+      throw new Error("Multishot golden Scenario must contain an action");
+    }
+    action.parameters.hitCount = 65;
+    const { contentHash: _contentHash, ...withoutHash } = fixture;
+    const scenario = await attachArtifactContentHash(withoutHash);
+    const failure = await execute(
+      "vt",
+      ["run", "-", "--catalog", catalogPath],
+      JSON.stringify(scenario),
+    );
+
+    expect(failure.exitCode).toBe(4);
+    expect(failure.stdout).toBe("");
+    expect(failure.stderr.split("\n")).toHaveLength(2);
+    expect(JSON.parse(failure.stderr)).toMatchObject({
+      code: "rule-execution-failed",
+      classification: "limit",
+      causeCode: "execution-limit-exceeded",
+    });
+    expect(validateContract("problem", JSON.parse(failure.stderr)).ok).toBe(true);
   });
 
   it("accepts either input Artifact from stdin without changing the Result", async () => {

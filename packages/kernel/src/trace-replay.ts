@@ -69,6 +69,12 @@ type BranchMetadata = {
   readonly weight: number;
 };
 
+type HitMetadata = {
+  readonly id: string;
+  readonly index: number;
+  readonly count: number;
+};
+
 function branchMetadata(
   parameters: Readonly<Record<string, string | number | boolean | null>>,
 ): BranchMetadata | undefined {
@@ -96,6 +102,31 @@ function branchMetadata(
   return Object.freeze({ id, tier, weight });
 }
 
+function hitMetadata(
+  parameters: Readonly<Record<string, string | number | boolean | null>>,
+): HitMetadata | undefined {
+  const id = parameters["hit.id"];
+  const index = parameters["hit.index"];
+  const count = parameters["hit.count"];
+  if (id === undefined && index === undefined && count === undefined) {
+    return undefined;
+  }
+  if (
+    typeof id !== "string" ||
+    !isStableId(id) ||
+    typeof index !== "number" ||
+    !Number.isSafeInteger(index) ||
+    index < 0 ||
+    typeof count !== "number" ||
+    !Number.isSafeInteger(count) ||
+    count < 1 ||
+    index >= count
+  ) {
+    invalidParameters("Trace hit operation has incomplete or invalid hit metadata");
+  }
+  return Object.freeze({ id, index, count });
+}
+
 export type ReplayedTraceState = {
   readonly damage: DamageVector;
   readonly health: number;
@@ -105,6 +136,13 @@ type BranchReplayState = ReplayedTraceState & {
   readonly committed: boolean;
   readonly tier: number;
   readonly weight: number;
+};
+
+type HitReplayState = ReplayedTraceState & {
+  readonly committed: boolean;
+  readonly index: number;
+  readonly count: number;
+  readonly healthBefore: number;
 };
 
 function invalidParameters(message: string): never {
@@ -117,6 +155,13 @@ function requiredBranchMetadata(
 ): BranchMetadata {
   if (metadata === undefined) {
     invalidParameters(`${subject} omitted branch metadata`);
+  }
+  return metadata;
+}
+
+function requiredHitMetadata(metadata: HitMetadata | undefined, subject: string): HitMetadata {
+  if (metadata === undefined) {
+    invalidParameters(`${subject} omitted hit metadata`);
   }
   return metadata;
 }
@@ -328,6 +373,101 @@ function aggregateWeightedBranches(
   });
 }
 
+function aggregateSequentialHits(
+  parameters: Readonly<Record<string, string | number | boolean | null>>,
+  hits: ReadonlyMap<string, HitReplayState>,
+  reads: Readonly<Record<string, string | number | boolean | null>>,
+  initialHealth: number,
+): ReplayedTraceState {
+  const count = parameters.hitCount;
+  if (
+    typeof count !== "number" ||
+    !Number.isSafeInteger(count) ||
+    count < 1 ||
+    count !== hits.size
+  ) {
+    invalidParameters("Trace sequential aggregation has an invalid hitCount");
+  }
+
+  const ordered = [...hits.entries()].toSorted(([, left], [, right]) => left.index - right.index);
+  const aggregate: Record<string, number> = {};
+  const damageReads: Array<{
+    readonly id: string;
+    readonly index: number;
+    readonly damage: DamageVector;
+  }> = [];
+  const beforeReads: Array<{
+    readonly id: string;
+    readonly index: number;
+    readonly healthBefore: number;
+  }> = [];
+  const afterReads: Array<{
+    readonly id: string;
+    readonly index: number;
+    readonly healthAfter: number;
+  }> = [];
+  let previousHealth = initialHealth;
+  let expectedDamageKeys: ReadonlyArray<string> | undefined;
+
+  for (const [index, [id, hit]] of ordered.entries()) {
+    if (
+      hit.index !== index ||
+      hit.count !== count ||
+      !hit.committed ||
+      hit.healthBefore !== previousHealth
+    ) {
+      invalidParameters(`Trace sequential aggregation has invalid hit ${index}`);
+    }
+    const damageKeys = Object.keys(hit.damage).toSorted();
+    if (
+      expectedDamageKeys !== undefined &&
+      (damageKeys.length !== expectedDamageKeys.length ||
+        damageKeys.some((key, keyIndex) => key !== expectedDamageKeys?.[keyIndex]))
+    ) {
+      invalidParameters("Trace sequential aggregation hits have different Damage Vector keys");
+    }
+    expectedDamageKeys = damageKeys;
+    if (
+      parameters[`hit.${index}.id`] !== id ||
+      parameters[`hit.${index}.index`] !== index ||
+      parameters[`hit.${index}.damageTotal`] !== sumDamageVector(hit.damage) ||
+      parameters[`hit.${index}.healthBefore`] !== hit.healthBefore ||
+      parameters[`hit.${index}.healthAfter`] !== hit.health
+    ) {
+      invalidParameters(`Trace sequential aggregation hit ${index} is inconsistent`);
+    }
+    for (const [damageTypeId, component] of Object.entries(hit.damage)) {
+      if (parameters[`hit.${index}.damage.${damageTypeId}`] !== component) {
+        invalidParameters(
+          `Trace sequential aggregation hit ${index} component ${damageTypeId} is inconsistent`,
+        );
+      }
+      const value = (aggregate[damageTypeId] ?? 0) + component;
+      if (!Number.isFinite(value) || value < 0) {
+        invalidParameters(`Trace sequential aggregation overflowed component ${damageTypeId}`);
+      }
+      aggregate[damageTypeId] = value;
+    }
+    damageReads.push({ id, index, damage: hit.damage });
+    beforeReads.push({ id, index, healthBefore: hit.healthBefore });
+    afterReads.push({ id, index, healthAfter: hit.health });
+    previousHealth = hit.health;
+  }
+  if (
+    Object.keys(reads).toSorted().join("\u0000") !==
+      ["hit.damage", "hit.health-after", "hit.health-before"].join("\u0000") ||
+    reads["hit.damage"] !== canonicalizeJson(damageReads) ||
+    reads["hit.health-before"] !== canonicalizeJson(beforeReads) ||
+    reads["hit.health-after"] !== canonicalizeJson(afterReads)
+  ) {
+    invalidParameters("Trace sequential aggregation reads do not match terminal hits");
+  }
+  return Object.freeze({
+    damage: Object.freeze(aggregate),
+    health: previousHealth,
+  });
+}
+
 /**
  * Reconstructs final Damage and Health solely from ordered Trace operations,
  * anchored to the Scenario's resolved initial Health.
@@ -365,6 +505,8 @@ async function replayTrace(
   let committed = false;
   let initialHealth = anchoredInitialHealth;
   const branches = new Map<string, BranchReplayState>();
+  const hits = new Map<string, HitReplayState>();
+  let expectedHitCount: number | undefined;
 
   for (const decision of trace.decisions) {
     if (decision.outcome !== "applied") {
@@ -379,8 +521,14 @@ async function replayTrace(
     }
     const operationBranch = branchMetadata(operation.parameters);
     const operationBranchId = operationBranch?.id;
+    const operationHit = hitMetadata(operation.parameters);
+    const operationHitId = operationHit?.id;
+    if (operationBranchId !== undefined && operationHitId !== undefined) {
+      invalidParameters(`Trace decision ${decision.sequence} mixes branch and hit metadata`);
+    }
     const branchState =
       operationBranchId === undefined ? undefined : branches.get(operationBranchId);
+    const hitState = operationHitId === undefined ? undefined : hits.get(operationHitId);
     if (
       operationBranch !== undefined &&
       branchState !== undefined &&
@@ -388,10 +536,73 @@ async function replayTrace(
     ) {
       invalidParameters(`Trace decision ${decision.sequence} changed branch metadata`);
     }
-    const currentDamage = operationBranchId === undefined ? damage : branchState?.damage;
-    const currentHealth = operationBranchId === undefined ? health : branchState?.health;
+    if (
+      operationHit !== undefined &&
+      hitState !== undefined &&
+      (operationHit.index !== hitState.index || operationHit.count !== hitState.count)
+    ) {
+      invalidParameters(`Trace decision ${decision.sequence} changed hit metadata`);
+    }
+    const currentDamage =
+      operationBranchId !== undefined
+        ? branchState?.damage
+        : operationHitId !== undefined
+          ? hitState?.damage
+          : damage;
+    const currentHealth =
+      operationBranchId !== undefined
+        ? branchState?.health
+        : operationHitId !== undefined
+          ? hitState?.health
+          : health;
 
     switch (operation.kind) {
+      case "event.expand-fixed-multishot": {
+        const hitCount = operation.parameters.hitCount;
+        const maximumHits = operation.parameters.maximumHits;
+        if (
+          typeof hitCount !== "number" ||
+          !Number.isSafeInteger(hitCount) ||
+          hitCount < 1 ||
+          typeof maximumHits !== "number" ||
+          !Number.isSafeInteger(maximumHits) ||
+          maximumHits < hitCount ||
+          decision.reads["action.multishot-hit-count"] !== hitCount
+        ) {
+          invalidParameters("Trace fixed Multishot expansion has invalid parameters");
+        }
+        const beforeDamage = projectionDamage(
+          decision.before,
+          `Trace decision ${decision.sequence} before`,
+        );
+        const beforeHealth = requiredNonNegativeNumber(
+          decision.before,
+          "target.health",
+          `Trace decision ${decision.sequence} before`,
+        );
+        if (sumDamageVector(beforeDamage) !== 0) {
+          invalidParameters("Trace fixed Multishot expansion does not start at zero Damage");
+        }
+        if (initialHealth === undefined) {
+          initialHealth = beforeHealth;
+        }
+        assertProjection(
+          decision.before,
+          beforeDamage,
+          initialHealth,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          beforeDamage,
+          initialHealth,
+          `Trace decision ${decision.sequence} after`,
+        );
+        expectedHitCount = hitCount;
+        damage = beforeDamage;
+        health = initialHealth;
+        break;
+      }
       case "damage-vector.copy": {
         if (initialHealth === undefined) {
           initialHealth = requiredNonNegativeNumber(
@@ -409,20 +620,53 @@ async function replayTrace(
             `Trace copy decision ${decision.sequence} does not start at zero Damage`,
           );
         }
+        const copyHealth =
+          operationHitId === undefined
+            ? initialHealth
+            : requiredNonNegativeNumber(
+                decision.before,
+                "target.health",
+                `Trace decision ${decision.sequence} before`,
+              );
         assertProjection(
           decision.before,
           beforeDamage,
-          initialHealth,
+          copyHealth,
           `Trace decision ${decision.sequence} before`,
         );
         const copied = copyOperationDamage(operation.parameters);
         assertProjection(
           decision.after,
           copied,
-          initialHealth,
+          copyHealth,
           `Trace decision ${decision.sequence} after`,
         );
-        if (operationBranchId === undefined) {
+        if (operationHitId !== undefined) {
+          const metadata = requiredHitMetadata(
+            operationHit,
+            `Trace copy decision ${decision.sequence}`,
+          );
+          if (
+            expectedHitCount === undefined ||
+            metadata.count !== expectedHitCount ||
+            metadata.index !== hits.size ||
+            hits.has(operationHitId) ||
+            copyHealth !== health
+          ) {
+            invalidParameters(`Trace constructs invalid sequential hit ${operationHitId}`);
+          }
+          hits.set(
+            operationHitId,
+            Object.freeze({
+              damage: copied,
+              health: copyHealth,
+              healthBefore: copyHealth,
+              committed: false,
+              index: metadata.index,
+              count: metadata.count,
+            }),
+          );
+        } else if (operationBranchId === undefined) {
           if (damage !== undefined && sumDamageVector(damage) !== 0) {
             invalidParameters("Trace constructs duplicate global Damage Vector");
           }
@@ -443,7 +687,7 @@ async function replayTrace(
             operationBranchId,
             Object.freeze({
               damage: copied,
-              health: initialHealth,
+              health: copyHealth,
               committed: false,
               tier: metadata.tier,
               weight: metadata.weight,
@@ -527,7 +771,26 @@ async function replayTrace(
           currentHealth,
           `Trace decision ${decision.sequence} after`,
         );
-        if (operationBranchId === undefined) {
+        if (operationHitId !== undefined) {
+          const metadata = requiredHitMetadata(
+            operationHit,
+            `Trace scale decision ${decision.sequence}`,
+          );
+          if (hitState === undefined) {
+            invalidParameters(`Trace scales unknown hit ${operationHitId}`);
+          }
+          hits.set(
+            operationHitId,
+            Object.freeze({
+              damage: scaled,
+              health: currentHealth,
+              healthBefore: hitState.healthBefore,
+              committed: hitState.committed,
+              index: metadata.index,
+              count: metadata.count,
+            }),
+          );
+        } else if (operationBranchId === undefined) {
           damage = scaled;
         } else {
           const metadata = requiredBranchMetadata(
@@ -590,7 +853,27 @@ async function replayTrace(
           healthAfter,
           `Trace decision ${decision.sequence} after`,
         );
-        if (operationBranchId === undefined) {
+        if (operationHitId !== undefined) {
+          const metadata = requiredHitMetadata(
+            operationHit,
+            `Trace Health commit ${decision.sequence}`,
+          );
+          if (hitState === undefined || hitState.committed) {
+            invalidParameters(`Trace commits invalid hit ${operationHitId}`);
+          }
+          hits.set(
+            operationHitId,
+            Object.freeze({
+              damage: currentDamage,
+              health: healthAfter,
+              healthBefore: hitState.healthBefore,
+              committed: true,
+              index: metadata.index,
+              count: metadata.count,
+            }),
+          );
+          health = healthAfter;
+        } else if (operationBranchId === undefined) {
           health = healthAfter;
           committed = true;
         } else {
@@ -616,6 +899,36 @@ async function replayTrace(
           invalidParameters("Trace aggregates branches before establishing initial Health");
         }
         const aggregate = aggregateWeightedBranches(operation.parameters, branches, decision.reads);
+        assertProjection(
+          decision.before,
+          aggregate.damage,
+          initialHealth,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          aggregate.damage,
+          aggregate.health,
+          `Trace decision ${decision.sequence} after`,
+        );
+        damage = aggregate.damage;
+        health = aggregate.health;
+        committed = true;
+        break;
+      }
+      case "damage-vector.aggregate-sequential-hits": {
+        if (initialHealth === undefined || expectedHitCount === undefined) {
+          invalidParameters("Trace aggregates sequential hits before fixed Multishot expansion");
+        }
+        const aggregate = aggregateSequentialHits(
+          operation.parameters,
+          hits,
+          decision.reads,
+          initialHealth,
+        );
+        if (hits.size !== expectedHitCount) {
+          invalidParameters("Trace sequential aggregation does not include every emitted hit");
+        }
         assertProjection(
           decision.before,
           aggregate.damage,

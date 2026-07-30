@@ -208,11 +208,11 @@ export type Result = {
 /** Generated finite Rule IR interpreted by the Kernel-facing Rules package. */
 export type Ruleset = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:ruleset:0.4.0";
+  readonly "$schema": "urn:voidtrace:schema:ruleset:0.5.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "ruleset";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.4.0";
+  readonly "schemaVersion": "0.5.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -230,7 +230,7 @@ export type Ruleset = {
     /** Human-readable normative operation semantics. */
     readonly "description": string;
     /** Finite execution phase. */
-    readonly "phase": "damage.construct" | "critical.roll" | "critical.expected" | "critical.resolve" | "target.mitigate" | "damage.commit" | "result.aggregate";
+    readonly "phase": "attack.emit" | "damage.construct" | "critical.roll" | "critical.expected" | "critical.resolve" | "target.mitigate" | "damage.commit" | "result.aggregate";
     /** Stable event discriminator matched by this Rule. */
     readonly "eventKind": string;
     /** Declared scalar or vector paths read by this Rule. */
@@ -239,6 +239,11 @@ export type Ruleset = {
     readonly "writes": ReadonlyArray<string>;
     /** Finite executable operation selected by this Rule. */
     readonly "operation": {
+      /** Expand one resolved Multishot action into an explicit bounded count of ordered Direct Hit events. */
+      readonly "kind": "event.expand-fixed-multishot";
+      /** Positive safe execution bound for one resolved Multishot action. */
+      readonly "maximumHits": number;
+    } | {
       /** Copy the input base Damage Vector into event damage. */
       readonly "kind": "damage-vector.copy";
     } | {
@@ -261,6 +266,9 @@ export type Ruleset = {
     } | {
       /** Aggregate terminal branch Damage Vectors and remaining Health by explicit branch weights. */
       readonly "kind": "damage-vector.aggregate-weighted-branches";
+    } | {
+      /** Aggregate ordered terminal Direct Hit Damage Vectors and preserve the final sequential Health state. */
+      readonly "kind": "damage-vector.aggregate-sequential-hits";
     };
     /** Game-mechanics evidence status, independent of implementation maturity. */
     readonly "evidenceStatus": "verified" | "experimental" | "disputed" | "unsupported" | "approximated";

@@ -33,6 +33,25 @@ export type ExpectedAggregateContext = {
   readonly branches: ReadonlyArray<ExpectedBranch>;
 };
 
+export type FixedMultishotContext = {
+  readonly hitCount: number;
+  readonly initialHealth: number;
+  readonly zeroDamage: DamageVector;
+};
+
+export type SequentialHit = {
+  readonly id: string;
+  readonly index: number;
+  readonly damage: DamageVector;
+  readonly healthBefore: number;
+  readonly healthAfter: number;
+};
+
+export type SequentialHitAggregateContext = {
+  readonly initialHealth: number;
+  readonly hits: ReadonlyArray<SequentialHit>;
+};
+
 export type RuleStateProjection = {
   readonly damage: DamageVector;
   readonly damageTotal: number;
@@ -78,6 +97,10 @@ type ValidatedExpectedAggregateContext = {
   readonly initialHealth: number;
   readonly branches: ReadonlyArray<ExpectedBranch>;
 };
+
+type ValidatedFixedMultishotContext = FixedMultishotContext;
+
+type ValidatedSequentialHitAggregateContext = SequentialHitAggregateContext;
 
 const CONTEXT_FIELDS = [
   "baseDamage",
@@ -301,6 +324,112 @@ function snapshotExpectedAggregateContext(
     ),
     branches: snapshotExpectedBranches(dataProperty(context, "branches", "context")),
   });
+}
+
+function snapshotFixedMultishotContext(
+  value: FixedMultishotContext,
+): ValidatedFixedMultishotContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["hitCount", "initialHealth", "zeroDamage"],
+    "context",
+  );
+  const hitCount = dataProperty(context, "hitCount", "context");
+  if (!isNonNegativeSafeInteger(hitCount) || hitCount < 1) {
+    invalidContext("hitCount must be a positive safe integer", "hitCount");
+  }
+  const zeroDamage = snapshotDamageVector(
+    dataProperty(context, "zeroDamage", "context"),
+    "zeroDamage",
+  );
+  if (sumValidatedDamageVector(zeroDamage) !== 0) {
+    invalidContext("zeroDamage components must all be zero", "zeroDamage");
+  }
+  return Object.freeze({
+    hitCount,
+    initialHealth: nonNegativeFinite(
+      dataProperty(context, "initialHealth", "context"),
+      "initialHealth",
+    ),
+    zeroDamage,
+  });
+}
+
+function snapshotSequentialHits(value: unknown): ReadonlyArray<SequentialHit> {
+  if (
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    value.length < 1
+  ) {
+    invalidContext("hits must be a plain non-empty array", "hits");
+  }
+
+  const hits: SequentialHit[] = [];
+  const ids = new Set<string>();
+  for (let index = 0; index < value.length; index += 1) {
+    const subject = `hits[${index}]`;
+    const hit = snapshotPlainExactObject(
+      dataProperty(value, String(index), "hits"),
+      ["id", "index", "damage", "healthBefore", "healthAfter"],
+      subject,
+    );
+    const id = dataProperty(hit, "id", subject);
+    if (typeof id !== "string" || !isStableId(id) || ids.has(id)) {
+      invalidContext(`${subject}.id must be a unique stable ID`, `${subject}.id`);
+    }
+    const declaredIndex = dataProperty(hit, "index", subject);
+    if (declaredIndex !== index) {
+      invalidContext(`${subject}.index must equal its stable array index`, `${subject}.index`);
+    }
+    const healthBefore = nonNegativeFinite(
+      dataProperty(hit, "healthBefore", subject),
+      `${subject}.healthBefore`,
+    );
+    const healthAfter = nonNegativeFinite(
+      dataProperty(hit, "healthAfter", subject),
+      `${subject}.healthAfter`,
+    );
+    if (healthAfter > healthBefore) {
+      invalidContext(
+        `${subject}.healthAfter must not exceed healthBefore`,
+        `${subject}.healthAfter`,
+      );
+    }
+    ids.add(id);
+    hits.push(
+      Object.freeze({
+        id,
+        index,
+        damage: snapshotDamageVector(dataProperty(hit, "damage", subject), `${subject}.damage`),
+        healthBefore,
+        healthAfter,
+      }),
+    );
+  }
+  return Object.freeze(hits);
+}
+
+function snapshotSequentialHitAggregateContext(
+  value: SequentialHitAggregateContext,
+): ValidatedSequentialHitAggregateContext {
+  const context = snapshotPlainExactObject(value, ["initialHealth", "hits"], "context");
+  const initialHealth = nonNegativeFinite(
+    dataProperty(context, "initialHealth", "context"),
+    "initialHealth",
+  );
+  const hits = snapshotSequentialHits(dataProperty(context, "hits", "context"));
+  let expectedHealthBefore = initialHealth;
+  for (const [index, hit] of hits.entries()) {
+    const expectedHealthAfter =
+      sumValidatedDamageVector(hit.damage) >= hit.healthBefore
+        ? 0
+        : hit.healthBefore - sumValidatedDamageVector(hit.damage);
+    if (hit.healthBefore !== expectedHealthBefore || hit.healthAfter !== expectedHealthAfter) {
+      invalidContext(`hits[${index}] does not form a valid sequential Health transition`, "hits");
+    }
+    expectedHealthBefore = hit.healthAfter;
+  }
+  return Object.freeze({ initialHealth, hits });
 }
 
 function sumValidatedDamageVector(damage: DamageVector): number {
@@ -585,6 +714,55 @@ export function executeRule(rule: RuleDefinition, context: RuleContext): RuleExe
   }
 }
 
+export function executeFixedMultishotRule(
+  rule: RuleDefinition,
+  context: FixedMultishotContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "event.expand-fixed-multishot") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a fixed Multishot expansion operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+
+  const operation = rule.operation as {
+    readonly kind: "event.expand-fixed-multishot";
+    readonly maximumHits: unknown;
+  };
+  if (
+    typeof operation.maximumHits !== "number" ||
+    !Number.isSafeInteger(operation.maximumHits) ||
+    operation.maximumHits < 1
+  ) {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid Multishot limit`, {
+      ruleId: rule.id,
+    });
+  }
+
+  const input = snapshotFixedMultishotContext(context);
+  if (input.hitCount > operation.maximumHits) {
+    throw new RulesError(
+      "execution-limit-exceeded",
+      `Fixed Multishot hitCount ${input.hitCount} exceeds limit ${operation.maximumHits}`,
+      { hitCount: input.hitCount, maximumHits: operation.maximumHits },
+    );
+  }
+  const projection = stateProjection(input.zeroDamage, input.initialHealth);
+  return applied(
+    rule,
+    1,
+    parameters({
+      factor: 1,
+      hitCount: input.hitCount,
+      maximumHits: operation.maximumHits,
+    }),
+    projection,
+    projection,
+  );
+}
+
 export function executeExpectedAggregateRule(
   rule: RuleDefinition,
   context: ExpectedAggregateContext,
@@ -670,5 +848,68 @@ export function executeExpectedAggregateRule(
     parameters(values),
     stateProjection(damage, input.initialHealth),
     stateProjection(damage, expectedHealth),
+  );
+}
+
+export function executeSequentialHitAggregateRule(
+  rule: RuleDefinition,
+  context: SequentialHitAggregateContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "damage-vector.aggregate-sequential-hits") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a sequential-hit aggregate operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+
+  const input = snapshotSequentialHitAggregateContext(context);
+  const expectedDamageKeys = Object.keys(input.hits[0]?.damage ?? {});
+  const aggregateDamage: Record<string, number> = Object.fromEntries(
+    expectedDamageKeys.map((id) => [id, 0]),
+  );
+  const values: Record<string, RuleParameterValue> = {
+    hitCount: input.hits.length,
+  };
+
+  for (const [index, hit] of input.hits.entries()) {
+    const damageKeys = Object.keys(hit.damage);
+    if (
+      damageKeys.length !== expectedDamageKeys.length ||
+      damageKeys.some((id, keyIndex) => id !== expectedDamageKeys[keyIndex])
+    ) {
+      invalidContext("All sequential hits must contain the same Damage Vector keys", "hits");
+    }
+    values[`hit.${index}.id`] = hit.id;
+    values[`hit.${index}.index`] = hit.index;
+    values[`hit.${index}.damageTotal`] = sumValidatedDamageVector(hit.damage);
+    values[`hit.${index}.healthBefore`] = hit.healthBefore;
+    values[`hit.${index}.healthAfter`] = hit.healthAfter;
+    for (const id of expectedDamageKeys) {
+      const aggregateComponent = (aggregateDamage[id] ?? 0) + (hit.damage[id] ?? 0);
+      if (!Number.isFinite(aggregateComponent) || aggregateComponent < 0) {
+        throw new RulesError(
+          "arithmetic-invalid",
+          `Sequential hit aggregate overflowed damage component ${id}`,
+          { hitId: hit.id, id },
+        );
+      }
+      aggregateDamage[id] = aggregateComponent;
+      values[`hit.${index}.damage.${id}`] = hit.damage[id] ?? 0;
+    }
+  }
+
+  const damage = Object.freeze(aggregateDamage);
+  const finalHealth = input.hits.at(-1)?.healthAfter;
+  if (finalHealth === undefined) {
+    invalidContext("Sequential hit aggregation requires at least one hit", "hits");
+  }
+  return applied(
+    rule,
+    1,
+    parameters(values),
+    stateProjection(damage, input.initialHealth),
+    stateProjection(damage, finalHealth),
   );
 }

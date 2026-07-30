@@ -2,7 +2,8 @@
 module voidtrace.rules.model
 
 typealias RulePhase =
-  "critical.expected"
+  "attack.emit"
+    | "critical.expected"
     | "damage.construct"
     | "critical.roll"
     | "critical.resolve"
@@ -44,6 +45,15 @@ class CommitHealthDamage extends RuleOperation {
 
 class AggregateWeightedBranches extends RuleOperation {
   kind = "damage-vector.aggregate-weighted-branches"
+}
+
+class AggregateSequentialHits extends RuleOperation {
+  kind = "damage-vector.aggregate-sequential-hits"
+}
+
+class ExpandFixedMultishot extends RuleOperation {
+  kind = "event.expand-fixed-multishot"
+  maximumHits: UInt(isPositive)
 }
 
 class Rule {

@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, custom Critical chance, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, probabilistic Multishot, custom Critical chance, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -24,6 +24,8 @@ The adapter supports exactly one target and one hitscan Direct Hit, with:
 - deterministic mode with any non-negative safe-integer fixed Critical tier through the helper;
 - repository-local explicit-roll Scenarios whose adjacent Critical tiers are safely representable
   through the formal CLI;
+- a repository-local resolved fixed-count Multishot Scenario through the formal CLI, where each
+  emitted hit uses the same explicit fixed Critical tier and commits to Health in order;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
@@ -31,11 +33,13 @@ The adapter supports exactly one target and one hitscan Direct Hit, with:
 - full Result and causal Trace JSON.
 
 The helper does not synthesize or vary Critical chance or rolls. The formal CLI can evaluate the
-repository-local explicit-roll and expected Scenarios. Generated random rolls, custom Critical
-chance, unsafe or unrepresentable tiers, Monte Carlo aggregation, mods, headshots, Shield,
-Overguard, projectiles, status, multishot, real-game imports, and build recommendations are
-unsupported. If a request needs any of them, state the unsupported mechanic and stop. Do not
-approximate it as zero effect and do not silently adapt it to the supported slice.
+repository-local explicit-roll, expected, and resolved fixed-count Multishot Scenarios. The helper
+does not accept a Multishot count override. Generated random rolls, custom Critical chance,
+probabilistic or custom-count Multishot, per-hit Critical rolls, Multishot expected values, unsafe
+or unrepresentable tiers, Monte Carlo aggregation, mods, headshots, Shield, Overguard,
+projectiles, status, real-game imports, and build recommendations are unsupported. If a request
+needs any of them, state the unsupported mechanic and stop. Do not approximate it as zero effect
+and do not silently adapt it to the supported slice.
 
 ## Commands
 
@@ -58,6 +62,10 @@ pnpm exec vt run data/fixtures/golden/expected-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog-tier-2.json
 pnpm exec vt trace data/fixtures/golden/expected-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog-tier-2.json
+pnpm exec vt run data/fixtures/golden/multishot-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/multishot-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
 Use the repository-local helper to run the checked-in golden scenario with a combined
@@ -116,6 +124,14 @@ for another agent or script. `--help` lists the finite adapter options.
   `critical.expected.multiplier`, `damage.expected.health.total`, and
   `target.health.expected-remaining`. The remaining-Health value is weighted after each branch's
   Health-zero clamp and need not equal initial Health minus raw expected damage.
+- Resolved fixed-count Multishot starts with `rule.multishot.emit-fixed-hits`, repeats Direct Hit,
+  fixed Critical scale, Armor, and Health commit once per ordered hit, and ends with
+  `rule.multishot.aggregate-fixed-hits`. Report `multishot.hit-count`,
+  `damage.multishot.total`, final `damage.health.total`, and `target.health.remaining`; preserve
+  the `hit.id`, `hit.index`, and `hit.count` Trace metadata when explaining causality.
+  `damage.direct-hit.total` is the common pre-Critical value for one emitted hit, not a
+  Multishot sum. Aggregate Damage sums every terminal hit and may exceed initial Health, while the
+  sequential Health commits clamp remaining Health at zero.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
 For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,

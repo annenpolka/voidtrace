@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for resolved fixed-count Multishot.
+module voidtrace.golden.multishotCriticalArmor
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-005"
+  desc =
+    "data/fixtures/golden/multishot-critical-armor.scenario.jsonは3個の順序付きDirect Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する"
+  maturity = "active"
+}

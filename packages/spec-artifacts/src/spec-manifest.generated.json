@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:fdc2e15b32febbec7de247f61b04a5004fbec91f372ad7ca11e3616a53cd6dbd",
+  "sourceFingerprint": "sha256:ec18615d67b469c715f12260839e885279295017ee55846cb0bf1028007e32b6",
   "clauses": [
     {
       "id": "CLI-001",
@@ -157,6 +157,22 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-005",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/multishot-critical-armor.scenario.jsonは3個の順序付きDirect Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "MSH-001",
+      "pattern": "fixed_multishot_expansion",
+      "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "RNG-001",
       "pattern": "same_logical_random",
       "desc": "同一seed、論理Event ID、roll purposeは同一乱数を返す",
@@ -231,8 +247,8 @@
     {
       "id": "ruleset",
       "typeName": "Ruleset",
-      "schemaId": "urn:voidtrace:schema:ruleset:0.4.0",
-      "version": "0.4.0"
+      "schemaId": "urn:voidtrace:schema:ruleset:0.5.0",
+      "version": "0.5.0"
     },
     {
       "id": "scenario",
@@ -249,18 +265,20 @@
   ],
   "ruleset": {
     "id": "ruleset.synthetic-core",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "revision": 1,
-    "contentHash": "sha256:731859a274f3bb7f914987e4fd561a62b2faa343787ccee3c0fb962d75bd4264",
+    "contentHash": "sha256:a3b84464735cca2dbbe8ee3c169abc38cdbc5e54e31810cb29cd712c92ff765f",
     "gameBuild": "synthetic-fixture-0",
     "ruleIds": [
+      "rule.multishot.emit-fixed-hits",
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
       "rule.critical.resolve-tier-roll",
       "rule.critical.scale-tier",
       "rule.defense.standard-armor",
       "rule.damage.commit-health",
-      "rule.critical.aggregate-expected-branches"
+      "rule.critical.aggregate-expected-branches",
+      "rule.multishot.aggregate-fixed-hits"
     ]
   }
 }

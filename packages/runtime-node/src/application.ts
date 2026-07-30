@@ -200,7 +200,10 @@ function classificationForEvaluationError(error: EvaluationError): ProblemClassi
     case "rule-execution-failed":
     case "artifact-construction-failed":
     case "integrity-check-failed":
-      return error.causeCode === "unsupported-rule" ? "unsupported" : "internal";
+      if (error.causeCode === "unsupported-rule") {
+        return "unsupported";
+      }
+      return error.causeCode === "execution-limit-exceeded" ? "limit" : "internal";
   }
 }
 

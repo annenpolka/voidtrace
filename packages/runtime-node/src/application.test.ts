@@ -33,6 +33,9 @@ const tier2CatalogPath = fileURLToPath(
 const expectedScenarioPath = fileURLToPath(
   new URL("../../../data/fixtures/golden/expected-critical-armor.scenario.json", import.meta.url),
 );
+const multishotScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/multishot-critical-armor.scenario.json", import.meta.url),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -161,6 +164,31 @@ describe("createNodeApplication", () => {
         "damage.total": 112.5,
         "target.health": 18.75,
       },
+    });
+  });
+
+  it("evaluates resolved fixed Multishot through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: multishotScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toMatchObject({
+      "multishot.hit-count": 3,
+      "damage.direct-hit.total": 100,
+      "damage.multishot.total": 300,
+      "damage.health.total": 300,
+      "target.health.remaining": 0,
+    });
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      ruleId: "rule.multishot.emit-fixed-hits",
+    });
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      ruleId: "rule.multishot.aggregate-fixed-hits",
     });
   });
 
@@ -339,6 +367,31 @@ describe("createNodeApplication", () => {
         ...(causeCode === undefined ? {} : { causeCode }),
       },
     });
+  });
+
+  it("maps a Rule execution bound to exit code 4", async () => {
+    const outcome = await createNodeApplication({
+      sdk: sdkFailure({
+        code: "rule-execution-failed",
+        message: "Fixed Multishot hit count exceeds the execution limit",
+        causeCode: "execution-limit-exceeded",
+      }),
+    }).evaluate({
+      scenarioSource: scenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      problem: {
+        code: "rule-execution-failed",
+        classification: "limit",
+        causeCode: "execution-limit-exceeded",
+      },
+    });
+    if (!outcome.ok) {
+      expect(exitCodeForProblem(outcome.problem)).toBe(4);
+    }
   });
 
   it("maps an unrepresentable Critical chance to the Catalog source", async () => {

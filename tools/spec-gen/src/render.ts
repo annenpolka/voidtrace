@@ -215,7 +215,10 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
   const kernelClauses = spec.clauses.filter(
     (clause) => clause.area === "kernel" || clause.area === "scope",
   );
-  const mechanicsClauses = spec.clauses.filter((clause) => clause.area === "mechanics");
+  const multishotClauses = spec.clauses.filter((clause) => clause.id.startsWith("MSH-"));
+  const directCriticalArmorClauses = spec.clauses.filter(
+    (clause) => clause.area === "mechanics" && !clause.id.startsWith("MSH-"),
+  );
   const cliClauses = spec.clauses.filter((clause) => clause.area === "cli");
   const rulesetContract = spec.contracts.find((contract) => contract.id === "ruleset");
   if (!rulesetContract) {
@@ -278,7 +281,8 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
         clauseRefs: [],
       },
       capability("kernel.foundation", kernelClauses),
-      capability("mechanics.direct-critical-armor", mechanicsClauses),
+      capability("mechanics.direct-critical-armor", directCriticalArmorClauses),
+      capability("mechanics.fixed-multishot", multishotClauses),
       capability("cli.core", cliClauses),
     ],
   };

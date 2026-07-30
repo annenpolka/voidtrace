@@ -14,11 +14,13 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 07:22:00Z) Node 26とNode 24で `just check` を実行し、生成物24件のfreshness、境界検査、21テストファイル231テストの成功を確認した。
 - [x] (2026-07-30 07:22:00Z) リポジトリ内skillの固定tier smokeと解析的期待値goldenを確認した。
 - [x] (2026-07-30 07:23:40Z) Critical／expectedマイルストーンを `2639b6a` としてコミットした。
-- [ ] 本ExecPlanを進捗記録の基準線としてコミットする。
-- [ ] MultishotのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義して生成物を更新する。
-- [ ] 複数Direct HitをEvent Queue上で順次評価し、ResultとTraceの再生を実装する。
-- [ ] Multishotの独立oracle、境界テスト、CLI E2E、skillシナリオを追加する。
-- [ ] Node 24とNode 26で全ゲートを通し、Multishotマイルストーンをコミットする。
+- [x] (2026-07-30 07:24:11Z) 本ExecPlanを `7de265f` として進捗記録の基準線にコミットした。
+- [x] (2026-07-30 07:38:00Z) MultishotのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義し、Ruleset `0.5.0`を生成した。
+- [x] (2026-07-30 07:38:00Z) 最大64の複数Direct HitをEvent Queue上で順次評価し、Result集約とTrace再生を実装した。
+- [x] (2026-07-30 07:38:00Z) Multishotの独立oracle、境界/propertyテスト、Runtime/CLI E2Eを追加し、対象7ファイル154テストを通した。
+- [x] (2026-07-30 07:44:00Z) repository-local skillのMultishot操作例をempirical-prompt-tuningで再評価し、修正後2回連続の100% checklist達成を確認した。
+- [x] (2026-07-30 07:44:00Z) Node 24とNode 26で21テストファイル251テストを含む全ゲートを通した。
+- [ ] Multishotマイルストーンをコミットし、次の銃器イベント垂直スライスを選定する。
 
 ## Surprises & Discoveries
 
@@ -27,6 +29,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: Scenario ContractはMonte Carloや複数targetを表現できるが、Kernelのdomain parserは現在の垂直スライス外として明示的に拒否する。
   Evidence: `packages/kernel/src/scenario-domain.ts` はMonte Carlo、target数が1以外、action数が1以外を構造化エラーとして返す。
+
+- Observation: `result.aggregate` phaseだけでは単発expected集約とMultishot集約を区別できず、Ruleset順に全Ruleを適用すると異種eventへ誤適用される。
+  Evidence: KernelのRule選択をphaseと`eventKind`の両方で絞り、既存expectedと新規Multishotの全回帰テストが同時に通るようにした。
+
+- Observation: Scenario Contractのaction parameterは既に有限scalar mapを許していたため、`hitCount`追加にScenario schema version更新は不要だった。
+  Evidence: `action.multishot-direct-hit`と`hitCount`はdomain parserで狭め、Ruleset `0.5.0`側が最大64の実行上限を担う。
 
 ## Decision Log
 
@@ -42,9 +50,15 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: 単一倍率に畳むと、各弾のCritical、Status、派生イベント、target選択を将来追跡できない。VoidTraceの価値である因果Traceも失われる。
   Date/Author: 2026-07-30 07:22:00Z / Codex
 
+- Decision: 最初のMultishot入力は、Scenarioに明示された正のsafe-integer hit countと固定Critical tierだけを受理する。
+  Rationale: 確率的Multishot、各弾のCritical roll、expected modeを同時に入れると確率分岐の直積が必要になる。まず順次World State更新とTrace因果性を独立に検証し、確率モデルは後続Clauseとして追加する。
+  Date/Author: 2026-07-30 07:24:11Z / Codex
+
 ## Outcomes & Retrospective
 
-Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる状態になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。次のマイルストーンでは、この一発評価を複数イベントへ一般化する。
+Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
+
+Multishotマイルストーンでは、明示された1〜64の固定hit countを安定した子Direct Hitへ展開し、共通の固定Critical tier、Armor、逐次Health commitを適用した後、終端Damage Vectorを集約できるようになった。Resultは共通の一発値と全hit集約値を分離し、Traceは各hitのID、index、count、親子関係、Health遷移を保持する。65以上は部分Artifactを返さずCLI exit 4の実行上限となる。確率的Multishot、hitごとのCritical roll、Multishot expected valueは引き続き非対応である。
 
 ## Context and Orientation
 
@@ -132,6 +146,23 @@ Critical／expected基準線の検証記録は次のとおりである。
 
     golden.direct-critical-armor passed: true
     golden.expected-critical-armor passed: true
+
+Multishotマイルストーンの検証記録は次のとおりである。
+
+    Node.js 26.0.0
+    Specification is valid, 24 generated files are fresh.
+    Test Files 21 passed
+    Tests 251 passed
+
+    Node.js 24.18.0
+    Specification is valid, 24 generated files are fresh.
+    Test Files 21 passed
+    Tests 251 passed
+
+    mechanics.fixed-multishot: supported
+    golden.direct-critical-armor passed: true
+    golden.expected-critical-armor passed: true
+    multishot decisions: 14
 
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
 

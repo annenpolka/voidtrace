@@ -1,12 +1,30 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.4.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.5.0",
   "kind": "ruleset",
-  "schemaVersion": "0.4.0",
+  "schemaVersion": "0.5.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:731859a274f3bb7f914987e4fd561a62b2faa343787ccee3c0fb962d75bd4264",
+  "contentHash": "sha256:a3b84464735cca2dbbe8ee3c169abc38cdbc5e54e31810cb29cd712c92ff765f",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
+    {
+      "id": "rule.multishot.emit-fixed-hits",
+      "description": "Expand one action with an explicit positive safe-integer hit count into that many stable ordered Direct Hit child events, bounded by the operation execution limit.",
+      "phase": "attack.emit",
+      "eventKind": "action.multishot-direct-hit",
+      "reads": [
+        "action.multishot-hit-count"
+      ],
+      "writes": [
+        "event.direct-hit-count"
+      ],
+      "operation": {
+        "kind": "event.expand-fixed-multishot",
+        "maximumHits": 64
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
     {
       "id": "rule.critical.resolve-expected-branches",
       "description": "For non-negative Critical chance c, resolve the same safe adjacent-tier probability distribution as explicit-roll resolution without selecting a realized tier.",
@@ -140,6 +158,26 @@
       ],
       "operation": {
         "kind": "damage-vector.aggregate-weighted-branches"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.multishot.aggregate-fixed-hits",
+      "description": "After every emitted Direct Hit reaches terminal Health commit in stable index order, sum the hit Damage Vectors and preserve the final sequential remaining Health.",
+      "phase": "result.aggregate",
+      "eventKind": "action.multishot-direct-hit",
+      "reads": [
+        "hit.damage",
+        "hit.health-before",
+        "hit.health-after"
+      ],
+      "writes": [
+        "event.damage",
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-sequential-hits"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

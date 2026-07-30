@@ -9,13 +9,17 @@ import coreRuleset from "@voidtrace/spec-artifacts/rulesets/core" with { type: "
 import { RulesError } from "./errors.ts";
 import {
   type ExpectedAggregateContext,
-  executeRule,
   executeExpectedAggregateRule,
+  type FixedMultishotContext,
+  executeFixedMultishotRule,
+  executeRule,
   type RuleContext,
   type RuleDefinition,
   type RuleExecution,
   type RuleOperationKind,
   type RulePhase,
+  type SequentialHitAggregateContext,
+  executeSequentialHitAggregateRule,
 } from "./execution.ts";
 
 export type LoadedRuleset = {
@@ -23,6 +27,11 @@ export type LoadedRuleset = {
   resolveRule(id: string): RuleDefinition;
   executeRule(id: string, context: RuleContext): RuleExecution;
   executeExpectedAggregateRule(id: string, context: ExpectedAggregateContext): RuleExecution;
+  executeFixedMultishotRule(id: string, context: FixedMultishotContext): RuleExecution;
+  executeSequentialHitAggregateRule(
+    id: string,
+    context: SequentialHitAggregateContext,
+  ): RuleExecution;
 };
 
 export type EmptyRuleset = {
@@ -45,6 +54,7 @@ type OperationDeclaration = {
 };
 
 const PHASES = [
+  "attack.emit",
   "critical.expected",
   "damage.construct",
   "critical.roll",
@@ -57,6 +67,12 @@ const PHASES = [
 const PHASE_ORDER = new Map<RulePhase, number>(PHASES.map((phase, index) => [phase, index]));
 
 const OPERATION_DECLARATIONS = {
+  "event.expand-fixed-multishot": {
+    phase: "attack.emit",
+    eventKind: "action.multishot-direct-hit",
+    reads: ["action.multishot-hit-count"],
+    writes: ["event.direct-hit-count"],
+  },
   "damage-vector.copy": {
     phase: "damage.construct",
     eventKind: "damage.direct",
@@ -112,6 +128,12 @@ const OPERATION_DECLARATIONS = {
     reads: ["branch.damage", "branch.health", "branch.weight"],
     writes: ["event.damage", "target.health"],
   },
+  "damage-vector.aggregate-sequential-hits": {
+    phase: "result.aggregate",
+    eventKind: "action.multishot-direct-hit",
+    reads: ["hit.damage", "hit.health-before", "hit.health-after"],
+    writes: ["event.damage", "target.health"],
+  },
 } as const satisfies Record<RuleOperationKind, OperationDeclaration>;
 
 function formatContractIssues(issues: ReadonlyArray<ValidationIssue>): string {
@@ -152,14 +174,25 @@ function assertFiniteOperation(rule: RuleDefinition): void {
   const operation = rule.operation as {
     readonly kind: string;
     readonly constant?: unknown;
+    readonly maximumHits?: unknown;
   };
   switch (operation.kind) {
+    case "event.expand-fixed-multishot":
+      if (
+        typeof operation.maximumHits === "number" &&
+        Number.isSafeInteger(operation.maximumHits) &&
+        operation.maximumHits > 0
+      ) {
+        return;
+      }
+      break;
     case "damage-vector.copy":
     case "critical-tier.resolve-tier-roll":
     case "critical-tier.resolve-expected-branches":
     case "damage-vector.scale-critical-tier":
     case "damage.commit-health":
     case "damage-vector.aggregate-weighted-branches":
+    case "damage-vector.aggregate-sequential-hits":
       return;
     case "damage-vector.scale-standard-armor":
       if (
@@ -258,6 +291,12 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       executeRule(resolveRule(id), context),
     executeExpectedAggregateRule: (id: string, context: ExpectedAggregateContext): RuleExecution =>
       executeExpectedAggregateRule(resolveRule(id), context),
+    executeFixedMultishotRule: (id: string, context: FixedMultishotContext): RuleExecution =>
+      executeFixedMultishotRule(resolveRule(id), context),
+    executeSequentialHitAggregateRule: (
+      id: string,
+      context: SequentialHitAggregateContext,
+    ): RuleExecution => executeSequentialHitAggregateRule(resolveRule(id), context),
   });
 }
 

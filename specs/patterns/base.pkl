@@ -87,6 +87,12 @@ class ExpectedCriticalBranches extends Clause {
   area = "mechanics"
 }
 
+class FixedMultishotExpansion extends Clause {
+  pattern = "fixed_multishot_expansion"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
 class ArmorMonotonic extends Clause {
   pattern = "armor_monotonic"
   guarantee = "property-tested"

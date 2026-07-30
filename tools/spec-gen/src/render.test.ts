@@ -161,6 +161,47 @@ describe("renderGeneratedFiles", () => {
     });
   });
 
+  it("publishes fixed Multishot separately from direct Critical and Armor", () => {
+    const generated = renderGeneratedFiles({
+      ...spec,
+      clauses: [
+        {
+          ...clause,
+          id: "CRT-001",
+          area: "mechanics",
+          maturity: "active",
+        },
+        {
+          ...clause,
+          id: "MSH-001",
+          area: "mechanics",
+          maturity: "planned",
+        },
+      ],
+    });
+    const capabilities = generated.find(
+      (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
+    );
+
+    const parsed = JSON.parse(capabilities?.contents ?? "{}") as {
+      capabilities: unknown[];
+    };
+    expect(parsed.capabilities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "mechanics.direct-critical-armor",
+          status: "supported",
+          activeClauseRefs: ["CRT-001"],
+        }),
+        expect.objectContaining({
+          id: "mechanics.fixed-multishot",
+          status: "unsupported",
+          plannedClauseRefs: ["MSH-001"],
+        }),
+      ]),
+    );
+  });
+
   it("escapes table delimiters and line breaks in human-readable clauses", () => {
     const generated = renderGeneratedFiles({
       ...spec,

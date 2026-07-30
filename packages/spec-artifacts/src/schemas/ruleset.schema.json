@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.4.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.5.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.4.0"
+      "const": "urn:voidtrace:schema:ruleset:0.5.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.4.0"
+      "const": "0.5.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -82,6 +82,7 @@
             "description": "Finite execution phase.",
             "type": "string",
             "enum": [
+              "attack.emit",
               "damage.construct",
               "critical.roll",
               "critical.expected",
@@ -118,6 +119,26 @@
           "operation": {
             "description": "Finite executable operation selected by this Rule.",
             "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Expand one resolved Multishot action into an explicit bounded count of ordered Direct Hit events.",
+                    "type": "string",
+                    "const": "event.expand-fixed-multishot"
+                  },
+                  "maximumHits": {
+                    "description": "Positive safe execution bound for one resolved Multishot action.",
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "maximumHits"
+                ],
+                "additionalProperties": false
+              },
               {
                 "type": "object",
                 "properties": {
@@ -215,6 +236,20 @@
                     "description": "Aggregate terminal branch Damage Vectors and remaining Health by explicit branch weights.",
                     "type": "string",
                     "const": "damage-vector.aggregate-weighted-branches"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Aggregate ordered terminal Direct Hit Damage Vectors and preserve the final sequential Health state.",
+                    "type": "string",
+                    "const": "damage-vector.aggregate-sequential-hits"
                   }
                 },
                 "required": [

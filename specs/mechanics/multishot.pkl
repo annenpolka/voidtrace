@@ -1,0 +1,43 @@
+/// Experimental expansion of one resolved fixed-count Multishot action.
+module voidtrace.mechanics.multishot
+
+import "../rules/model.pkl"
+
+emitFixedRule: model.Rule = new {
+  id = "rule.multishot.emit-fixed-hits"
+  description =
+    "Expand one action with an explicit positive safe-integer hit count into that many stable ordered Direct Hit child events, bounded by the operation execution limit."
+  phase = "attack.emit"
+  eventKind = "action.multishot-direct-hit"
+  reads {
+    "action.multishot-hit-count"
+  }
+  writes {
+    "event.direct-hit-count"
+  }
+  operation = new model.ExpandFixedMultishot {
+    maximumHits = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateFixedRule: model.Rule = new {
+  id = "rule.multishot.aggregate-fixed-hits"
+  description =
+    "After every emitted Direct Hit reaches terminal Health commit in stable index order, sum the hit Damage Vectors and preserve the final sequential remaining Health."
+  phase = "result.aggregate"
+  eventKind = "action.multishot-direct-hit"
+  reads {
+    "hit.damage"
+    "hit.health-before"
+    "hit.health-after"
+  }
+  writes {
+    "event.damage"
+    "target.health"
+  }
+  operation = new model.AggregateSequentialHits {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

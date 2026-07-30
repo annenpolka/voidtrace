@@ -307,6 +307,43 @@ Convergence check: one consecutive clear round after the Iteration 2 fix.
 
 #### Changes from Iteration 3
 
+- None. Iteration 3 surfaced no new unclear point.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — resolved fixed-count fixture | ○ | 100% | unavailable | unavailable | 0 | — |
+| B — unsupported probabilistic request | ○ | 100% | unavailable | unavailable | 0 | — |
+
+#### Structured reflection
+
+- Scenario A kept per-hit Direct Hit, aggregate terminal Damage, sequential Health clamp, ordered
+  hit metadata, and generated-roll exclusions distinct with no unclear points.
+- Scenario B stopped before execution, named every unsupported dimension, and offered only the
+  resolved fixed-count fixture or separately authorized Pkl-first implementation.
+
+#### Ledger updates
+
+- No new patterns.
+
+Convergence check: two consecutive clear rounds after the Iteration 2 fix.
+
+### Commit 10 evaluation status
+
+- Description/body consistency: pass.
+- Two consecutive fresh-executor rounds after the metric-semantics fix: 100% accuracy, all
+  critical items pass, zero new instruction-side unclear points, and zero retries.
+- Unsupported edge: pass without execution, fabrication, approximation, or file mutation.
+- `tool_uses` and `duration_ms`: unavailable from this collaboration runner, so those thresholds
+  are not asserted.
+- Resource decision: ship the resolved fixed-count Multishot operator documentation.
+
+### Iteration 4
+
+#### Changes from Iteration 3
+
 - None. Iteration 3 surfaced no unclear point requiring a fix.
 - Pattern applied: none.
 
@@ -477,3 +514,164 @@ implementation and research.
 - `tool_uses` and `duration_ms`: unavailable from this collaboration runner, so those convergence
   thresholds are not asserted or fabricated.
 - Resource decision: ship the analytic-expected temporary operator skill.
+
+## Commit 10 resolved fixed-count Multishot re-evaluation
+
+Commit 10 adds a formal-CLI path for one repository-local resolved fixed-count Multishot
+Scenario. The fixture expands three ordered child hits with one shared fixed Critical tier. The
+fixture-variation helper does not accept a Multishot count.
+
+### Iteration 0: description/body consistency
+
+- Updated the description, supported boundary, formal CLI commands, unsupported list, and Trace
+  interpretation for resolved fixed-count Multishot.
+- Kept probabilistic or custom-count Multishot, per-hit Critical rolls, Multishot expected values,
+  generated randomness, and current-game claims outside the skill boundary.
+- Explicitly separated the formal CLI fixture from the helper's variable inputs.
+- Static result: description and body are consistent. This is not an empirical convergence round.
+
+### Frozen scenarios and requirements
+
+#### Scenario A — median: inspect resolved fixed-count Multishot
+
+Run the repository-local Multishot fixture through both formal CLI views and summarize its Result
+and causal Trace.
+
+1. [critical] Invoke `vt run` and `vt trace` with the Multishot Scenario and matching Catalog.
+2. Report hit count, per-hit Direct Hit total, aggregate Health damage, aggregate Multishot damage,
+   and final remaining Health accurately.
+3. Report the emission Rule, four repeated Rules for each of three ordered hits, and final
+   aggregation Rule; identify the sequential Health transitions.
+4. Preserve the synthetic/experimental limitation and do not modify repository files.
+5. Do not claim generated Multishot or per-hit Critical rolls.
+
+#### Scenario B — unsupported edge: request probabilistic custom Multishot
+
+Ask the skill to calculate 2.5 Multishot with generated per-hit Critical rolls and an average.
+
+1. [critical] Do not edit a Scenario or Catalog, fabricate rolls, or reinterpret the fixed-count
+   fixture as the requested calculation.
+2. Name probabilistic/custom-count Multishot, generated per-hit Critical rolls, and Multishot
+   expected values as unsupported.
+3. Offer the repository-local resolved fixed-count CLI fixture or separately authorized
+   implementation work.
+4. Do not approximate unsupported mechanics as zero effect, make a current-game claim, or modify
+   repository files.
+
+### Iteration 1
+
+#### Changes from Iteration 0
+
+- None after the resolved fixed-count Multishot consistency update.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — resolved fixed-count fixture | ○ | 100% | unavailable | unavailable | 0 | — |
+| B — unsupported probabilistic request | ○ | 100% | unavailable | unavailable | 0 | — |
+
+The collaboration runner did not expose `tool_uses` or `duration_ms`; those fields remain
+unavailable rather than estimated.
+
+#### Structured reflection
+
+- Both fresh executors satisfied every fixed requirement and reported zero retries.
+- Scenario A's dirty-worktree observation concerns the shared execution environment, not an
+  instruction ambiguity; the executor correctly made no edits.
+- Scenario B noted that `2.5 Multishot` does not define a probability distribution. Because the
+  skill requires this request to stop as unsupported, no inferred distribution was needed and no
+  skill wording change follows.
+
+#### Discretionary fill-ins
+
+- Scenario A included exit status, the synthetic warning, and empty rejected-Rule status.
+- Scenario B named Pkl Rule/Clause work as the separately authorized implementation entry.
+
+#### Ledger updates
+
+- No new instruction-side failure pattern.
+
+Convergence check: one consecutive clear resolved-Multishot round. A fresh second round is
+required.
+
+### Iteration 2
+
+#### Changes from Iteration 1
+
+- None. Iteration 1 surfaced no instruction-side fix.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — resolved fixed-count fixture | ○ | 100% | unavailable | unavailable | 0 | Understanding |
+| B — unsupported probabilistic request | ○ | 100% | unavailable | unavailable | 0 | — |
+
+#### Structured reflection
+
+- Scenario A:
+  - Issue: `damage.health.total` can exceed initial Health, and
+    `damage.direct-hit.total` appears once despite three hit events.
+  - Cause: the skill named the metrics but did not explicitly distinguish aggregate terminal
+    Damage, zero-clamped sequential Health, and the common per-hit pre-Critical value.
+  - General Fix Rule: define similarly named per-unit and aggregate metrics at their semantic
+    boundary, including clamp behavior.
+- Scenario B's questions about probability distribution, seed, and analytic versus Monte Carlo
+  aggregation are properties the unsupported request leaves undefined; the executor correctly
+  stopped rather than treating them as supported skill ambiguity.
+
+#### Discretionary fill-ins
+
+- Scenario A explained the third hit's full post-Armor Damage separately from its smaller actual
+  Health reduction.
+- Scenario B offered a future Pkl-first implementation path.
+
+#### Ledger updates
+
+- Added: per-unit and aggregate metric name collision.
+
+#### Next fix
+
+- To satisfy checklist item 2's metric distinction and item 3's sequential-Health wording, define
+  `damage.direct-hit.total` as one hit's common pre-Critical value and distinguish aggregate
+  terminal Damage from zero-clamped remaining Health.
+
+Convergence check: reset to zero consecutive clear rounds because a new instruction-side unclear
+point surfaced.
+
+### Iteration 3
+
+#### Changes from Iteration 2
+
+- Defined the per-hit meaning of `damage.direct-hit.total`.
+- Distinguished aggregate terminal Damage from zero-clamped sequential remaining Health.
+- Pattern applied: per-unit and aggregate metric name collision.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — resolved fixed-count fixture | ○ | 100% | unavailable | unavailable | 0 | — |
+| B — unsupported probabilistic request | ○ | 100% | unavailable | unavailable | 0 | — |
+
+#### Structured reflection
+
+- Scenario A reported the common per-hit Direct Hit value, aggregate values, and sequential clamp
+  without ambiguity or new unclear points.
+- Scenario B again stopped without fabrication and treated its missing distribution details as
+  reasons not to infer unsupported behavior.
+
+#### Discretionary fill-ins
+
+- Scenario A included matching Artifact hashes and the lack of rejected Rules.
+- Scenario B used “checked-in” for the fixture despite the skill's repository-local wording. This
+  was executor wording, not a capability overclaim or checklist failure.
+
+#### Ledger updates
+
+- No new patterns.
+
+Convergence check: one consecutive clear round after the Iteration 2 fix.

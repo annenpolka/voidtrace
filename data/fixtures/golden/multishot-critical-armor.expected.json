@@ -1,0 +1,39 @@
+{
+  "id": "golden.multishot-critical-armor",
+  "scenarioId": "scenario.golden-multishot-critical-armor",
+  "metrics": {
+    "multishot.hit-count": 3,
+    "damage.direct-hit.total": 100,
+    "critical.tier": 1,
+    "critical.multiplier": 2,
+    "damage.post-critical.total": 200,
+    "armor.remaining-multiplier": 0.5,
+    "damage.health.total": 300,
+    "damage.multishot.total": 300,
+    "target.health.remaining": 0
+  },
+  "damageBySource": {
+    "action.multishot-1": 300
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 300
+  },
+  "appliedRuleIds": [
+    "rule.multishot.emit-fixed-hits",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.multishot.aggregate-fixed-hits"
+  ],
+  "rejectedRules": [],
+  "tolerance": 0.000001
+}

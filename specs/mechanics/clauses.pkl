@@ -36,6 +36,13 @@ criticalExpectedValueUsesTerminalBranches: base.ExpectedCriticalBranches = new {
   maturity = "active"
 }
 
+fixedMultishotEmitsOrderedHits: base.FixedMultishotExpansion = new {
+  id = "MSH-001"
+  desc =
+    "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない"
+  maturity = "active"
+}
+
 armorDoesNotIncreaseDamage: base.ArmorMonotonic = new {
   id = "DEF-001"
   desc = "標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない"

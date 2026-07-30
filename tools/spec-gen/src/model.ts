@@ -11,6 +11,7 @@ export const KNOWN_PATTERNS = [
   "critical_tier_probability_sum",
   "fixed_critical_tier",
   "expected_critical_branches",
+  "fixed_multishot_expansion",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -45,6 +46,7 @@ export type Clause = {
 };
 
 export const RULE_PHASES = [
+  "attack.emit",
   "critical.expected",
   "damage.construct",
   "critical.roll",
@@ -67,6 +69,10 @@ export type RuleEvidenceStatus = (typeof RULE_EVIDENCE_STATUSES)[number];
 
 export type RuleOperation =
   | {
+      kind: "event.expand-fixed-multishot";
+      maximumHits: number;
+    }
+  | {
       kind: "damage-vector.copy";
     }
   | {
@@ -87,6 +93,9 @@ export type RuleOperation =
     }
   | {
       kind: "damage-vector.aggregate-weighted-branches";
+    }
+  | {
+      kind: "damage-vector.aggregate-sequential-hits";
     };
 
 export type RuleDefinition = {
@@ -129,6 +138,7 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "critical_tier_probability_sum",
   "fixed_critical_tier",
   "expected_critical_branches",
+  "fixed_multishot_expansion",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -241,6 +251,16 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
   }
   const kind = requireString(value.kind, `${path}.kind`);
   switch (kind) {
+    case "event.expand-fixed-multishot":
+      assertExactKeys(value, ["kind", "maximumHits"], path);
+      return {
+        kind,
+        maximumHits: requireFiniteNumber(
+          value.maximumHits,
+          `${path}.maximumHits`,
+          (candidate) => Number.isInteger(candidate) && candidate > 0,
+        ),
+      };
     case "damage-vector.copy":
       assertExactKeys(value, ["kind"], path);
       return { kind };
@@ -267,6 +287,9 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
       assertExactKeys(value, ["kind"], path);
       return { kind };
     case "damage-vector.aggregate-weighted-branches":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
+    case "damage-vector.aggregate-sequential-hits":
       assertExactKeys(value, ["kind"], path);
       return { kind };
     default:

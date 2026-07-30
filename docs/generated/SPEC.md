@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:fdc2e15b32febbec7de247f61b04a5004fbec91f372ad7ca11e3616a53cd6dbd`
+- Source fingerprint: `sha256:ec18615d67b469c715f12260839e885279295017ee55846cb0bf1028007e32b6`
 - Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -37,6 +37,8 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `GOL-002` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/probability-critical-armor.scenario.jsonは明示Critical rollから隣接tierを解決し、独立literal expected vectorと一致するResultおよびTraceを生成する |
 | `GOL-003` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/tier-2-critical-armor.scenario.jsonはCritical chance 1.25と明示roll 0.2からtier 2を解決し、Critical multiplier 2、base Damage 100、Armor 300に対する最終Health Damage 150と残Health 850を独立literal expected vectorとしてResultおよびTraceと照合する |
 | `GOL-004` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/expected-critical-armor.scenario.jsonはCritical chance 1.25のtier 1 branchを確率0.75、tier 2 branchを確率0.25でCritical倍率、Armor 300、Health commitまで別々に評価する。初期Health 125に対してraw expected Health Damage 112.5、branch clamp後のexpected残Health 18.75を独立literal expected vectorとしてResultおよびTraceと照合する |
+| `GOL-005` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/multishot-critical-armor.scenario.jsonは3個の順序付きDirect Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する |
+| `MSH-001` | `mechanics` | `fixed_multishot_expansion` | `property-tested` | `active` | action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない |
 | `RNG-001` | `kernel` | `same_logical_random` | `property-tested` | `active` | 同一seed、論理Event ID、roll purposeは同一乱数を返す |
 | `SCP-001` | `scope` | `scope_boundary` | `manual` | `active` | 物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない |
 | `SCP-002` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | 非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す |
