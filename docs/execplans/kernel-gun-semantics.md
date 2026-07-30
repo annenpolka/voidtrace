@@ -69,6 +69,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 13:31:53Z) Resolved Direct＋Radial impactのPkl Clause、Rule IR、Golden Scenarioを定義し、生成文書を逆翻訳として確認した。
 - [x] (2026-07-30 13:31:53Z) 一つの親impactからDirect siblingを先に、Radial target childrenを後に同じWorld Stateへcommitし、Result／Trace replayを実装した。
 - [x] (2026-07-30 13:31:53Z) property、Runtime／CLI E2E、repository-local skill評価、Node 26／24の全ゲートを通し、実装を `6857390` としてコミットした。
+- [x] (2026-07-30 13:43:18Z) 次の縦切りを、既存impact actionの互換性を保ったままDirectとRadialが別の明示Catalog attack modeを参照できる拡張に固定した。
+- [ ] Pkl ClauseとGoldenで、Direct用attack mode、Radial用attack mode、共有固定Critical tier、共通World Stateの境界を規定し、Ruleset `0.15.0`を生成する。
+- [ ] 合成Catalogへ別base DamageのRadial attack modeを追加し、Domain／Kernel／Trace replay／CLI／skillを実装してNode 26／24の全ゲートとempirical評価を通す。
 
 ## Surprises & Discoveries
 
@@ -247,6 +250,18 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: 永続wire shapeやrelation unionは変えず、手書きdomainが受理するaction kindとparameter集合だけを増やす。Ruleとcapabilityの意味変更はRuleset `0.14.0`で識別する。
   Date/Author: 2026-07-30 13:18:07Z / Codex
 
+- Decision: 別attack mode版は新しいaction kindを増やさず、既存 `action.resolved-direct-radial-impact` に明示的な `radialAttackModeId` がある場合だけ有効化する。省略時はRuleset `0.14.0`で確立した共有attack mode挙動を保つ。
+  Rationale: Direct用参照はattackerの `weaponId`／`attackModeId`として既に明示されている。Radial用ID一つを追加すれば、既存Goldenを互換性試験として残しつつ二つのCatalog解決を曖昧なdefaultなしで区別できる。action kindを分けるほどEvent DAGや集約意味は変わらない。
+  Date/Author: 2026-07-30 13:43:18Z / Codex
+
+- Decision: 最初の別attack mode impactは、同じweapon内のhitscan attack mode二つと一つの固定Critical tierだけを受理する。DirectとRadialのbase Damage／Critical multiplierは各Catalog参照から読み、Direct commit後にRadialを既存relation順でcommitする。
+  Rationale: この縦切りはCatalog参照分離だけを検証する。Projectile delivery、別Critical tier／roll、roll共有、Status、Multishot、Pellet、実ゲームCatalog値を同時に導入せず、Radial decisionがDirectとは異なる `attack.base-damage` を読んだことをTraceで検査できる。
+  Date/Author: 2026-07-30 13:43:18Z / Codex
+
+- Decision: `radialAttackModeId` は既存Scenario Contract `0.3.0` のscalar parameter mapで表し、Scenario schemaは据え置く。新Clause、Golden、受理可能なdomain挙動はRuleset `0.15.0`で識別する。
+  Rationale: relation unionや永続wire shapeは変わらない一方、同じaction kindが受理する明示parameter集合とCatalog bindingが増えるため、Ruleset参照を更新して旧評価境界と混同しない。
+  Date/Author: 2026-07-30 13:43:18Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -344,6 +359,8 @@ Multishot数が0、負数、非整数、安全に表現できない整数、現�
 Resolved Pellet allocationは、target配列順と異なるrelation順、同じtargetへの複数hit、0-hit target、一つ以上のmissを含むGoldenで受け入れる。Resultは総pellet数、hit数、miss数、Pellet Damage総和、全targetの終端Healthを持ち、Trace replayが同じDamage Vectorとtarget別Healthを復元する。hit数合計超過、65 pellet以上、重複target、allocation ID不一致、確率分布、Spread、pellet別Critical rollは部分Artifactなしで拒否する。
 
 Resolved Direct＋Radial impactは、targets配列順と異なるrelation順、Direct targetがRadialにも命中するGoldenで受け入れる。TraceではDirectとRadial target eventsが同じ親impact eventをたどれ、DirectのHealth commit後にRadialが同一targetの更新済みHealthを読む。ResultはDirect Damage、Radial Damage、合計Damage、Radial命中数、全target終端Healthを区別する。Direct target不明、impact ID不一致、重複relation、別Critical tier／roll、Projectile軌道、複数attack modeは部分Artifactなしで拒否する。
+
+別attack mode Direct＋Radial impactは、attackerの `attackModeId` をDirectへ、actionの `radialAttackModeId` をRadialへ解決する合成Goldenで受け入れる。Direct decisionはDirect modeのbase Damage、Radial decisionはRadial modeのbase Damageを読み、既存の親子順序と同一target Health連鎖を保つ。未知のRadial mode、別weaponに属するmode、非hitscan delivery、別Critical tier／roll、roll共有規則、Projectile物理は部分Artifactなしで拒否する。`radialAttackModeId` を省略した既存Goldenは共有mode挙動のまま回帰試験に残す。
 
 ## Idempotence and Recovery
 
