@@ -4,7 +4,6 @@
   "schemaVersion": "0.2.0",
   "id": "scenario.golden-tier-2-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:d8cf676063698d4baacf92b8a0e436229649ab7d65c74ddfd9cdb2c5f21687b2",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.9.0",
+    "schemaVersion": "0.10.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
+    "contentHash": "sha256:35bd681169c978d775748c69aa6db446214e76fcc551efcb22b5a89a7c4da2f1",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -87,5 +86,6 @@
       "id": "assumption.explicit-tier-2-critical-roll",
       "description": "Critical chance 1.25 and literal roll 0.2 resolve tier 2 under the experimental adjacent-tier rule."
     }
-  ]
+  ],
+  "contentHash": "sha256:f0d6a1c4994e8eb57fb07ebdbcea4f8dd370440bc889d7c80dd236b0bce5d040"
 }

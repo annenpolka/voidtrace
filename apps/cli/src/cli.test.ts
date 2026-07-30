@@ -14,6 +14,9 @@ import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical
 import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
   type: "json",
 };
+import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
+  type: "json",
+};
 import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
   type: "json",
 };
@@ -24,6 +27,7 @@ const SCENARIO_PATH = "data/fixtures/golden/direct-critical-armor.scenario.json"
 const RADIAL_SCENARIO_PATH = "data/fixtures/golden/radial-critical-armor.scenario.json";
 const STATUS_SCENARIO_PATH = "data/fixtures/golden/resolved-status-ticks.scenario.json";
 const PUNCH_THROUGH_SCENARIO_PATH = "data/fixtures/golden/resolved-punch-through.scenario.json";
+const RICOCHET_SCENARIO_PATH = "data/fixtures/golden/resolved-ricochet.scenario.json";
 const CATALOG_PATH = "data/fixtures/catalog-mini/catalog.json";
 
 type Invocation = {
@@ -220,6 +224,31 @@ describe("VoidTrace CLI success routing", () => {
     });
     await expect(
       verifyResultTraceIntegrity(result.value, causalTrace.value, punchThroughScenarioFixture),
+    ).resolves.toBe(true);
+  });
+
+  it("round-trips resolved ricochet targets through run and trace", async () => {
+    const run = await invoke(["run", RICOCHET_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const trace = await invoke(["trace", RICOCHET_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const result = validateContract("result", JSON.parse(run.stdout) as unknown);
+    const causalTrace = validateContract("trace", JSON.parse(trace.stdout) as unknown);
+
+    expect(run.exitCode).toBe(0);
+    expect(trace.exitCode).toBe(0);
+    expect(result.ok).toBe(true);
+    expect(causalTrace.ok).toBe(true);
+    if (!result.ok || !causalTrace.ok) {
+      throw new Error("CLI emitted an invalid resolved ricochet Result or Trace");
+    }
+    expect(result.value.metrics).toEqual({
+      "ricochet.target-count": 3,
+      "damage.ricochet.total": 525,
+      "damage.health.total": 525,
+      "targets.health.remaining-total": 125,
+      "targets.defeated-count": 1,
+    });
+    await expect(
+      verifyResultTraceIntegrity(result.value, causalTrace.value, ricochetScenarioFixture),
     ).resolves.toBe(true);
   });
 

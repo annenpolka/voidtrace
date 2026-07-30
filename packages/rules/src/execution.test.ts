@@ -7,6 +7,8 @@ import {
   executeResolvedRadialFalloffRule,
   executeResolvedPunchThroughAggregateRule,
   executeResolvedPunchThroughExpansionRule,
+  executeResolvedRicochetAggregateRule,
+  executeResolvedRicochetExpansionRule,
   executeResolvedStatusTickDamageRule,
   executeResolvedStatusTickScheduleRule,
   executeSequentialHitAggregateRule,
@@ -111,6 +113,8 @@ describe("generated core Rule execution", async () => {
   const aggregateStatusTicks = loaded.resolveRule("rule.status.aggregate-resolved-ticks");
   const punchThroughExpansion = loaded.resolveRule("rule.punch-through.expand-resolved-targets");
   const punchThroughAggregate = loaded.resolveRule("rule.punch-through.aggregate-resolved-targets");
+  const ricochetExpansion = loaded.resolveRule("rule.ricochet.expand-resolved-targets");
+  const ricochetAggregate = loaded.resolveRule("rule.ricochet.aggregate-resolved-targets");
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -357,6 +361,43 @@ describe("generated core Rule execution", async () => {
         zeroDamage: { "damage.synthetic": 0 },
       }),
     ).toThrowError(expect.objectContaining({ code: "execution-limit-exceeded" }));
+  });
+
+  it("keeps resolved ricochet expansion and aggregation as distinct operations", () => {
+    const expansion = executeResolvedRicochetExpansionRule(ricochetExpansion, {
+      targetCount: 2,
+      initialHealthTotal: 150,
+      zeroDamage: { "damage.synthetic": 0 },
+    });
+    expect(expansion.operationKind).toBe("event.expand-resolved-ricochet-targets");
+
+    const aggregate = executeResolvedRicochetAggregateRule(ricochetAggregate, {
+      initialHealthTotal: 150,
+      targets: [
+        {
+          id: "path-target.0",
+          targetId: "actor.target-c",
+          index: 0,
+          damage: { "damage.synthetic": 75 },
+          healthBefore: 100,
+          healthAfter: 25,
+        },
+        {
+          id: "path-target.1",
+          targetId: "actor.target-a",
+          index: 1,
+          damage: { "damage.synthetic": 50 },
+          healthBefore: 50,
+          healthAfter: 0,
+        },
+      ],
+    });
+    expect(aggregate.operationKind).toBe("damage-vector.aggregate-resolved-ricochet-targets");
+    expect(aggregate.after).toEqual({
+      damage: { "damage.synthetic": 125 },
+      damageTotal: 125,
+      health: 25,
+    });
   });
 
   it("aggregates ordered terminal Multishot hits and preserves sequential Health", () => {

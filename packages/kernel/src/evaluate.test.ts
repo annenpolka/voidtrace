@@ -54,6 +54,12 @@ import punchThroughExpectedFixture from "../../../data/fixtures/golden/resolved-
 import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
   type: "json",
 };
+import ricochetExpectedFixture from "../../../data/fixtures/golden/resolved-ricochet.expected.json" with {
+  type: "json",
+};
+import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
+  type: "json",
+};
 import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
   type: "json",
 };
@@ -142,6 +148,14 @@ async function evaluateStatusGolden() {
 async function evaluatePunchThroughGolden() {
   return evaluateScenario({
     scenario: structuredClone(punchThroughScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateRicochetGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(ricochetScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -1077,6 +1091,101 @@ describe("evaluateScenario", () => {
     );
   });
 
+  it("matches the independently authored resolved ricochet golden and relation-defined order", async () => {
+    const outcome = await evaluateRicochetGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(ricochetExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(ricochetExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(ricochetExpectedFixture.damageByType);
+    expect(outcome.result.targetStates).toEqual(ricochetExpectedFixture.targetStates);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(ricochetExpectedFixture.appliedRuleIds);
+    expect(
+      outcome.trace.decisions.flatMap((decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.damage.direct-hit"
+          ? [decision.operations[0]?.parameters["target.id"]]
+          : [],
+      ),
+    ).toEqual(ricochetExpectedFixture.targetOrder);
+    expect(outcome.result.coverage.experimental).toContain("mechanic.ricochet.resolved-path");
+    expect(
+      await replayTraceTargetStates(outcome.trace, {
+        "actor.target-a": 250,
+        "actor.target-b": 80,
+        "actor.target-c": 100,
+      }),
+    ).toEqual({
+      damage: ricochetExpectedFixture.damageByType,
+      health: 125,
+      healthByTarget: {
+        "actor.target-c": 25,
+        "actor.target-a": 100,
+        "actor.target-b": 0,
+      },
+    });
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, ricochetScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("property-tests resolved ricochet target order independently from targets array order", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 0, max: 8 }),
+        fc.tuple(
+          fc.integer({ min: 0, max: 5000 }),
+          fc.integer({ min: 0, max: 5000 }),
+          fc.integer({ min: 0, max: 5000 }),
+        ),
+        async (criticalTier, healthValues) => {
+          const changed = structuredClone(ricochetScenarioFixture);
+          const action = changed.actionPlan[0];
+          if (action === undefined) {
+            throw new Error("Resolved ricochet golden must contain one action");
+          }
+          action.parameters.criticalTier = criticalTier;
+          for (const [index, health] of healthValues.entries()) {
+            const target = changed.targets[index];
+            if (target === undefined) {
+              throw new Error("Resolved ricochet golden must contain three targets");
+            }
+            target.configuration.resolvedHealth = health;
+          }
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+          expect(
+            first.trace.decisions.flatMap((decision) =>
+              decision.outcome === "applied" && decision.ruleId === "rule.damage.direct-hit"
+                ? [decision.operations[0]?.parameters["target.id"]]
+                : [],
+            ),
+          ).toEqual(["actor.target-c", "actor.target-a", "actor.target-b"]);
+          expect(first.result.metrics["ricochet.target-count"]).toBe(3);
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
   it("matches the independently authored resolved Status tick golden and logical times", async () => {
     const outcome = await evaluateStatusGolden();
 
@@ -1455,6 +1564,8 @@ describe("evaluateScenario", () => {
         metric !== "damage.status.total" &&
         metric !== "punch-through.target-count" &&
         metric !== "damage.punch-through.total" &&
+        metric !== "ricochet.target-count" &&
+        metric !== "damage.ricochet.total" &&
         metric !== "targets.health.remaining-total" &&
         metric !== "targets.defeated-count",
     );

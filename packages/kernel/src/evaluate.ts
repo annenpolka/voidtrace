@@ -36,7 +36,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.9.0";
+export const KERNEL_ENGINE_VERSION = "0.10.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -455,10 +455,12 @@ function updateMetricValues(
     case "event.expand-fixed-pellets":
     case "event.expand-resolved-status-ticks":
     case "event.expand-resolved-punch-through-targets":
+    case "event.expand-resolved-ricochet-targets":
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
     case "damage-vector.aggregate-sequential-status-ticks":
     case "damage-vector.aggregate-resolved-punch-through-targets":
+    case "damage-vector.aggregate-resolved-ricochet-targets":
       return;
     case "damage-vector.copy":
       metricValues[
@@ -589,6 +591,9 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "event.expand-resolved-punch-through-targets":
     case "damage-vector.aggregate-resolved-punch-through-targets":
       return "mechanic.punch-through.resolved-path";
+    case "event.expand-resolved-ricochet-targets":
+    case "damage-vector.aggregate-resolved-ricochet-targets":
+      return "mechanic.ricochet.resolved-path";
     case "damage-vector.scale-resolved-radial-falloff":
       return "mechanic.damage.radial-falloff";
     case "damage-vector.copy":
@@ -1015,19 +1020,31 @@ function evaluateFixedHitGroupRuntime(
   });
 }
 
-function evaluateResolvedPunchThroughRuntime(
+function evaluateResolvedTargetPathRuntime(
   domain: ScenarioDomain,
   references: ResolvedCatalogReferences,
   ruleset: LoadedRuleset,
 ): RuntimeEvaluation {
   if (
-    domain.action.kind !== "resolved-punch-through" ||
+    (domain.action.kind !== "resolved-punch-through" &&
+      domain.action.kind !== "resolved-ricochet") ||
     domain.action.criticalResolution !== "fixed" ||
     domain.action.criticalTier === null ||
     domain.action.targetPathRelationId === null
   ) {
-    throw new TypeError("Invalid input reached resolved punch-through evaluation");
+    throw new TypeError("Invalid input reached resolved target-path evaluation");
   }
+  const isPunchThrough = domain.action.kind === "resolved-punch-through";
+  const pathLabel = isPunchThrough ? "punch-through" : "ricochet";
+  const actionEventKind = isPunchThrough
+    ? "action.resolved-punch-through-direct-hits"
+    : "action.resolved-ricochet-direct-hits";
+  const expansionOperationKind = isPunchThrough
+    ? "event.expand-resolved-punch-through-targets"
+    : "event.expand-resolved-ricochet-targets";
+  const aggregateOperationKind = isPunchThrough
+    ? "damage-vector.aggregate-resolved-punch-through-targets"
+    : "damage-vector.aggregate-resolved-ricochet-targets";
   const appliedRules: RuleDefinition[] = [];
   const decisions: Trace["decisions"][number][] = [];
   const metricValues: Record<string, number> = {};
@@ -1048,7 +1065,7 @@ function evaluateResolvedPunchThroughRuntime(
 
   for (const event of createPhaseEvents({
     actionId: domain.action.id,
-    kind: "action.resolved-punch-through-direct-hits",
+    kind: actionEventKind,
     phases: FIXED_MULTISHOT_EMISSION_PHASES,
   }).drain()) {
     expansionEventId = event.id;
@@ -1056,11 +1073,14 @@ function evaluateResolvedPunchThroughRuntime(
       if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
         continue;
       }
-      const execution = ruleset.executeResolvedPunchThroughExpansionRule(rule.id, {
+      const context = {
         targetCount: domain.targets.length,
         initialHealthTotal,
         zeroDamage,
-      });
+      };
+      const execution = isPunchThrough
+        ? ruleset.executeResolvedPunchThroughExpansionRule(rule.id, context)
+        : ruleset.executeResolvedRicochetExpansionRule(rule.id, context);
       decisions.push(
         decisionForExecution(
           decisionSequence,
@@ -1086,10 +1106,10 @@ function evaluateResolvedPunchThroughRuntime(
     }
   }
   if (
-    expansionExecution?.operationKind !== "event.expand-resolved-punch-through-targets" ||
+    expansionExecution?.operationKind !== expansionOperationKind ||
     expansionEventId === undefined
   ) {
-    throw new TypeError("Ruleset did not apply resolved punch-through expansion");
+    throw new TypeError(`Ruleset did not apply resolved ${pathLabel} expansion`);
   }
 
   const targetHits: ResolvedPunchThroughTargetHit[] = [];
@@ -1163,7 +1183,7 @@ function evaluateResolvedPunchThroughRuntime(
   let aggregateExecution: RuleExecution | undefined;
   for (const event of createPhaseEvents({
     actionId: domain.action.id,
-    kind: "action.resolved-punch-through-direct-hits",
+    kind: actionEventKind,
     parentEventId: expansionEventId,
     phases: FIXED_MULTISHOT_AGGREGATION_PHASES,
   }).drain()) {
@@ -1171,10 +1191,13 @@ function evaluateResolvedPunchThroughRuntime(
       if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
         continue;
       }
-      const execution = ruleset.executeResolvedPunchThroughAggregateRule(rule.id, {
+      const context = {
         initialHealthTotal,
         targets: targetHits,
-      });
+      };
+      const execution = isPunchThrough
+        ? ruleset.executeResolvedPunchThroughAggregateRule(rule.id, context)
+        : ruleset.executeResolvedRicochetAggregateRule(rule.id, context);
       decisions.push(
         decisionForExecution(
           decisionSequence,
@@ -1222,15 +1245,13 @@ function evaluateResolvedPunchThroughRuntime(
       }
     }
   }
-  if (
-    aggregateExecution?.operationKind !== "damage-vector.aggregate-resolved-punch-through-targets"
-  ) {
-    throw new TypeError("Ruleset did not apply resolved punch-through aggregation");
+  if (aggregateExecution?.operationKind !== aggregateOperationKind) {
+    throw new TypeError(`Ruleset did not apply resolved ${pathLabel} aggregation`);
   }
 
   const remainingHealthTotal = targetHits.reduce((total, target) => total + target.healthAfter, 0);
-  metricValues["punch-through.target-count"] = targetHits.length;
-  metricValues["damage.punch-through.total"] = aggregateExecution.after.damageTotal;
+  metricValues[`${pathLabel}.target-count`] = targetHits.length;
+  metricValues[`damage.${pathLabel}.total`] = aggregateExecution.after.damageTotal;
   metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
   metricValues["targets.health.remaining-total"] = remainingHealthTotal;
   metricValues["targets.defeated-count"] = targetHits.filter(
@@ -1951,8 +1972,9 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     runtime =
       domain.action.kind === "resolved-status-ticks"
         ? evaluateResolvedStatusTicksRuntime(domain, references, ruleset)
-        : domain.action.kind === "resolved-punch-through"
-          ? evaluateResolvedPunchThroughRuntime(domain, references, ruleset)
+        : domain.action.kind === "resolved-punch-through" ||
+            domain.action.kind === "resolved-ricochet"
+          ? evaluateResolvedTargetPathRuntime(domain, references, ruleset)
           : domain.action.kind === "radial-hit"
             ? evaluateFixedRadialRuntime(domain, references, ruleset)
             : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
@@ -2067,7 +2089,10 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
         "Result, Trace, and Scenario failed cross-Artifact integrity verification",
       );
     }
-    if (domain.action.kind === "resolved-punch-through") {
+    if (
+      domain.action.kind === "resolved-punch-through" ||
+      domain.action.kind === "resolved-ricochet"
+    ) {
       try {
         const replayed = await replayTraceTargetStates(
           trace,
@@ -2079,13 +2104,13 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
         ) {
           return failure(
             "integrity-check-failed",
-            "Punch-through Trace replay does not match evaluated Damage or target Health",
+            "Target-path Trace replay does not match evaluated Damage or target Health",
           );
         }
       } catch (error) {
         return failure(
           "integrity-check-failed",
-          error instanceof Error ? error.message : "Punch-through Trace semantic replay failed",
+          error instanceof Error ? error.message : "Target-path Trace semantic replay failed",
           {
             causeCode: error instanceof TraceReplayError ? error.code : "unknown",
           },

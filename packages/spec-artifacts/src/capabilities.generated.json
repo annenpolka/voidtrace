@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:12b40df33b05df63b4d2be89f4cac0384166d25cfcd0d4a6b3fef1139d42372e",
+  "sourceFingerprint": "sha256:f12d85d6fae9823a42e76089a4b7cc5896237f946e0cd0ce8ee87c6d533eeaf3",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -99,6 +99,15 @@
       "activeClauseRefs": [
         "GOL-009",
         "PTH-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.resolved-ricochet",
+      "status": "supported",
+      "activeClauseRefs": [
+        "GOL-010",
+        "RCH-001"
       ],
       "plannedClauseRefs": []
     },

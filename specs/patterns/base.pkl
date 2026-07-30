@@ -117,6 +117,12 @@ class ResolvedPunchThroughPath extends Clause {
   area = "mechanics"
 }
 
+class ResolvedRicochetPath extends Clause {
+  pattern = "resolved_ricochet_path"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
 class ArmorMonotonic extends Clause {
   pattern = "armor_monotonic"
   guarantee = "property-tested"

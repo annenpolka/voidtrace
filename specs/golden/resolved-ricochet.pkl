@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for resolved ricochet target order.
+module voidtrace.golden.resolvedRicochet
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-010"
+  desc =
+    "data/fixtures/golden/resolved-ricochet.scenario.jsonはtargets配列と異なるC→A→Bのricochet ordered pathを固定Critical tier 2で評価し、target別ArmorによりHealthを100→25、250→100、80→0へ独立commitして、Damage合計525と残Health合計125をliteral expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

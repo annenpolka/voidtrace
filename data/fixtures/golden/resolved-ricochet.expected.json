@@ -1,0 +1,47 @@
+{
+  "id": "golden.resolved-ricochet",
+  "scenarioId": "scenario.golden-resolved-ricochet",
+  "metrics": {
+    "ricochet.target-count": 3,
+    "damage.ricochet.total": 525,
+    "damage.health.total": 525,
+    "targets.health.remaining-total": 125,
+    "targets.defeated-count": 1
+  },
+  "damageBySource": {
+    "action.resolved-ricochet-1": 525
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 525
+  },
+  "targetStates": {
+    "actor.target-a": {
+      "health": 100
+    },
+    "actor.target-b": {
+      "health": 0
+    },
+    "actor.target-c": {
+      "health": 25
+    }
+  },
+  "appliedRuleIds": [
+    "rule.ricochet.expand-resolved-targets",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.ricochet.aggregate-resolved-targets"
+  ],
+  "rejectedRules": [],
+  "targetOrder": ["actor.target-c", "actor.target-a", "actor.target-b"],
+  "tolerance": 0.000001
+}

@@ -4,7 +4,6 @@
   "schemaVersion": "0.2.0",
   "id": "scenario.golden-multishot-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:7598c901f0895a9bef06f610b5d0330d6edabba8c9f6d46199bd96d8837b6b27",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.9.0",
+    "schemaVersion": "0.10.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
+    "contentHash": "sha256:35bd681169c978d775748c69aa6db446214e76fcc551efcb22b5a89a7c4da2f1",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -82,5 +81,6 @@
       "id": "assumption.fixed-critical-tier",
       "description": "Every emitted hit uses the same explicit fixed Critical tier; no Critical or Multishot roll is generated."
     }
-  ]
+  ],
+  "contentHash": "sha256:7dc6e781bf48ab563edfdc0e2df2d14b82698f56461184fa66ad89df449004f2"
 }

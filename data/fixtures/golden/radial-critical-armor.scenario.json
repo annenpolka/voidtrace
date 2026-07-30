@@ -4,7 +4,6 @@
   "schemaVersion": "0.2.0",
   "id": "scenario.golden-radial-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:2ddac9e751c227014637dcfb3f31f1e828f5d31a73c2af983ef4aae28a260225",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.9.0",
+    "schemaVersion": "0.10.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
+    "contentHash": "sha256:35bd681169c978d775748c69aa6db446214e76fcc551efcb22b5a89a7c4da2f1",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -82,5 +81,6 @@
       "id": "assumption.resolved-radial-falloff",
       "description": "The fixture supplies falloff 0.75 directly and does not evaluate distance, geometry, a Direct sibling, or a Projectile parent."
     }
-  ]
+  ],
+  "contentHash": "sha256:764e68b12f3a86edccb753720d682c58c801851424d5a19b530295dca174738f"
 }

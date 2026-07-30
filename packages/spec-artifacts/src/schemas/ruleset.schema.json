@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.9.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.10.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.9.0"
+      "const": "urn:voidtrace:schema:ruleset:0.10.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.9.0"
+      "const": "0.10.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -191,6 +191,26 @@
                   },
                   "maximumTargets": {
                     "description": "Positive safe execution bound for one resolved punch-through path.",
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "maximumTargets"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Expand one resolved ricochet path into an explicit bounded count of ordered target events.",
+                    "type": "string",
+                    "const": "event.expand-resolved-ricochet-targets"
+                  },
+                  "maximumTargets": {
+                    "description": "Positive safe execution bound for one resolved ricochet path.",
                     "type": "integer",
                     "minimum": 1
                   }
@@ -382,6 +402,20 @@
                     "description": "Aggregate terminal Damage and target-specific Health for a resolved punch-through path.",
                     "type": "string",
                     "const": "damage-vector.aggregate-resolved-punch-through-targets"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Aggregate terminal Damage and target-specific Health for a resolved ricochet path.",
+                    "type": "string",
+                    "const": "damage-vector.aggregate-resolved-ricochet-targets"
                   }
                 },
                 "required": [

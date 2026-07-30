@@ -38,6 +38,8 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "damage.status.total",
   "punch-through.target-count",
   "damage.punch-through.total",
+  "ricochet.target-count",
+  "damage.ricochet.total",
   "targets.health.remaining-total",
   "targets.defeated-count",
 ] as const);
@@ -92,7 +94,8 @@ export type ScenarioDomain = {
       | "fixed-pellets"
       | "radial-hit"
       | "resolved-status-ticks"
-      | "resolved-punch-through";
+      | "resolved-punch-through"
+      | "resolved-ricochet";
     readonly targetId: string;
     readonly targetPathRelationId: string | null;
     readonly pathTargetIds: readonly string[];
@@ -225,6 +228,16 @@ const PUNCH_THROUGH_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new S
   ...PUNCH_THROUGH_ONLY_METRIC_IDS,
   "damage.health.total",
 ]);
+const RICOCHET_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "ricochet.target-count",
+  "damage.ricochet.total",
+  "targets.health.remaining-total",
+  "targets.defeated-count",
+]);
+const RICOCHET_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  ...RICOCHET_ONLY_METRIC_IDS,
+  "damage.health.total",
+]);
 const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "critical.base-tier",
   "critical.next-tier",
@@ -346,20 +359,20 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value);
 }
 
-function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainParseResult {
+function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseResult {
   if (scenario.simulation.mode !== "deterministic") {
     return failure(
       "unsupported-simulation-mode",
       "/simulation/mode",
-      "Resolved punch-through currently requires deterministic mode",
-      "mechanic.punch-through.resolved-path",
+      "Resolved target paths currently require deterministic mode",
+      "mechanic.target-graph",
     );
   }
   if (scenario.targetGraph.relations.length !== 1) {
     return failure(
       "unsupported-target-graph",
       "/targetGraph/relations",
-      "Resolved punch-through requires exactly one ordered-path relation",
+      "Resolved target paths require exactly one ordered-path relation",
       "mechanic.target-graph",
     );
   }
@@ -367,52 +380,68 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
   if (
     relation === undefined ||
     relation.kind !== "target-relation.ordered-path" ||
-    relation.pathKind !== "punch-through"
+    (relation.pathKind !== "punch-through" && relation.pathKind !== "ricochet")
   ) {
     return failure(
       "unsupported-target-graph",
       "/targetGraph/relations/0",
-      "Only a resolved punch-through ordered-path relation is executable",
-      "mechanic.punch-through.resolved-path",
+      "Only resolved punch-through or ricochet ordered-path relations are executable",
+      "mechanic.target-graph",
     );
   }
+  const pathKind = relation.pathKind;
+  const pathLabel = pathKind === "punch-through" ? "punch-through" : "ricochet";
+  const mechanicId =
+    pathKind === "punch-through"
+      ? "mechanic.punch-through.resolved-path"
+      : "mechanic.ricochet.resolved-path";
+  const expectedActionKind =
+    pathKind === "punch-through"
+      ? "action.resolved-punch-through-direct-hits"
+      : "action.resolved-ricochet-direct-hits";
+  const domainActionKind =
+    pathKind === "punch-through" ? "resolved-punch-through" : "resolved-ricochet";
+  const availableMetricIds =
+    pathKind === "punch-through"
+      ? PUNCH_THROUGH_AVAILABLE_METRIC_IDS
+      : RICOCHET_AVAILABLE_METRIC_IDS;
   if (relation.targetIds.length > 64) {
     return failure(
       "unsupported-target-graph",
       "/targetGraph/relations/0/targetIds",
-      "Resolved punch-through supports at most 64 target IDs",
-      "mechanic.punch-through.resolved-path",
+      `Resolved ${pathLabel} supports at most 64 target IDs`,
+      mechanicId,
     );
   }
   if (new Set(relation.targetIds).size !== relation.targetIds.length) {
     return failure(
       "invalid-target-reference",
       "/targetGraph/relations/0/targetIds",
-      "Resolved punch-through target IDs must be unique",
-      "mechanic.punch-through.resolved-path",
+      `Resolved ${pathLabel} target IDs must be unique`,
+      mechanicId,
     );
   }
   if (scenario.targets.length !== relation.targetIds.length) {
     return failure(
       "unsupported-scenario-shape",
       "/targets",
-      "Resolved punch-through requires targets to match the ordered path exactly",
-      "mechanic.punch-through.resolved-path",
+      `Resolved ${pathLabel} requires targets to match the ordered path exactly`,
+      mechanicId,
     );
   }
   if (scenario.actionPlan.length !== 1) {
     return failure(
       "unsupported-scenario-shape",
       "/actionPlan",
-      "Resolved punch-through requires exactly one action",
-      "mechanic.punch-through.resolved-path",
+      `Resolved ${pathLabel} requires exactly one action`,
+      mechanicId,
     );
   }
   if (Object.keys(scenario.initialState).length > 0) {
     return failure(
       "unsupported-configuration-key",
       "/initialState",
-      "Resolved punch-through requires an empty initialState",
+      `Resolved ${pathLabel} requires an empty initialState`,
     );
   }
 
@@ -447,7 +476,7 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
       "invalid-target-reference",
       "/targets",
       "Scenario target IDs must be unique",
-      "mechanic.punch-through.resolved-path",
+      mechanicId,
     );
   }
   const targets: ScenarioDomainTarget[] = [];
@@ -457,8 +486,8 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
       return failure(
         "invalid-target-reference",
         `/targetGraph/relations/0/targetIds/${pathIndex}`,
-        `Unknown punch-through target: ${targetId}`,
-        "mechanic.punch-through.resolved-path",
+        `Unknown ${pathLabel} target: ${targetId}`,
+        mechanicId,
       );
     }
     const basePath = `/targets/${scenario.targets.indexOf(target)}/configuration`;
@@ -506,7 +535,7 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
       return failure(
         "unsupported-target-defense",
         basePath,
-        "Resolved punch-through supports Health and Armor only",
+        `Resolved ${pathLabel} supports Health and Armor only`,
         resolvedShield.value !== 0 ? "mechanic.shield" : "mechanic.overguard",
       );
     }
@@ -526,17 +555,17 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
     return failure(
       "unsupported-scenario-shape",
       "/targets",
-      "Resolved punch-through currently requires one shared Catalog target definition",
-      "mechanic.punch-through.resolved-path",
+      `Resolved ${pathLabel} currently requires one shared Catalog target definition`,
+      mechanicId,
     );
   }
 
   const action = scenario.actionPlan[0];
-  if (action === undefined || action.kind !== "action.resolved-punch-through-direct-hits") {
+  if (action === undefined || action.kind !== expectedActionKind) {
     return failure(
       "unsupported-action-kind",
       "/actionPlan/0/kind",
-      "Target Graph relations require action.resolved-punch-through-direct-hits",
+      `Resolved ${pathLabel} relations require ${expectedActionKind}`,
       action?.kind ?? "action.missing",
     );
   }
@@ -561,7 +590,7 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
       "invalid-target-reference",
       "/actionPlan/0/parameters/targetPathRelationId",
       `Unknown target path relation: ${relationId.value}`,
-      "mechanic.punch-through.resolved-path",
+      mechanicId,
     );
   }
   if (action.parameters.hitLocation !== "hit-location.neutral-body") {
@@ -585,7 +614,7 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
     return failure(
       "unsupported-critical-tier",
       "/actionPlan/0/parameters/criticalTier",
-      "Resolved punch-through criticalTier must be a non-negative safe integer",
+      `Resolved ${pathLabel} criticalTier must be a non-negative safe integer`,
       "mechanic.critical.tier-multiplier",
     );
   }
@@ -602,11 +631,11 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
       );
     }
     const supportedMetric = metric as SupportedMetricId;
-    if (!PUNCH_THROUGH_AVAILABLE_METRIC_IDS.has(supportedMetric)) {
+    if (!availableMetricIds.has(supportedMetric)) {
       return failure(
         "unsupported-metric",
         `/metrics/${index}`,
-        `Metric ${metric} is unavailable for resolved punch-through`,
+        `Metric ${metric} is unavailable for resolved ${pathLabel}`,
         metric,
       );
     }
@@ -625,7 +654,7 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
     return failure(
       "unsupported-scenario-shape",
       "/metrics",
-      "At least one resolved punch-through metric is required",
+      `At least one resolved ${pathLabel} metric is required`,
     );
   }
 
@@ -646,7 +675,7 @@ function parseResolvedPunchThroughDomain(scenario: Scenario): ScenarioDomainPars
     targets: frozenTargets,
     action: Object.freeze({
       id: action.id,
-      kind: "resolved-punch-through",
+      kind: domainActionKind,
       targetId: primaryTarget.id,
       targetPathRelationId: relation.id,
       pathTargetIds: Object.freeze([...relation.targetIds]),
@@ -704,7 +733,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
   }
 
   if (scenario.targetGraph.relations.length > 0) {
-    return parseResolvedPunchThroughDomain(scenario);
+    return parseResolvedTargetPathDomain(scenario);
   }
 
   if (scenario.targets.length !== 1) {

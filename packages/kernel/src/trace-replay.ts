@@ -721,7 +721,8 @@ async function replayTrace(
               : health;
 
     switch (operation.kind) {
-      case "event.expand-resolved-punch-through-targets": {
+      case "event.expand-resolved-punch-through-targets":
+      case "event.expand-resolved-ricochet-targets": {
         const targetCount = operation.parameters.targetCount;
         const maximumTargets = operation.parameters.maximumTargets;
         if (
@@ -736,7 +737,7 @@ async function replayTrace(
           decision.reads["action.target-path-count"] !== targetCount ||
           decision.eventTimeMs !== 0
         ) {
-          invalidParameters("Trace resolved punch-through expansion has invalid parameters");
+          invalidParameters("Trace resolved target-path expansion has invalid parameters");
         }
         const initialHealthTotal = Object.values(anchoredInitialHealthByTarget).reduce(
           (total, value) => total + value,
@@ -747,7 +748,7 @@ async function replayTrace(
           `Trace decision ${decision.sequence} before`,
         );
         if (sumDamageVector(beforeDamage) !== 0) {
-          invalidParameters("Trace punch-through expansion does not start at zero Damage");
+          invalidParameters("Trace target-path expansion does not start at zero Damage");
         }
         assertProjection(
           decision.before,
@@ -923,7 +924,7 @@ async function replayTrace(
             (expectedPathId !== undefined && metadata.pathId !== expectedPathId)
           ) {
             invalidParameters(
-              `Trace constructs invalid punch-through target ${operationPathTargetId}`,
+              `Trace constructs invalid target-path target ${operationPathTargetId}`,
             );
           }
           expectedPathId = metadata.pathId;
@@ -1374,7 +1375,8 @@ async function replayTrace(
         committed = true;
         break;
       }
-      case "damage-vector.aggregate-resolved-punch-through-targets": {
+      case "damage-vector.aggregate-resolved-punch-through-targets":
+      case "damage-vector.aggregate-resolved-ricochet-targets": {
         if (
           anchoredInitialHealthByTarget === undefined ||
           expectedPathTargetCount === undefined ||
@@ -1382,7 +1384,7 @@ async function replayTrace(
           operation.parameters.targetCount !== expectedPathTargetCount
         ) {
           invalidParameters(
-            "Trace aggregates punch-through targets before complete target expansion",
+            "Trace aggregates target-path targets before complete target expansion",
           );
         }
         const orderedTargets = [...pathTargets.values()].toSorted(
@@ -1400,7 +1402,7 @@ async function replayTrace(
             target.index !== index ||
             target.count !== expectedPathTargetCount
           ) {
-            invalidParameters(`Trace punch-through target ${target.targetId} is incomplete`);
+            invalidParameters(`Trace target-path target ${target.targetId} is incomplete`);
           }
           if (
             operation.parameters[`target.${index}.id`] !== target.targetId ||
@@ -1411,19 +1413,19 @@ async function replayTrace(
             operation.parameters[`target.${index}.healthBefore`] !== target.healthBefore ||
             operation.parameters[`target.${index}.healthAfter`] !== target.health
           ) {
-            invalidParameters(`Trace punch-through aggregate target ${index} is inconsistent`);
+            invalidParameters(`Trace target-path aggregate target ${index} is inconsistent`);
           }
           initialHealthTotal += target.healthBefore;
           remainingHealthTotal += target.health;
           for (const [damageTypeId, component] of Object.entries(target.damage)) {
             if (operation.parameters[`target.${index}.damage.${damageTypeId}`] !== component) {
               invalidParameters(
-                `Trace punch-through target ${index} component ${damageTypeId} is inconsistent`,
+                `Trace target-path target ${index} component ${damageTypeId} is inconsistent`,
               );
             }
             const total = (aggregateDamage[damageTypeId] ?? 0) + component;
             if (!Number.isFinite(total)) {
-              invalidParameters("Trace punch-through aggregate overflowed Damage");
+              invalidParameters("Trace target-path aggregate overflowed Damage");
             }
             aggregateDamage[damageTypeId] = total;
           }
@@ -1451,7 +1453,7 @@ async function replayTrace(
           decision.reads["path-target.health-before"] !== canonicalizeJson(beforeReads) ||
           decision.reads["path-target.health-after"] !== canonicalizeJson(afterReads)
         ) {
-          invalidParameters("Trace punch-through aggregate reads are inconsistent");
+          invalidParameters("Trace target-path aggregate reads are inconsistent");
         }
         const aggregate = Object.freeze(aggregateDamage);
         assertProjection(

@@ -12,7 +12,6 @@
     "contentHash": "sha256:f60252aa6b6a496d6c42ca78e99e63397218e52e6a580291ba61117ebea5b639",
     "gameBuild": "synthetic-fixture-0"
   },
-  "contentHash": "sha256:ed6f75bc82f5b80525a9bf2fc7edfc9bf861d41a9831939e14b316bf59830180",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -24,10 +23,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.9.0",
+    "schemaVersion": "0.10.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
+    "contentHash": "sha256:35bd681169c978d775748c69aa6db446214e76fcc551efcb22b5a89a7c4da2f1",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -95,5 +94,6 @@
       "id": "assumption.explicit-critical-roll",
       "description": "This explicit-roll Scenario does not generate randomness or perform expected-value aggregation."
     }
-  ]
+  ],
+  "contentHash": "sha256:79ebbf311837bf009d5d8a5f257069997988609f8546af782db6032413b6e505"
 }

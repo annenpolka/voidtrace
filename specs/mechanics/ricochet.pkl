@@ -1,0 +1,43 @@
+/// Experimental resolved ricochet target path without geometry or target selection.
+module voidtrace.mechanics.ricochet
+
+import "../rules/model.pkl"
+
+expandResolvedTargetsRule: model.Rule = new {
+  id = "rule.ricochet.expand-resolved-targets"
+  description =
+    "Expand one explicit resolved ricochet path into a bounded ordered sequence of target Direct Hit events."
+  phase = "attack.emit"
+  eventKind = "action.resolved-ricochet-direct-hits"
+  reads {
+    "action.target-path-count"
+  }
+  writes {
+    "event.direct-hit-count"
+  }
+  operation = new model.ExpandResolvedRicochetTargets {
+    maximumTargets = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateResolvedTargetsRule: model.Rule = new {
+  id = "rule.ricochet.aggregate-resolved-targets"
+  description =
+    "Aggregate terminal Damage and target-specific Health from every target visited by one resolved ricochet path."
+  phase = "result.aggregate"
+  eventKind = "action.resolved-ricochet-direct-hits"
+  reads {
+    "path-target.damage"
+    "path-target.health-before"
+    "path-target.health-after"
+  }
+  writes {
+    "event.damage"
+    "targets.health"
+  }
+  operation = new model.AggregateResolvedRicochetTargets {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:12b40df33b05df63b4d2be89f4cac0384166d25cfcd0d4a6b3fef1139d42372e",
+  "sourceFingerprint": "sha256:f12d85d6fae9823a42e76089a4b7cc5896237f946e0cd0ce8ee87c6d533eeaf3",
   "clauses": [
     {
       "id": "CLI-001",
@@ -197,6 +197,14 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-010",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-ricochet.scenario.jsonはtargets配列と異なるC→A→Bのricochet ordered pathを固定Critical tier 2で評価し、target別ArmorによりHealthを100→25、250→100、80→0へ独立commitして、Damage合計525と残Health合計125をliteral expected vectorとしてResultおよびTraceと照合する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "MSH-001",
       "pattern": "fixed_multishot_expansion",
       "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
@@ -229,6 +237,14 @@
       "area": "mechanics"
     },
     {
+      "id": "RCH-001",
+      "pattern": "resolved_ricochet_path",
+      "desc": "action.resolved-ricochet-direct-hitsは一つのpathKind ricochet ordered-path relationをtargetPathRelationIdで参照し、その1以上64以下のtargetIdsを順番どおり一度ずつ固定Critical Direct Hitとして評価する。各targetは自身のresolved ArmorとHealthを読み、target別World Stateへcommitする。反射角、物理軌道、target選択、減衰、chain、暗黙rollは生成しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "RNG-001",
       "pattern": "same_logical_random",
       "desc": "同一seed、論理Event ID、roll purposeは同一乱数を返す",
@@ -255,7 +271,7 @@
     {
       "id": "SCP-003",
       "pattern": "unsupported_mechanic_rejected",
-      "desc": "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relationsまたはresolved punch-through Direct Hit列が参照する一つのordered pathだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する",
+      "desc": "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relationsまたはresolved punch-through／ricochet Direct Hit列が参照する一つのordered pathだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "scope"
@@ -319,8 +335,8 @@
     {
       "id": "ruleset",
       "typeName": "Ruleset",
-      "schemaId": "urn:voidtrace:schema:ruleset:0.9.0",
-      "version": "0.9.0"
+      "schemaId": "urn:voidtrace:schema:ruleset:0.10.0",
+      "version": "0.10.0"
     },
     {
       "id": "scenario",
@@ -337,15 +353,16 @@
   ],
   "ruleset": {
     "id": "ruleset.synthetic-core",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "revision": 1,
-    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
+    "contentHash": "sha256:35bd681169c978d775748c69aa6db446214e76fcc551efcb22b5a89a7c4da2f1",
     "gameBuild": "synthetic-fixture-0",
     "ruleIds": [
       "rule.multishot.emit-fixed-hits",
       "rule.pellet.emit-fixed-hits",
       "rule.status.schedule-resolved-ticks",
       "rule.punch-through.expand-resolved-targets",
+      "rule.ricochet.expand-resolved-targets",
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
       "rule.radial.construct-hit",
@@ -363,7 +380,8 @@
       "rule.multishot.aggregate-fixed-hits",
       "rule.pellet.aggregate-fixed-hits",
       "rule.status.aggregate-resolved-ticks",
-      "rule.punch-through.aggregate-resolved-targets"
+      "rule.punch-through.aggregate-resolved-targets",
+      "rule.ricochet.aggregate-resolved-targets"
     ]
   }
 }

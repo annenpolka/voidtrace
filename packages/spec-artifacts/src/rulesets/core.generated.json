@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.9.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.10.0",
   "kind": "ruleset",
-  "schemaVersion": "0.9.0",
+  "schemaVersion": "0.10.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
+  "contentHash": "sha256:35bd681169c978d775748c69aa6db446214e76fcc551efcb22b5a89a7c4da2f1",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -75,6 +75,24 @@
       ],
       "operation": {
         "kind": "event.expand-resolved-punch-through-targets",
+        "maximumTargets": 64
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.ricochet.expand-resolved-targets",
+      "description": "Expand one explicit resolved ricochet path into a bounded ordered sequence of target Direct Hit events.",
+      "phase": "attack.emit",
+      "eventKind": "action.resolved-ricochet-direct-hits",
+      "reads": [
+        "action.target-path-count"
+      ],
+      "writes": [
+        "event.direct-hit-count"
+      ],
+      "operation": {
+        "kind": "event.expand-resolved-ricochet-targets",
         "maximumTargets": 64
       },
       "evidenceStatus": "experimental",
@@ -419,6 +437,26 @@
       ],
       "operation": {
         "kind": "damage-vector.aggregate-resolved-punch-through-targets"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.ricochet.aggregate-resolved-targets",
+      "description": "Aggregate terminal Damage and target-specific Health from every target visited by one resolved ricochet path.",
+      "phase": "result.aggregate",
+      "eventKind": "action.resolved-ricochet-direct-hits",
+      "reads": [
+        "path-target.damage",
+        "path-target.health-before",
+        "path-target.health-after"
+      ],
+      "writes": [
+        "event.damage",
+        "targets.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-resolved-ricochet-targets"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

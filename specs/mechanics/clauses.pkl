@@ -71,6 +71,13 @@ resolvedPunchThroughVisitsTargetsInPathOrder: base.ResolvedPunchThroughPath = ne
   maturity = "active"
 }
 
+resolvedRicochetVisitsTargetsInPathOrder: base.ResolvedRicochetPath = new {
+  id = "RCH-001"
+  desc =
+    "action.resolved-ricochet-direct-hitsは一つのpathKind ricochet ordered-path relationをtargetPathRelationIdで参照し、その1以上64以下のtargetIdsを順番どおり一度ずつ固定Critical Direct Hitとして評価する。各targetは自身のresolved ArmorとHealthを読み、target別World Stateへcommitする。反射角、物理軌道、target選択、減衰、chain、暗黙rollは生成しない"
+  maturity = "active"
+}
+
 armorDoesNotIncreaseDamage: base.ArmorMonotonic = new {
   id = "DEF-001"
   desc = "標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない"

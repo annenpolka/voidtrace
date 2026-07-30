@@ -24,6 +24,10 @@ import {
   type ResolvedPunchThroughExpansionContext,
   executeResolvedPunchThroughAggregateRule,
   executeResolvedPunchThroughExpansionRule,
+  type ResolvedRicochetAggregateContext,
+  type ResolvedRicochetExpansionContext,
+  executeResolvedRicochetAggregateRule,
+  executeResolvedRicochetExpansionRule,
   executeRule,
   type RuleContext,
   type RuleDefinition,
@@ -62,6 +66,14 @@ export type LoadedRuleset = {
   executeResolvedPunchThroughAggregateRule(
     id: string,
     context: ResolvedPunchThroughAggregateContext,
+  ): RuleExecution;
+  executeResolvedRicochetExpansionRule(
+    id: string,
+    context: ResolvedRicochetExpansionContext,
+  ): RuleExecution;
+  executeResolvedRicochetAggregateRule(
+    id: string,
+    context: ResolvedRicochetAggregateContext,
   ): RuleExecution;
   executeSequentialHitAggregateRule(
     id: string,
@@ -133,6 +145,12 @@ const OPERATION_DECLARATIONS = {
   "event.expand-resolved-punch-through-targets": {
     phase: "attack.emit",
     eventKind: "action.resolved-punch-through-direct-hits",
+    reads: ["action.target-path-count"],
+    writes: ["event.direct-hit-count"],
+  },
+  "event.expand-resolved-ricochet-targets": {
+    phase: "attack.emit",
+    eventKind: "action.resolved-ricochet-direct-hits",
     reads: ["action.target-path-count"],
     writes: ["event.direct-hit-count"],
   },
@@ -227,6 +245,12 @@ const OPERATION_DECLARATIONS = {
     reads: ["path-target.damage", "path-target.health-before", "path-target.health-after"],
     writes: ["event.damage", "targets.health"],
   },
+  "damage-vector.aggregate-resolved-ricochet-targets": {
+    phase: "result.aggregate",
+    eventKind: "action.resolved-ricochet-direct-hits",
+    reads: ["path-target.damage", "path-target.health-before", "path-target.health-after"],
+    writes: ["event.damage", "targets.health"],
+  },
 } as const satisfies Record<RuleOperationKind, OperationDeclaration>;
 
 function formatContractIssues(issues: ReadonlyArray<ValidationIssue>): string {
@@ -301,6 +325,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
       }
       break;
     case "event.expand-resolved-punch-through-targets":
+    case "event.expand-resolved-ricochet-targets":
       if (
         typeof operation.maximumTargets === "number" &&
         Number.isSafeInteger(operation.maximumTargets) &&
@@ -321,6 +346,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     case "damage-vector.copy-resolved-status-tick":
     case "damage-vector.aggregate-sequential-status-ticks":
     case "damage-vector.aggregate-resolved-punch-through-targets":
+    case "damage-vector.aggregate-resolved-ricochet-targets":
       return;
     case "damage-vector.scale-standard-armor":
       if (
@@ -446,6 +472,14 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       id: string,
       context: ResolvedPunchThroughAggregateContext,
     ): RuleExecution => executeResolvedPunchThroughAggregateRule(resolveRule(id), context),
+    executeResolvedRicochetExpansionRule: (
+      id: string,
+      context: ResolvedRicochetExpansionContext,
+    ): RuleExecution => executeResolvedRicochetExpansionRule(resolveRule(id), context),
+    executeResolvedRicochetAggregateRule: (
+      id: string,
+      context: ResolvedRicochetAggregateContext,
+    ): RuleExecution => executeResolvedRicochetAggregateRule(resolveRule(id), context),
     executeSequentialHitAggregateRule: (
       id: string,
       context: SequentialHitAggregateContext,

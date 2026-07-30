@@ -4,7 +4,6 @@
   "schemaVersion": "0.2.0",
   "id": "scenario.golden-expected-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:7e0296a031f4a3ae0c905d4c266ec0a7f8f36c7737de8b5410717e907c6cf940",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.9.0",
+    "schemaVersion": "0.10.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:af36e37ce46b3c9e9cb640816a153c1cf28ceddb2f89fea963d41b16e03a552d",
+    "contentHash": "sha256:35bd681169c978d775748c69aa6db446214e76fcc551efcb22b5a89a7c4da2f1",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -80,5 +79,6 @@
       "id": "assumption.synthetic-expected-critical-armor",
       "description": "Synthetic expected-value fixture; not a verified current-game Warframe claim."
     }
-  ]
+  ],
+  "contentHash": "sha256:bf2464aa879322b2e9397b104400e76e53a4a5471ebed8818620e23c769cb29d"
 }

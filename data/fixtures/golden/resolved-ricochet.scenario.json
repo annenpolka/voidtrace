@@ -2,7 +2,7 @@
   "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.2.0",
-  "id": "scenario.golden-resolved-punch-through",
+  "id": "scenario.golden-resolved-ricochet",
   "revision": 0,
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
@@ -33,7 +33,7 @@
       "id": "actor.target-a",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 150,
+        "resolvedHealth": 250,
         "resolvedShield": 0,
         "resolvedArmor": 300,
         "resolvedOverguard": 0
@@ -53,7 +53,7 @@
       "id": "actor.target-c",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 60,
+        "resolvedHealth": 100,
         "resolvedShield": 0,
         "resolvedArmor": 900,
         "resolvedOverguard": 0
@@ -63,23 +63,23 @@
   "targetGraph": {
     "relations": [
       {
-        "id": "target-relation.punch-through-1",
+        "id": "target-relation.ricochet-1",
         "kind": "target-relation.ordered-path",
-        "pathKind": "punch-through",
-        "targetIds": ["actor.target-a", "actor.target-b", "actor.target-c"]
+        "pathKind": "ricochet",
+        "targetIds": ["actor.target-c", "actor.target-a", "actor.target-b"]
       }
     ]
   },
   "initialState": {},
   "actionPlan": [
     {
-      "id": "action.resolved-punch-through-1",
-      "kind": "action.resolved-punch-through-direct-hits",
+      "id": "action.resolved-ricochet-1",
+      "kind": "action.resolved-ricochet-direct-hits",
       "parameters": {
-        "targetPathRelationId": "target-relation.punch-through-1",
+        "targetPathRelationId": "target-relation.ricochet-1",
         "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
-        "criticalTier": 1
+        "criticalTier": 2
       }
     }
   ],
@@ -88,21 +88,21 @@
     "timeLimitMs": 1
   },
   "metrics": [
-    "punch-through.target-count",
-    "damage.punch-through.total",
+    "ricochet.target-count",
+    "damage.ricochet.total",
     "damage.health.total",
     "targets.health.remaining-total",
     "targets.defeated-count"
   ],
   "assumptions": [
     {
-      "id": "assumption.synthetic-resolved-punch-through",
-      "description": "Synthetic resolved punch-through order; not a verified current-game Warframe punch-through or attenuation rule."
+      "id": "assumption.synthetic-resolved-ricochet",
+      "description": "Synthetic resolved ricochet order; not a verified current-game Warframe ricochet or target-selection rule."
     },
     {
-      "id": "assumption.no-punch-through-attenuation",
-      "description": "Each target receives one independent Direct Hit without wall, collision, or penetration attenuation."
+      "id": "assumption.no-ricochet-attenuation",
+      "description": "Each target receives one independent Direct Hit without angle, trajectory, collision, selection, or ricochet attenuation."
     }
   ],
-  "contentHash": "sha256:39b45e7ce2808c66edc735029753cc53f2a297be3ac66a84032281bce5f9d5fd"
+  "contentHash": "sha256:910dd3068d67d138fa14505497fa798010c651c4ceaff0490b1579588d6cf13f"
 }

@@ -12,6 +12,9 @@ import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status
 import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
   type: "json",
 };
+import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
+  type: "json",
+};
 import { parseScenarioDomain } from "./scenario-domain.ts";
 
 type MutableScenarioFixture = {
@@ -95,6 +98,15 @@ async function changedPunchThroughScenario(
   change: (scenario: MutableScenarioFixture) => void,
 ): Promise<unknown> {
   const mutable = structuredClone(punchThroughScenarioFixture) as MutableScenarioFixture;
+  change(mutable);
+  const { contentHash: _contentHash, ...withoutHash } = mutable;
+  return attachArtifactContentHash(withoutHash);
+}
+
+async function changedRicochetScenario(
+  change: (scenario: MutableScenarioFixture) => void,
+): Promise<unknown> {
+  const mutable = structuredClone(ricochetScenarioFixture) as MutableScenarioFixture;
   change(mutable);
   const { contentHash: _contentHash, ...withoutHash } = mutable;
   return attachArtifactContentHash(withoutHash);
@@ -240,7 +252,7 @@ describe("parseScenarioDomain", () => {
     await expectFailure(scenario, {
       code: "unsupported-target-graph",
       path: "/targetGraph/relations/0",
-      mechanicId: "mechanic.punch-through.resolved-path",
+      mechanicId: "mechanic.target-graph",
     });
   });
 
@@ -263,6 +275,40 @@ describe("parseScenarioDomain", () => {
           { id: "actor.target-c", resolvedArmor: 900, resolvedHealth: 60 },
         ],
       },
+    });
+  });
+
+  it("accepts one resolved ricochet path in relation order rather than targets array order", async () => {
+    const result = await parseScenarioDomain(structuredClone(ricochetScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          kind: "resolved-ricochet",
+          targetPathRelationId: "target-relation.ricochet-1",
+          pathTargetIds: ["actor.target-c", "actor.target-a", "actor.target-b"],
+          hitCount: 3,
+          criticalTier: 2,
+        },
+        targets: [
+          { id: "actor.target-c", resolvedArmor: 900, resolvedHealth: 100 },
+          { id: "actor.target-a", resolvedArmor: 300, resolvedHealth: 250 },
+          { id: "actor.target-b", resolvedArmor: 0, resolvedHealth: 80 },
+        ],
+      },
+    });
+  });
+
+  it("rejects a ricochet action whose relation reference does not match", async () => {
+    const scenario = await changedRicochetScenario((mutable) => {
+      firstAction(mutable).parameters.targetPathRelationId = "target-relation.missing";
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-target-reference",
+      path: "/actionPlan/0/parameters/targetPathRelationId",
+      mechanicId: "mechanic.ricochet.resolved-path",
     });
   });
 
