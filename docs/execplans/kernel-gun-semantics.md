@@ -44,7 +44,11 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 08:32:00Z) Scenario Contract `0.2.0`へresolved impact-distance/LoSとordered punch-through/chain/ricochet pathの有限Target Graph入力を追加した。
 - [x] (2026-07-30 08:32:00Z) 現在のRuntimeは空relationsだけを受理し、非空Target Graphを `unsupported-target-graph` として部分Artifactなしで拒否する境界を実装した。
 - [x] (2026-07-30 08:32:00Z) Node 26/24で33 Clauses、8 Contracts、21ファイル299テストを通し、Target Graph契約境界を `5ebc4f4` としてコミットした。
-- [ ] 最初の実行可能な複数target sliceとして、resolved punch-through順序に沿う固定Critical Direct Hit列とtarget別World State／Traceを設計する。
+- [x] (2026-07-30 10:34:00Z) 最初の実行可能な複数target sliceとして、resolved punch-through順序に沿う固定Critical Direct Hit列とtarget別World State／Traceを実装した。Goldenは3 target、固定tier 1、target別Armor/Health、貫通減衰なしである。
+- [x] (2026-07-30 10:34:00Z) Result Contract `0.2.0`へtarget ID別終端Health、Ruleset `0.9.0`へpath展開／集約Ruleを追加し、Golden、独立oracle、property、改ざんTrace、Runtime、formal CLI、installed CLI aliasを検証した。
+- [x] (2026-07-30 10:34:00Z) repository-local skillへresolved punch-through操作例と非対応境界を追加し、empirical-prompt-tuningを2回とhold-outで実行した。対応・非対応はいずれも100%、不明点0、retry 0で、impact-distanceの暗黙変換も拒否した。
+- [x] (2026-07-30 10:34:00Z) Node 26.0.0とNode 24.18.0で35 Clauses、8 Contracts、生成24ファイル、21テストファイル311テストを含む `just check` を通した。
+- [x] (2026-07-30 10:35:00Z) Resolved punch-throughマイルストーンを `bd0b659` としてコミットした。
 
 ## Surprises & Discoveries
 
@@ -80,6 +84,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: Scenarioは当初から複数targetsを構文上許したが、対象間関係を表す場所がなく、配列順へ意味を暗黙付与する危険があった。
   Evidence: Scenario `0.2.0`はtarget配列と独立した `targetGraph.relations` を必須化し、impact-distanceとordered-pathだけを閉じたunionとして生成する。既存Goldenは全て空relationsを明示する。
+
+- Observation: 複数targetの因果再生では、従来の単一 `target.health` だけでは同じDamage合計でもtarget割当の改ざんを検出できない。
+  Evidence: path子Ruleの全operationへ `path.id`、`path.index`、`path.count`、`target.id` を残し、target別初期Healthをアンカーに再生する。target AのDirect Hit metadataだけをBへ変えてTraceを再hashした回帰試験は `invalid-operation-parameters` で拒否する。
+
+- Observation: Resultへtarget別終端状態を追加すると、既存の単一target sliceも同じ公開Contractを満たす必要がある。
+  Evidence: Result Contract `0.2.0`は `targetStates` を必須化し、Direct、expected、Multishot、Pellet、Radial、Statusも単一キーの終端Health projectionを出す。全既存GoldenとCLI契約試験が同時に通る。
 
 ## Decision Log
 
@@ -139,6 +149,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: 順序が明示された複数targetへ既存Direct Hit Ruleを再利用し、World State、Result、Trace replayのtarget identityを検証できる。貫通減衰、壁厚、物理衝突、chain選択、ricochet角度は同時に導入しない。
   Date/Author: 2026-07-30 08:32:00Z / Codex
 
+- Decision: punch-through actionは一つの `action.resolved-punch-through-direct-hits` とし、`targetPathRelationId`で一つのordered-path relationを参照する。
+  Rationale: actionPlan配列順やtargets配列順へ意味を暗黙付与せず、命中順の唯一の根拠をTarget Graphへ置く。各targetには同じ固定Critical tierのDirect Hitを一度ずつ適用する。
+  Date/Author: 2026-07-30 08:36:00Z / Codex
+
+- Decision: Result Contractをtarget別終端Healthを持つ `targetStates` へ拡張し、複数target集約metricはtarget数、撃破数、残Health総和、Damage総和だけを公開する。
+  Rationale: `target.health.remaining`を複数targetへ曖昧に流用せず、個別状態と集約値を分離する。Traceにはpath／target identityを残し、target別初期Healthをアンカーに再生する。
+  Date/Author: 2026-07-30 08:36:00Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -152,6 +170,8 @@ Radialマイルストーンでは、有限な `[0, 1]` の解決済みfalloff mu
 Statusマイルストーンでは、`status.synthetic-resolved-dot` の最終Health Damage、tick数、間隔を明示する単独actionを、論理時刻つきEvent Queueで評価できるようになった。Goldenは40 Damageを1000ms間隔で3回commitし、Healthを `100→60→20→0` と更新する8 decisionを固定する。64 tick超、time horizon超過、安全でない時刻は部分Artifactなしで拒否する。Status chance／type、付与元、Critical／Armor導出、stack、refresh、snapshot、防御変化、期待値、生成rollは非対応である。
 
 Target Graph契約境界では、Scenario `0.2.0`にKernel外で解決済みのimpact距離／LoSとordered pathを表す有限relation unionを追加した。全既存Goldenは空graphを明示し、既存の単一target Result／Traceを維持する。非空graphは構造化unsupportedとなり、関係を無視した単体計算へ縮退しない。複数target Damage評価、falloff導出、punch-through減衰、chain／ricochet選択は次の実行sliceである。
+
+Resolved punch-throughマイルストーンでは、一つの `pathKind: punch-through` ordered pathを参照する固定Critical Direct Hit actionを実行可能にした。3-target GoldenはA→B→Cの順に既存Direct／Critical／Armor／Health commit Ruleを適用し、Healthを `150→50`、`80→0`、`60→10` へ独立更新する。ResultはDamage合計350、残Health合計60、撃破1とtarget別終端Healthを持ち、Traceの14 decisionはtarget identityを含めて再生できる。壁厚、衝突、貫通減衰、geometry、target選択、impact-distance、chain、ricochet、target別Critical、rollは引き続き非対応である。
 
 ## Context and Orientation
 
@@ -318,6 +338,18 @@ Target Graph契約境界の検証記録は次のとおりである。
     partial Result / Trace: absent
     final Health: 925
 
+Resolved punch-throughマイルストーンの検証記録は次のとおりである。
+
+    Ruleset / Result Contract: 0.9.0 / 0.2.0
+    Clauses / Contracts / generated files: 35 / 8 / 24
+    Node.js 26.0.0: 21 files, 311 tests passed
+    Node.js 24.18.0: 21 files, 311 tests passed
+    target order: actor.target-a / actor.target-b / actor.target-c
+    target Health: 50 / 0 / 10
+    aggregate Damage / remaining Health / defeated: 350 / 60 / 1
+    Trace decisions: 14
+    empirical skill evaluation: supported 100%, unsupported 100%, hold-out accepted, retry 0
+
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
 
 Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むローカル基準線は `92019a6 feat: add fixed multishot vertical slice` としてコミット済みである。
@@ -325,6 +357,8 @@ Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むロー
 Ruleset `0.6.0` revision `1` と解決済み固定count Pelletを含むローカル基準線は `0b43a63 feat: add fixed pellet vertical slice` としてコミット済みである。
 
 Ruleset `0.7.0` revision `1` と単独解決済みRadial falloffを含むローカル基準線は `1e7a3ea feat: add resolved radial vertical slice` としてコミット済みである。
+
+Ruleset `0.9.0` revision `1`、Result Contract `0.2.0`、resolved punch-through target pathを含むローカル基準線は `bd0b659 feat: add resolved punch-through target path` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
