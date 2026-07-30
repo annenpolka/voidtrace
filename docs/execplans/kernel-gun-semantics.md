@@ -53,6 +53,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 10:45:00Z) Ruleset `0.10.0`のricochet展開／集約Rule、Golden、property、Runtime、formal CLI、installed CLI aliasを追加し、Node 26/24で37 Clauses、8 Contracts、生成24ファイル、21ファイル320テストを通した。
 - [x] (2026-07-30 10:45:00Z) repository-local skillへresolved ricochet操作例と停止境界を追加した。empirical-prompt-tuningは2回連続で対応・非対応100%、不明点0、retry 0となり、relation/action不一致のhold-outも暗黙修正せず拒否した。
 - [x] (2026-07-30 10:45:00Z) Resolved ricochetマイルストーンを `27aaefd` としてコミットした。
+- [ ] 次の複数target sliceとして、明示されたresolved chain順序に沿う固定Critical Direct Hit列を実装する。（2026-07-30 10:55:00Z開始。Goldenはtargets配列B→A→Cと異なるA→C→B順、固定tier 0、target別Armor/Health、候補探索・分岐・距離・自動選択・減衰なし）
 
 ## Surprises & Discoveries
 
@@ -171,6 +172,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: ricochetはpunch-throughと別action、別Rule ID、別operation、別capability、別aggregate metricを持ち、安全なtarget別Direct Hit実行器だけを共有する。
   Rationale: 同じordered pathでも意味論と将来の補正点は異なる。汎用pathという名前へ早期に畳んでTraceから由来を失わず、Kernel内のCritical／Armor／Health pipeline重複も避ける。
   Date/Author: 2026-07-30 10:38:00Z / Codex
+
+- Decision: 最初のchain sliceは候補edgeや選択戦略をKernelへ与えず、`pathKind: chain` の外部解決済みordered pathとmatching actionだけを受理する。
+  Rationale: 現在のScenario Contractで表現できる因果順とtarget別World Stateを先に検証する。nearest、highest-health、random、all-eligible等の選択戦略、距離、branch、再訪、減衰は別のContractとClauseが必要であり、暗黙実装しない。
+  Date/Author: 2026-07-30 10:55:00Z / Codex
+
+- Decision: chainもpunch-through／ricochetと別action、Rule ID、operation、capability、aggregate metricを持ち、target別Direct Hit pipelineとTrace replayだけを共有する。
+  Rationale: `damage.chain.total` とchain由来RuleをTraceへ残し、同じordered path表現を理由に将来異なる補正点を混同しない。
+  Date/Author: 2026-07-30 10:55:00Z / Codex
 
 ## Outcomes & Retrospective
 
