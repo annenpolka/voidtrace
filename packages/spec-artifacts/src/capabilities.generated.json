@@ -53,9 +53,7 @@
         "GOL-001",
         "GOL-002",
         "GOL-003",
-        "GOL-004",
-        "GOL-015",
-        "IMP-002"
+        "GOL-004"
       ],
       "plannedClauseRefs": []
     },
@@ -109,7 +107,9 @@
       "status": "supported",
       "activeClauseRefs": [
         "GOL-014",
-        "IMP-001"
+        "GOL-015",
+        "IMP-001",
+        "IMP-002"
       ],
       "plannedClauseRefs": []
     },

@@ -231,7 +231,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
     (clause) => clause.id === "RAD-002" || clause.id === "GOL-012",
   );
   const directRadialImpactClauses = spec.clauses.filter(
-    (clause) => clause.id === "IMP-001" || clause.id === "GOL-014",
+    (clause) => clause.id.startsWith("IMP-") || clause.id === "GOL-014" || clause.id === "GOL-015",
   );
   const statusClauses = spec.clauses.filter(
     (clause) => clause.id.startsWith("STS-") || clause.id === "GOL-008",
