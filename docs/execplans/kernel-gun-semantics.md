@@ -20,7 +20,11 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 07:38:00Z) Multishotの独立oracle、境界/propertyテスト、Runtime/CLI E2Eを追加し、対象7ファイル154テストを通した。
 - [x] (2026-07-30 07:44:00Z) repository-local skillのMultishot操作例をempirical-prompt-tuningで再評価し、修正後2回連続の100% checklist達成を確認した。
 - [x] (2026-07-30 07:44:00Z) Node 24とNode 26で21テストファイル251テストを含む全ゲートを通した。
-- [ ] Multishotマイルストーンをコミットし、次の銃器イベント垂直スライスを選定する。
+- [x] (2026-07-30 07:46:00Z) Multishotマイルストーンを `92019a6` としてコミットした。
+- [x] (2026-07-30 07:46:00Z) 元計画の順序に従い、次の縦切りを解決済み固定count Pelletに選定した。
+- [ ] PelletのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義する。（開始: Multishotと合成しない単独Pellet actionの境界を設計）
+- [ ] Pelletを既存Direct Hitパイプラインへ流し、Result／Trace／replayを実装する。
+- [ ] 独立oracle、境界/propertyテスト、Runtime/CLI E2E、skill操作例を追加して検証・コミットする。
 
 ## Surprises & Discoveries
 
@@ -53,6 +57,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: 最初のMultishot入力は、Scenarioに明示された正のsafe-integer hit countと固定Critical tierだけを受理する。
   Rationale: 確率的Multishot、各弾のCritical roll、expected modeを同時に入れると確率分岐の直積が必要になる。まず順次World State更新とTrace因果性を独立に検証し、確率モデルは後続Clauseとして追加する。
   Date/Author: 2026-07-30 07:24:11Z / Codex
+
+- Decision: Multishot後の次の垂直スライスは、元計画の列挙順に従いPelletとする。
+  Rationale: Pelletは同じ一回の射撃に属する複数の命中単位を表し、既存の順序付きDirect Hit反復を再利用しつつ、Multishot由来の追加射撃単位と区別できるかを先に検証できる。RadialやStatusより新しいDamage式・時間状態が少ない。
+  Date/Author: 2026-07-30 07:46:00Z / Codex
+
+- Decision: 最初のPellet sliceは明示された正のsafe-integer pellet countと共通固定Critical tierだけを受理し、Multishotとの直積を扱わない。
+  Rationale: Pellet単体の親子関係、順序、集約名を独立に固定する。Multishotとの組合せ、pellet別Critical roll、命中分配、Spread、確率的pellet数は後続Clauseに分離する。
+  Date/Author: 2026-07-30 07:46:00Z / Codex
 
 ## Outcomes & Retrospective
 
@@ -165,6 +177,8 @@ Multishotマイルストーンの検証記録は次のとおりである。
     multishot decisions: 14
 
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
+
+Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むローカル基準線は `92019a6 feat: add fixed multishot vertical slice` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
