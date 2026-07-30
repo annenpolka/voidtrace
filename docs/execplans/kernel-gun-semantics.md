@@ -65,6 +65,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 11:42:00Z) Scenario Contract `0.3.0`、Ruleset `0.13.0`のPellet allocation展開／集約Rule、3-target Golden、count/property、複数hit Trace replay、Runtime、formal CLI、installed CLI aliasを追加し、Node 26/24で43 Clauses、8 Contracts、生成24ファイル、21ファイル346テストを通した。
 - [x] (2026-07-30 11:42:00Z) repository-local skillへresolved Pellet allocation操作例と停止境界を追加した。empirical-prompt-tuningはfeature commit後の第1・第2回で対応7/7・非対応6/6・hold-out 6/6、不明点0を連続達成した。
 - [x] (2026-07-30 11:42:00Z) Resolved Pellet allocationマイルストーンを `274d33f` としてコミットした。
+- [x] (2026-07-30 13:18:07Z) 元計画と実装済み依存関係を照合し、次の縦切りを同じresolved impactを親に持つDirect Hitとmulti-target Radialの合成に固定した。
+- [ ] Resolved Direct＋Radial impactのPkl Clause、Rule IR、Golden Scenarioを定義し、生成文書を逆翻訳として確認する。
+- [ ] 一つの親impactからDirect siblingを先に、Radial target childrenを後に同じWorld Stateへcommitし、Result／Trace replayを実装する。
+- [ ] property、Runtime／CLI E2E、repository-local skill評価、Node 26／24の全ゲートを通し、進捗記録を更新して公開mainへpushする。
 
 ## Surprises & Discoveries
 
@@ -225,6 +229,18 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: 新しいTarget Graph relation variantは受理可能な永続入力集合を変える。actionの自由形式scalar parameters追加だけとは異なりschema unionの変更なので、同じ `0.2.0` 識別子の意味を黙って書き換えない。
   Date/Author: 2026-07-30 11:22:00Z / Codex
 
+- Decision: Pellet allocation後の次の構造sliceは、`action.resolved-direct-radial-impact` とし、一つのresolved impactを親に一つのDirect Hitと既存のmulti-target Radialを兄弟イベントとして評価する。
+  Rationale: 元計画がv0要件に置く「DirectとExplosionの親子関係」と全イベントの因果追跡を、すでに独立検証済みのDirect、Radial、Target Graph、target別World Stateを組み合わせて最小に検証できる。Projectile軌道、衝突、爆心、実ゲームfalloffは追加しない。
+  Date/Author: 2026-07-30 13:18:07Z / Codex
+
+- Decision: 初回の合成impactは一つのCatalog attack modeと一つの固定Critical tierをDirect／Radial双方へ明示的に共有し、Direct targetを先にcommitしてからrelation順のRadial targetを評価する。
+  Rationale: 複数attack mode参照やDirect／Radial別rollを未検証のまま先取りせず、同一targetが両方を受ける場合のWorld State共有とTrace親子関係に検証焦点を置く。別base Damage、roll共有規則、Status、Multishot／Pellet合成は後続Clauseで明示する。
+  Date/Author: 2026-07-30 13:18:07Z / Codex
+
+- Decision: 新actionは既存Scenario Contract `0.3.0` のscalar parameterとimpact-distance relationだけで表し、Contract versionは変更しない。
+  Rationale: 永続wire shapeやrelation unionは変えず、手書きdomainが受理するaction kindとparameter集合だけを増やす。Ruleとcapabilityの意味変更はRuleset `0.14.0`で識別する。
+  Date/Author: 2026-07-30 13:18:07Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -271,6 +287,8 @@ Kernelでは、actionをMultishot数だけDirect Hitイベントへ展開し、�
 
 Resolved Pellet allocationでは、Pklにtarget別解決済み命中数relation、action、展開／集約Rule、capability、Goldenを追加する。Kernelはrelation順、次にrelation内index順で既存Direct Hit pipelineを実行し、総pellet数との差をmissとして集約する。0-hit targetも初期HealthのままResultとTrace replayへ残し、合計hit数が総pellet数を超える入力は実行前に拒否する。
 
+Resolved Direct＋Radial impactでは、同じimpact IDを参照する一つのDirect targetと全target分のimpact-distance relationを入力とする。Kernelは親impact展開イベントの下でDirect Hitを先に評価し、その終端World StateをRadial siblingへ渡す。Radialはrelation順と既存の合成線形falloffを使い、Direct target自身も範囲内なら更新後Healthへ追加Damageをcommitする。最後にDirect、Radial、全target終端Healthを専用Ruleで集約する。
+
 最後にGolden Scenario、Rule oracle、Kernel property test、Runtime/CLI E2E、skillの操作例を更新する。生成物freshnessとNode 24/26の全ゲートを通した後、本ExecPlanのProgress、発見、結果を更新してコミットする。
 
 ## Concrete Steps
@@ -316,6 +334,8 @@ Multishotマイルストーンは、同じScenario、Catalog、Ruleset、seedを
 Multishot数が0、負数、非整数、安全に表現できない整数、現在未対応の確率的Multishot入力は、部分的なResultやTraceを返さずContractまたはdomainの構造化エラーになる。既存の単発Golden Scenarioのcontent hash、期待値、CLIのstdout/stderr規律も意図したVersion変更以外では退行しない。
 
 Resolved Pellet allocationは、target配列順と異なるrelation順、同じtargetへの複数hit、0-hit target、一つ以上のmissを含むGoldenで受け入れる。Resultは総pellet数、hit数、miss数、Pellet Damage総和、全targetの終端Healthを持ち、Trace replayが同じDamage Vectorとtarget別Healthを復元する。hit数合計超過、65 pellet以上、重複target、allocation ID不一致、確率分布、Spread、pellet別Critical rollは部分Artifactなしで拒否する。
+
+Resolved Direct＋Radial impactは、targets配列順と異なるrelation順、Direct targetがRadialにも命中するGoldenで受け入れる。TraceではDirectとRadial target eventsが同じ親impact eventをたどれ、DirectのHealth commit後にRadialが同一targetの更新済みHealthを読む。ResultはDirect Damage、Radial Damage、合計Damage、Radial命中数、全target終端Healthを区別する。Direct target不明、impact ID不一致、重複relation、別Critical tier／roll、Projectile軌道、複数attack modeは部分Artifactなしで拒否する。
 
 ## Idempotence and Recovery
 
