@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.7.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.8.0",
   "kind": "ruleset",
-  "schemaVersion": "0.7.0",
+  "schemaVersion": "0.8.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:4cfce29bce7ff17900e4e06d7e2694adecc468094ab46f5056db7b63eeb67bf2",
+  "contentHash": "sha256:65cdeef7bd1882ae84b79b651d6a5a39cda5bd1cd5aeed373d12c86452b240a3",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -39,6 +39,25 @@
       "operation": {
         "kind": "event.expand-fixed-pellets",
         "maximumPellets": 64
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.status.schedule-resolved-ticks",
+      "description": "Expand one explicit resolved Status action into a bounded count of ordered logical-time tick events.",
+      "phase": "attack.emit",
+      "eventKind": "action.resolved-status-ticks",
+      "reads": [
+        "action.status-tick-count",
+        "action.status-tick-interval-ms"
+      ],
+      "writes": [
+        "event.status-tick-count"
+      ],
+      "operation": {
+        "kind": "event.expand-resolved-status-ticks",
+        "maximumTicks": 64
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []
@@ -178,6 +197,23 @@
       "evidenceIds": []
     },
     {
+      "id": "rule.status.construct-resolved-tick",
+      "description": "Construct one synthetic Status tick Damage Vector from explicit resolved Health damage without deriving a Status formula.",
+      "phase": "status.tick",
+      "eventKind": "damage.status-tick",
+      "reads": [
+        "status.resolved-health-damage-per-tick"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.copy-resolved-status-tick"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
       "id": "rule.defense.standard-armor",
       "description": "For non-negative resolved Armor on the Health layer, multiply event damage by constant / (Armor + constant), where constant is 300.",
       "phase": "target.mitigate",
@@ -252,6 +288,24 @@
       "evidenceIds": []
     },
     {
+      "id": "rule.status.commit-resolved-tick-health",
+      "description": "Commit one resolved synthetic Status tick to the target Health layer.",
+      "phase": "damage.commit",
+      "eventKind": "damage.status-tick",
+      "reads": [
+        "event.damage",
+        "target.health"
+      ],
+      "writes": [
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage.commit-health"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
       "id": "rule.critical.aggregate-expected-branches",
       "description": "After every reachable adjacent Critical tier branch reaches terminal Health commit, weight its final Damage Vector and remaining Health by the branch probability.",
       "phase": "result.aggregate",
@@ -307,6 +361,26 @@
       ],
       "operation": {
         "kind": "damage-vector.aggregate-sequential-pellets"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.status.aggregate-resolved-ticks",
+      "description": "Aggregate every terminal Status tick Damage Vector and preserve the final sequential remaining Health.",
+      "phase": "result.aggregate",
+      "eventKind": "action.resolved-status-ticks",
+      "reads": [
+        "tick.damage",
+        "tick.health-before",
+        "tick.health-after"
+      ],
+      "writes": [
+        "event.damage",
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-sequential-status-ticks"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

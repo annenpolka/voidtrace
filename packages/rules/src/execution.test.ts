@@ -5,8 +5,11 @@ import {
   executeFixedMultishotRule,
   executeFixedPelletRule,
   executeResolvedRadialFalloffRule,
+  executeResolvedStatusTickDamageRule,
+  executeResolvedStatusTickScheduleRule,
   executeSequentialHitAggregateRule,
   executeSequentialPelletAggregateRule,
+  executeSequentialStatusTickAggregateRule,
   executeRule,
   type ExpectedAggregateContext,
   type RuleContext,
@@ -101,6 +104,9 @@ describe("generated core Rule execution", async () => {
   const aggregateMultishot = loaded.resolveRule("rule.multishot.aggregate-fixed-hits");
   const aggregatePellets = loaded.resolveRule("rule.pellet.aggregate-fixed-hits");
   const radialFalloff = loaded.resolveRule("rule.radial.apply-resolved-falloff");
+  const statusSchedule = loaded.resolveRule("rule.status.schedule-resolved-ticks");
+  const statusTick = loaded.resolveRule("rule.status.construct-resolved-tick");
+  const aggregateStatusTicks = loaded.resolveRule("rule.status.aggregate-resolved-ticks");
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -202,6 +208,90 @@ describe("generated core Rule execution", async () => {
         }),
       ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
     }
+  });
+
+  it("schedules bounded resolved Status ticks and constructs explicit tick Damage", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 64 }),
+        fc.integer({ min: 1, max: 1_000_000 }),
+        fc.integer({ min: 0, max: 1_000_000 }),
+        (tickCount, tickIntervalMs, resolvedHealthDamagePerTick) => {
+          const schedule = executeResolvedStatusTickScheduleRule(statusSchedule, {
+            tickCount,
+            tickIntervalMs,
+            initialHealth: 1000,
+            zeroDamage: { "damage.synthetic-status": 0 },
+          });
+          const tick = executeResolvedStatusTickDamageRule(statusTick, {
+            resolvedHealthDamagePerTick,
+            health: 1000,
+          });
+
+          expect(schedule.parameters).toEqual({
+            factor: 1,
+            maximumTicks: 64,
+            tickCount,
+            tickIntervalMs,
+          });
+          expect(tick.after).toEqual({
+            damage: { "damage.synthetic-status": resolvedHealthDamagePerTick },
+            damageTotal: resolvedHealthDamagePerTick,
+            health: 1000,
+          });
+        },
+      ),
+    );
+
+    expect(() =>
+      executeResolvedStatusTickScheduleRule(statusSchedule, {
+        tickCount: 65,
+        tickIntervalMs: 1000,
+        initialHealth: 1000,
+        zeroDamage: { "damage.synthetic-status": 0 },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "execution-limit-exceeded" }));
+    for (const value of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        executeResolvedStatusTickDamageRule(statusTick, {
+          resolvedHealthDamagePerTick: value,
+          health: 1000,
+        }),
+      ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    }
+  });
+
+  it("aggregates resolved Status ticks with distinct tick parameters", () => {
+    const result = executeSequentialStatusTickAggregateRule(aggregateStatusTicks, {
+      initialHealth: 100,
+      hits: [
+        {
+          id: "tick.status-0",
+          index: 0,
+          damage: { "damage.synthetic-status": 40 },
+          healthBefore: 100,
+          healthAfter: 60,
+        },
+        {
+          id: "tick.status-1",
+          index: 1,
+          damage: { "damage.synthetic-status": 40 },
+          healthBefore: 60,
+          healthAfter: 20,
+        },
+      ],
+    });
+
+    expect(result.parameters).toMatchObject({
+      tickCount: 2,
+      "tick.0.id": "tick.status-0",
+      "tick.1.id": "tick.status-1",
+    });
+    expect(result.after).toEqual({
+      damage: { "damage.synthetic-status": 80 },
+      damageTotal: 80,
+      health: 20,
+    });
   });
 
   it("aggregates ordered terminal Multishot hits and preserves sequential Health", () => {

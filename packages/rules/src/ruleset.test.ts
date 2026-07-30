@@ -22,12 +22,13 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.schemaVersion).toBe("0.7.0");
+    expect(loaded.snapshot.schemaVersion).toBe("0.8.0");
     expect(loaded.snapshot.revision).toBe(1);
-    expect(loaded.snapshot.rules).toHaveLength(16);
+    expect(loaded.snapshot.rules).toHaveLength(20);
     expect(loaded.snapshot.rules.map((rule) => rule.id)).toEqual([
       "rule.multishot.emit-fixed-hits",
       "rule.pellet.emit-fixed-hits",
+      "rule.status.schedule-resolved-ticks",
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
       "rule.radial.construct-hit",
@@ -35,13 +36,16 @@ describe("loadRuleset", () => {
       "rule.critical.scale-tier",
       "rule.radial.scale-critical-tier",
       "rule.radial.apply-resolved-falloff",
+      "rule.status.construct-resolved-tick",
       "rule.defense.standard-armor",
       "rule.radial.standard-armor",
       "rule.damage.commit-health",
       "rule.radial.commit-health",
+      "rule.status.commit-resolved-tick-health",
       "rule.critical.aggregate-expected-branches",
       "rule.multishot.aggregate-fixed-hits",
       "rule.pellet.aggregate-fixed-hits",
+      "rule.status.aggregate-resolved-ticks",
     ]);
     expect(Object.isFrozen(loaded)).toBe(true);
     expect(Object.isFrozen(loaded.snapshot)).toBe(true);
@@ -82,6 +86,16 @@ describe("loadRuleset", () => {
       reads: ["event.damage", "event.radial-falloff-multiplier"],
       operation: { kind: "damage-vector.scale-resolved-radial-falloff" },
     });
+    expect(loaded.resolveRule("rule.status.schedule-resolved-ticks")).toMatchObject({
+      phase: "attack.emit",
+      eventKind: "action.resolved-status-ticks",
+      operation: { kind: "event.expand-resolved-status-ticks", maximumTicks: 64 },
+    });
+    expect(loaded.resolveRule("rule.status.construct-resolved-tick")).toMatchObject({
+      phase: "status.tick",
+      eventKind: "damage.status-tick",
+      operation: { kind: "damage-vector.copy-resolved-status-tick" },
+    });
     expect(loaded.resolveRule("rule.critical.resolve-expected-branches")).toMatchObject({
       phase: "critical.expected",
       reads: ["attack.critical-chance"],
@@ -101,6 +115,11 @@ describe("loadRuleset", () => {
       phase: "result.aggregate",
       reads: ["hit.damage", "hit.health-before", "hit.health-after"],
       operation: { kind: "damage-vector.aggregate-sequential-pellets" },
+    });
+    expect(loaded.resolveRule("rule.status.aggregate-resolved-ticks")).toMatchObject({
+      phase: "result.aggregate",
+      reads: ["tick.damage", "tick.health-before", "tick.health-after"],
+      operation: { kind: "damage-vector.aggregate-sequential-status-ticks" },
     });
     expect(loaded.resolveRule("rule.defense.standard-armor").phase).toBe("target.mitigate");
   });
@@ -206,6 +225,45 @@ describe("loadRuleset", () => {
         damageTotal: 150,
         health: 1000,
       },
+    });
+  });
+
+  it("exposes resolved Status scheduling, Damage, and aggregation contexts", async () => {
+    const loaded = await loadRuleset();
+    const schedule = loaded.executeResolvedStatusTickScheduleRule(
+      "rule.status.schedule-resolved-ticks",
+      {
+        tickCount: 3,
+        tickIntervalMs: 1000,
+        initialHealth: 100,
+        zeroDamage: { "damage.synthetic-status": 0 },
+      },
+    );
+    const tick = loaded.executeResolvedStatusTickDamageRule("rule.status.construct-resolved-tick", {
+      resolvedHealthDamagePerTick: 40,
+      health: 100,
+    });
+    const aggregate = loaded.executeSequentialStatusTickAggregateRule(
+      "rule.status.aggregate-resolved-ticks",
+      {
+        initialHealth: 100,
+        hits: [
+          {
+            id: "tick.status-0",
+            index: 0,
+            damage: { "damage.synthetic-status": 40 },
+            healthBefore: 100,
+            healthAfter: 60,
+          },
+        ],
+      },
+    );
+
+    expect(schedule.parameters).toMatchObject({ maximumTicks: 64, tickCount: 3 });
+    expect(tick.after.damage).toEqual({ "damage.synthetic-status": 40 });
+    expect(aggregate.after).toMatchObject({
+      damageTotal: 40,
+      health: 60,
     });
   });
 

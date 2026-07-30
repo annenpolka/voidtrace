@@ -16,6 +16,7 @@ import "golden/multishot-critical-armor.pkl"
 import "golden/pellet-critical-armor.pkl"
 import "golden/probability-critical-armor.pkl"
 import "golden/radial-critical-armor.pkl"
+import "golden/resolved-status-ticks.pkl"
 import "golden/tier-2-critical-armor.pkl"
 import "kernel/determinism.pkl"
 import "kernel/event-ordering.pkl"
@@ -28,6 +29,7 @@ import "mechanics/direct-hit.pkl"
 import "mechanics/multishot.pkl"
 import "mechanics/pellet.pkl"
 import "mechanics/radial.pkl"
+import "mechanics/status.pkl"
 import "patterns/base.pkl"
 import "rules/model.pkl" as ruleModel
 
@@ -48,6 +50,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.fixedMultishotEmitsOrderedHits
   mechanicsClauses.fixedPelletActionEmitsOrderedHits
   mechanicsClauses.resolvedRadialFalloffScalesDamage
+  mechanicsClauses.resolvedStatusTicksCommitInTimeOrder
   mechanicsClauses.armorDoesNotIncreaseDamage
   mechanicsClauses.armorThreeHundredHalvesDamage
   mechanicsClauses.traceReconstructsDamage
@@ -59,6 +62,7 @@ clauses: Listing<base.Clause> = new {
   `multishot-critical-armor`.roundTrip
   `pellet-critical-armor`.roundTrip
   `radial-critical-armor`.roundTrip
+  `resolved-status-ticks`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
   cliSurface.streamExitDiscipline
@@ -80,12 +84,13 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.7.0"
+  version = "0.8.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
     multishot.emitFixedRule
     pellet.emitFixedRule
+    status.scheduleResolvedTicksRule
     critical.resolveExpectedBranchesRule
     `direct-hit`.rule
     radial.constructRule
@@ -93,12 +98,15 @@ ruleset: ruleModel.Ruleset = new {
     critical.scaleTierRule
     radial.scaleCriticalTierRule
     radial.applyResolvedFalloffRule
+    status.constructResolvedTickRule
     defense.rule
     radial.armorRule
     `direct-hit`.commitRule
     radial.commitRule
+    status.commitResolvedTickRule
     critical.aggregateExpectedBranchesRule
     multishot.aggregateFixedRule
     pellet.aggregateFixedRule
+    status.aggregateResolvedTicksRule
   }
 }

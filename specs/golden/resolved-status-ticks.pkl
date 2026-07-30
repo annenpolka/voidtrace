@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for resolved synthetic Status ticks.
+module voidtrace.golden.resolvedStatusTicks
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-008"
+  desc =
+    "data/fixtures/golden/resolved-status-ticks.scenario.jsonは解決済みHealth Damage 40の3 tickを1000ms間隔でHealth 100へ順次commitし、時刻1000、2000、3000と最終Health 0を独立literal expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

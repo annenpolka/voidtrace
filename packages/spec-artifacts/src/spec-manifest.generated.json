@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:fc5d836677ff349da1ddc6367fbaac23fc71c1f79563583bc140a5426c820aa6",
+  "sourceFingerprint": "sha256:02b5d66b1f75b3fc98583883d283ac29aef361cb2b892b9eac365eb3583dff6b",
   "clauses": [
     {
       "id": "CLI-001",
@@ -181,6 +181,14 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-008",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-status-ticks.scenario.jsonは解決済みHealth Damage 40の3 tickを1000ms間隔でHealth 100へ順次commitし、時刻1000、2000、3000と最終Health 0を独立literal expected vectorとしてResultおよびTraceと照合する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "MSH-001",
       "pattern": "fixed_multishot_expansion",
       "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
@@ -227,6 +235,14 @@
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "scope"
+    },
+    {
+      "id": "STS-001",
+      "pattern": "resolved_status_ticks",
+      "desc": "action.resolved-status-ticksはstatus.synthetic-resolved-dot、有限な非負resolvedHealthDamagePerTick、1以上のsafe-integer tickCount、正のsafe-integer tickIntervalMsを受理する。最大64 tickをintervalの倍数時刻で単一targetのHealthへ順次commitし、最後のtickはScenario timeLimitMs以下でなければならない。Status chance、type抽選、付与元Direct／Radial、Critical、Armor、stack、refresh、snapshot式、暗黙rollは生成しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
     },
     {
       "id": "TRC-001",
@@ -279,8 +295,8 @@
     {
       "id": "ruleset",
       "typeName": "Ruleset",
-      "schemaId": "urn:voidtrace:schema:ruleset:0.7.0",
-      "version": "0.7.0"
+      "schemaId": "urn:voidtrace:schema:ruleset:0.8.0",
+      "version": "0.8.0"
     },
     {
       "id": "scenario",
@@ -297,13 +313,14 @@
   ],
   "ruleset": {
     "id": "ruleset.synthetic-core",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "revision": 1,
-    "contentHash": "sha256:4cfce29bce7ff17900e4e06d7e2694adecc468094ab46f5056db7b63eeb67bf2",
+    "contentHash": "sha256:65cdeef7bd1882ae84b79b651d6a5a39cda5bd1cd5aeed373d12c86452b240a3",
     "gameBuild": "synthetic-fixture-0",
     "ruleIds": [
       "rule.multishot.emit-fixed-hits",
       "rule.pellet.emit-fixed-hits",
+      "rule.status.schedule-resolved-ticks",
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
       "rule.radial.construct-hit",
@@ -311,13 +328,16 @@
       "rule.critical.scale-tier",
       "rule.radial.scale-critical-tier",
       "rule.radial.apply-resolved-falloff",
+      "rule.status.construct-resolved-tick",
       "rule.defense.standard-armor",
       "rule.radial.standard-armor",
       "rule.damage.commit-health",
       "rule.radial.commit-health",
+      "rule.status.commit-resolved-tick-health",
       "rule.critical.aggregate-expected-branches",
       "rule.multishot.aggregate-fixed-hits",
-      "rule.pellet.aggregate-fixed-hits"
+      "rule.pellet.aggregate-fixed-hits",
+      "rule.status.aggregate-resolved-ticks"
     ]
   }
 }

@@ -12,6 +12,10 @@ export {
   executeFixedPelletRule,
   type ResolvedRadialFalloffContext,
   executeResolvedRadialFalloffRule,
+  type ResolvedStatusTickDamageContext,
+  executeResolvedStatusTickDamageRule,
+  type ResolvedStatusTickScheduleContext,
+  executeResolvedStatusTickScheduleRule,
   executeRule,
   type PredicateRejectedRuleExecution,
   type RuleContext,
@@ -25,6 +29,7 @@ export {
   type SequentialHitAggregateContext,
   executeSequentialHitAggregateRule,
   executeSequentialPelletAggregateRule,
+  executeSequentialStatusTickAggregateRule,
   scaleDamageVector,
   sumDamageVector,
 } from "./execution.ts";

@@ -1,0 +1,31 @@
+{
+  "id": "golden.resolved-status-ticks",
+  "scenarioId": "scenario.golden-resolved-status-ticks",
+  "metrics": {
+    "status.tick-count": 3,
+    "status.tick-interval-ms": 1000,
+    "damage.status.per-tick": 40,
+    "damage.status.total": 120,
+    "damage.health.total": 120,
+    "target.health.remaining": 0
+  },
+  "damageBySource": {
+    "action.resolved-status-ticks-1": 120
+  },
+  "damageByType": {
+    "damage.synthetic-status": 120
+  },
+  "appliedRuleIds": [
+    "rule.status.schedule-resolved-ticks",
+    "rule.status.construct-resolved-tick",
+    "rule.status.commit-resolved-tick-health",
+    "rule.status.construct-resolved-tick",
+    "rule.status.commit-resolved-tick-health",
+    "rule.status.construct-resolved-tick",
+    "rule.status.commit-resolved-tick-health",
+    "rule.status.aggregate-resolved-ticks"
+  ],
+  "rejectedRules": [],
+  "eventTimesMs": [0, 1000, 1000, 2000, 2000, 3000, 3000, 3000],
+  "tolerance": 0.000001
+}

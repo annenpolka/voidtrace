@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.7.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.8.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.7.0"
+      "const": "urn:voidtrace:schema:ruleset:0.8.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.7.0"
+      "const": "0.8.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -88,6 +88,7 @@
               "critical.expected",
               "critical.resolve",
               "damage.radial-falloff",
+              "status.tick",
               "target.mitigate",
               "damage.commit",
               "result.aggregate"
@@ -164,9 +165,43 @@
                 "type": "object",
                 "properties": {
                   "kind": {
+                    "description": "Expand one resolved Status action into an explicit bounded count of ordered logical-time tick events.",
+                    "type": "string",
+                    "const": "event.expand-resolved-status-ticks"
+                  },
+                  "maximumTicks": {
+                    "description": "Positive safe execution bound for one resolved Status action.",
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "maximumTicks"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
                     "description": "Copy the input base Damage Vector into event damage.",
                     "type": "string",
                     "const": "damage-vector.copy"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Construct one synthetic Status tick Damage Vector from explicit resolved Health damage.",
+                    "type": "string",
+                    "const": "damage-vector.copy-resolved-status-tick"
                   }
                 },
                 "required": [
@@ -299,6 +334,20 @@
                     "description": "Aggregate ordered terminal pellet Damage Vectors and preserve the final sequential Health state.",
                     "type": "string",
                     "const": "damage-vector.aggregate-sequential-pellets"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Aggregate ordered terminal Status tick Damage Vectors and preserve the final sequential Health state.",
+                    "type": "string",
+                    "const": "damage-vector.aggregate-sequential-status-ticks"
                   }
                 },
                 "required": [

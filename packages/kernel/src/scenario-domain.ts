@@ -32,6 +32,10 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "radial.falloff.multiplier",
   "damage.radial.base.total",
   "damage.radial.total",
+  "status.tick-count",
+  "status.tick-interval-ms",
+  "damage.status.per-tick",
+  "damage.status.total",
 ] as const);
 
 export type SupportedMetricId = (typeof SUPPORTED_METRIC_IDS)[number];
@@ -53,6 +57,8 @@ export type ScenarioDomainErrorCode =
   | "unsupported-multishot-resolution"
   | "unsupported-pellet-resolution"
   | "unsupported-radial-resolution"
+  | "unsupported-status-resolution"
+  | "status-time-horizon-exceeded"
   | "unsupported-critical-tier"
   | "unsupported-metric"
   | "duplicate-metric";
@@ -81,15 +87,24 @@ export type ScenarioDomain = {
   };
   readonly action: {
     readonly id: string;
-    readonly kind: "direct-hit" | "fixed-multishot" | "fixed-pellets" | "radial-hit";
+    readonly kind:
+      | "direct-hit"
+      | "fixed-multishot"
+      | "fixed-pellets"
+      | "radial-hit"
+      | "resolved-status-ticks";
     readonly targetId: string;
-    readonly hitLocation: "hit-location.neutral-body";
+    readonly hitLocation: "hit-location.neutral-body" | null;
     readonly damageLayer: "health";
-    readonly criticalResolution: "fixed" | "roll" | "expected";
+    readonly criticalResolution: "fixed" | "roll" | "expected" | "none";
     readonly criticalTier: number | null;
     readonly criticalRoll: number | null;
     readonly hitCount: number;
     readonly resolvedRadialFalloffMultiplier: number;
+    readonly statusId: "status.synthetic-resolved-dot" | null;
+    readonly resolvedHealthDamagePerTick: number;
+    readonly statusTickCount: number;
+    readonly statusTickIntervalMs: number;
   };
   readonly simulation: {
     readonly mode: "deterministic" | "expected";
@@ -151,6 +166,14 @@ const FIXED_RADIAL_PARAMETER_KEYS = Object.freeze([
   "criticalTier",
   "resolvedFalloffMultiplier",
 ] as const);
+const RESOLVED_STATUS_TICK_PARAMETER_KEYS = Object.freeze([
+  "targetId",
+  "damageLayer",
+  "statusId",
+  "resolvedHealthDamagePerTick",
+  "tickCount",
+  "tickIntervalMs",
+] as const);
 const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "multishot.hit-count",
   "damage.multishot.total",
@@ -163,6 +186,17 @@ const RADIAL_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "radial.falloff.multiplier",
   "damage.radial.base.total",
   "damage.radial.total",
+]);
+const STATUS_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "status.tick-count",
+  "status.tick-interval-ms",
+  "damage.status.per-tick",
+  "damage.status.total",
+]);
+const STATUS_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  ...STATUS_ONLY_METRIC_IDS,
+  "damage.health.total",
+  "target.health.remaining",
 ]);
 const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "critical.base-tier",
@@ -437,7 +471,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
     action.kind !== "action.direct-hit" &&
     action.kind !== "action.multishot-direct-hit" &&
     action.kind !== "action.pellet-direct-hit" &&
-    action.kind !== "action.radial-hit"
+    action.kind !== "action.radial-hit" &&
+    action.kind !== "action.resolved-status-ticks"
   ) {
     return failure(
       "unsupported-action-kind",
@@ -445,6 +480,187 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       `Unsupported action kind: ${action.kind}`,
       action.kind,
     );
+  }
+  if (action.kind === "action.resolved-status-ticks") {
+    if (scenario.simulation.mode !== "deterministic") {
+      return failure(
+        "unsupported-status-resolution",
+        "/simulation/mode",
+        "Resolved Status ticks require deterministic mode",
+        "mechanic.status.resolved-ticks",
+      );
+    }
+    const actionKeyError = exactKeys(
+      action.parameters,
+      RESOLVED_STATUS_TICK_PARAMETER_KEYS,
+      "/actionPlan/0/parameters",
+    );
+    if (actionKeyError !== undefined) {
+      return actionKeyError;
+    }
+    const actionTargetId = readStableString(
+      action.parameters,
+      "targetId",
+      "/actionPlan/0/parameters",
+    );
+    if (!actionTargetId.ok) {
+      return actionTargetId;
+    }
+    if (actionTargetId.value !== target.id) {
+      return failure(
+        "invalid-target-reference",
+        "/actionPlan/0/parameters/targetId",
+        `Action targetId ${actionTargetId.value} does not reference the configured target ${target.id}`,
+      );
+    }
+    if (action.parameters.damageLayer !== "health") {
+      return failure(
+        "unsupported-damage-layer",
+        "/actionPlan/0/parameters/damageLayer",
+        `Unsupported damage layer: ${String(action.parameters.damageLayer)}`,
+        "mechanic.damage-layer",
+      );
+    }
+    if (action.parameters.statusId !== "status.synthetic-resolved-dot") {
+      return failure(
+        "unsupported-status-resolution",
+        "/actionPlan/0/parameters/statusId",
+        `Unsupported resolved Status identity: ${String(action.parameters.statusId)}`,
+        "mechanic.status.resolved-ticks",
+      );
+    }
+    const resolvedHealthDamagePerTick = action.parameters.resolvedHealthDamagePerTick;
+    if (
+      typeof resolvedHealthDamagePerTick !== "number" ||
+      !Number.isFinite(resolvedHealthDamagePerTick) ||
+      resolvedHealthDamagePerTick < 0
+    ) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/resolvedHealthDamagePerTick",
+        "resolvedHealthDamagePerTick must be a finite non-negative number",
+        "mechanic.status.resolved-ticks",
+      );
+    }
+    const tickCount = action.parameters.tickCount;
+    if (typeof tickCount !== "number" || !Number.isSafeInteger(tickCount) || tickCount < 1) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/tickCount",
+        `Resolved Status tickCount must be a positive safe integer; received ${String(tickCount)}`,
+        "mechanic.status.resolved-ticks",
+      );
+    }
+    const tickIntervalMs = action.parameters.tickIntervalMs;
+    if (
+      typeof tickIntervalMs !== "number" ||
+      !Number.isSafeInteger(tickIntervalMs) ||
+      tickIntervalMs < 1
+    ) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/tickIntervalMs",
+        `Resolved Status tickIntervalMs must be a positive safe integer; received ${String(tickIntervalMs)}`,
+        "mechanic.status.resolved-ticks",
+      );
+    }
+    const finalTickTimeMs = tickCount * tickIntervalMs;
+    if (!Number.isSafeInteger(finalTickTimeMs)) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/tickIntervalMs",
+        "Resolved Status final tick time must be a safe integer",
+        "mechanic.status.resolved-ticks",
+      );
+    }
+    if (finalTickTimeMs > scenario.simulation.timeLimitMs) {
+      return failure(
+        "status-time-horizon-exceeded",
+        "/simulation/timeLimitMs",
+        `Resolved Status final tick at ${finalTickTimeMs}ms exceeds timeLimitMs ${scenario.simulation.timeLimitMs}`,
+        "mechanic.status.resolved-ticks",
+      );
+    }
+
+    if (scenario.metrics.length === 0) {
+      return failure(
+        "unsupported-scenario-shape",
+        "/metrics",
+        "At least one supported metric is required",
+      );
+    }
+    const metrics: SupportedMetricId[] = [];
+    const seenMetrics = new Set<string>();
+    for (const [index, metric] of scenario.metrics.entries()) {
+      if (!SUPPORTED_METRIC_SET.has(metric)) {
+        return failure(
+          "unsupported-metric",
+          `/metrics/${index}`,
+          `Unsupported metric: ${metric}`,
+          metric,
+        );
+      }
+      const supportedMetric = metric as SupportedMetricId;
+      if (!STATUS_AVAILABLE_METRIC_IDS.has(supportedMetric)) {
+        return failure(
+          "unsupported-metric",
+          `/metrics/${index}`,
+          `Metric ${metric} is unavailable for resolved Status ticks`,
+          metric,
+        );
+      }
+      if (seenMetrics.has(metric)) {
+        return failure(
+          "duplicate-metric",
+          `/metrics/${index}`,
+          `Duplicate metric: ${metric}`,
+          metric,
+        );
+      }
+      seenMetrics.add(metric);
+      metrics.push(supportedMetric);
+    }
+
+    const frozenScenario = deepFreeze(scenario);
+    const value: ScenarioDomain = Object.freeze({
+      scenario: frozenScenario,
+      attacker: Object.freeze({
+        id: frozenScenario.attacker.id,
+        weaponId: weaponId.value,
+        attackModeId: attackModeId.value,
+      }),
+      target: Object.freeze({
+        id: target.id,
+        catalogTargetId: catalogTargetId.value,
+        resolvedHealth: resolvedHealth.value,
+        resolvedShield: 0,
+        resolvedArmor: resolvedArmor.value,
+        resolvedOverguard: 0,
+      }),
+      action: Object.freeze({
+        id: action.id,
+        kind: "resolved-status-ticks",
+        targetId: actionTargetId.value,
+        hitLocation: null,
+        damageLayer: "health",
+        criticalResolution: "none",
+        criticalTier: null,
+        criticalRoll: null,
+        hitCount: 1,
+        resolvedRadialFalloffMultiplier: 1,
+        statusId: "status.synthetic-resolved-dot",
+        resolvedHealthDamagePerTick,
+        statusTickCount: tickCount,
+        statusTickIntervalMs: tickIntervalMs,
+      }),
+      simulation: Object.freeze({
+        mode: "deterministic",
+        timeLimitMs: frozenScenario.simulation.timeLimitMs,
+      }),
+      metrics: Object.freeze(metrics),
+      fingerprintSeed: 0,
+    });
+    return Object.freeze({ ok: true, value });
   }
   const actionKind =
     action.kind === "action.multishot-direct-hit"
@@ -656,7 +872,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       (criticalResolution === "expected" && REALIZED_CRITICAL_METRIC_IDS.has(supportedMetric)) ||
       (actionKind !== "fixed-multishot" && MULTISHOT_ONLY_METRIC_IDS.has(supportedMetric)) ||
       (actionKind !== "fixed-pellets" && PELLET_ONLY_METRIC_IDS.has(supportedMetric)) ||
-      (actionKind !== "radial-hit" && RADIAL_ONLY_METRIC_IDS.has(supportedMetric))
+      (actionKind !== "radial-hit" && RADIAL_ONLY_METRIC_IDS.has(supportedMetric)) ||
+      STATUS_ONLY_METRIC_IDS.has(supportedMetric)
     ) {
       return failure(
         "unsupported-metric",
@@ -704,6 +921,10 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       criticalRoll,
       hitCount,
       resolvedRadialFalloffMultiplier,
+      statusId: null,
+      resolvedHealthDamagePerTick: 0,
+      statusTickCount: 0,
+      statusTickIntervalMs: 0,
     }),
     simulation: Object.freeze({
       mode: scenario.simulation.mode === "expected" ? "expected" : "deterministic",

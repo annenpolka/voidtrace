@@ -189,6 +189,12 @@ describe("renderGeneratedFiles", () => {
           area: "mechanics",
           maturity: "active",
         },
+        {
+          ...clause,
+          id: "STS-001",
+          area: "mechanics",
+          maturity: "active",
+        },
       ],
     });
     const capabilities = generated.find(
@@ -219,6 +225,11 @@ describe("renderGeneratedFiles", () => {
           id: "mechanics.resolved-radial",
           status: "supported",
           activeClauseRefs: ["RAD-001"],
+        }),
+        expect.objectContaining({
+          id: "mechanics.resolved-status-ticks",
+          status: "supported",
+          activeClauseRefs: ["STS-001"],
         }),
       ]),
     );

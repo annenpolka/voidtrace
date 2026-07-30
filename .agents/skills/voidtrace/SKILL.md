@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, distance-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, resolved synthetic Status ticks, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, distance-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -18,9 +18,9 @@ present its values as verified current Warframe mechanics.
 
 ## Supported requests
 
-The adapter supports exactly one target and one hitscan Direct Hit, with:
+The interface supports exactly one target and one action from the finite set below:
 
-- the bundled synthetic Catalog and generated core Ruleset;
+- one hitscan Direct Hit using the bundled synthetic Catalog and generated core Ruleset;
 - deterministic mode with any non-negative safe-integer fixed Critical tier through the helper;
 - repository-local explicit-roll Scenarios whose adjacent Critical tiers are safely representable
   through the formal CLI;
@@ -30,6 +30,9 @@ The adapter supports exactly one target and one hitscan Direct Hit, with:
   ordered pellets from one shot use the same explicit fixed Critical tier and commit in order;
 - a repository-local standalone Radial Scenario through the formal CLI, where an explicit
   resolved falloff multiplier scales Damage after fixed Critical and before Armor;
+- a repository-local resolved synthetic Status Scenario through the formal CLI, where an explicit
+  final Health Damage per tick is committed at a fixed positive interval for a fixed positive
+  tick count;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
@@ -42,11 +45,15 @@ does not accept a Multishot or pellet count override. Generated random rolls, cu
 chance, probabilistic or custom-count Multishot, custom-count or probabilistic pellets,
 Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, Multishot or pellet
 expected values, hit distribution, Spread, unsafe or unrepresentable tiers, Monte Carlo
-aggregation, mods, headshots, Shield, Overguard, projectiles, status, real-game imports, and build
+aggregation, mods, headshots, Shield, Overguard, projectiles, real-game imports, and build
 recommendations are unsupported. Distance-derived Radial falloff, physical geometry, Direct and
 Radial sibling composition, Projectile parents, multiple Radial targets, and Radial expected
-values or generated rolls are also unsupported. If a request needs any of them, state the unsupported mechanic
-and stop. Do not approximate it as zero effect and do not silently adapt it to the supported slice.
+values or generated rolls are also unsupported. Status chance, Proc count or type resolution,
+Status application from Direct or Radial Damage, Critical or Armor derivation of Status Damage,
+stacking, refresh, snapshot rules, defense changes between ticks, expected Status values, and
+generated Status rolls are unsupported. If a request needs any of them, state the unsupported
+mechanic and stop. Do not approximate it as zero effect and do not silently adapt it to the
+supported slice.
 
 ## Commands
 
@@ -80,6 +87,10 @@ pnpm exec vt trace data/fixtures/golden/pellet-critical-armor.scenario.json \
 pnpm exec vt run data/fixtures/golden/radial-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/radial-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-status-ticks.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-status-ticks.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -160,6 +171,16 @@ for another agent or script. `--help` lists the finite adapter options.
   `damage.radial.total` (post-falloff, pre-Armor), `damage.health.total`, and
   `target.health.remaining`. Do not infer distance, geometry, a Direct sibling, or a Projectile
   parent from the resolved multiplier.
+- Resolved synthetic Status uses `rule.status.schedule-resolved-ticks`, then
+  `rule.status.construct-resolved-tick` and `rule.status.commit-resolved-tick-health` once per
+  ordered tick, and ends with `rule.status.aggregate-resolved-ticks`. Report
+  `status.tick-count`, `status.tick-interval-ms`, `damage.status.per-tick`,
+  `damage.status.total`, `damage.health.total`, and `target.health.remaining`. The bundled Golden
+  trace schedules at time `0`, constructs and commits at `1000`, `2000`, and `3000` milliseconds,
+  and aggregates at `3000`; preserve stable tick IDs and sequential Health transitions when
+  explaining causality. `resolvedHealthDamagePerTick` is already the final Health Damage for each
+  tick. Do not infer a Status chance, Proc type, source hit, Critical, Armor, stack, refresh,
+  snapshot, or real-game formula from it.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
 For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,

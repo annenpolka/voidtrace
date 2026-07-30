@@ -4,7 +4,7 @@
   "schemaVersion": "0.1.0",
   "id": "scenario.golden-tier-2-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:2e9372eab14d84a458ff86607353ea43b61ffa81ea0611690aac7b7c7a7743d7",
+  "contentHash": "sha256:6bc081b6acd6f9e8c55663c1bc91d6b02a977896f91e4de72897b868a7e9bad5",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +16,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.7.0",
+    "schemaVersion": "0.8.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:4cfce29bce7ff17900e4e06d7e2694adecc468094ab46f5056db7b63eeb67bf2",
+    "contentHash": "sha256:65cdeef7bd1882ae84b79b651d6a5a39cda5bd1cd5aeed373d12c86452b240a3",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {

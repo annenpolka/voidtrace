@@ -48,6 +48,12 @@ import radialExpectedFixture from "../../../data/fixtures/golden/radial-critical
 import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical-armor.scenario.json" with {
   type: "json",
 };
+import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
+  type: "json",
+};
+import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
+  type: "json",
+};
 import tier2ExpectedFixture from "../../../data/fixtures/golden/tier-2-critical-armor.expected.json" with {
   type: "json",
 };
@@ -109,6 +115,14 @@ async function evaluatePelletGolden() {
 async function evaluateRadialGolden() {
   return evaluateScenario({
     scenario: structuredClone(radialScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateStatusGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(statusScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -849,6 +863,176 @@ describe("evaluateScenario", () => {
     );
   });
 
+  it("matches the independently authored resolved Status tick golden and logical times", async () => {
+    const outcome = await evaluateStatusGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(statusExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(statusExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(statusExpectedFixture.damageByType);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(statusExpectedFixture.appliedRuleIds);
+    expect(outcome.trace.decisions.map((decision) => decision.eventTimeMs)).toEqual(
+      statusExpectedFixture.eventTimesMs,
+    );
+    expect(
+      outcome.trace.decisions.flatMap((decision) =>
+        decision.outcome === "applied" &&
+        decision.ruleId === "rule.status.commit-resolved-tick-health"
+          ? [decision.after["target.health"]]
+          : [],
+      ),
+    ).toEqual([60, 20, 0]);
+    expect(outcome.trace.decisions[1]).toMatchObject({
+      phase: "status.tick",
+      ruleId: "rule.status.construct-resolved-tick",
+      eventTimeMs: 1000,
+      operations: [
+        {
+          kind: "damage-vector.copy-resolved-status-tick",
+          parameters: {
+            "tick.id": "tick.status-0",
+            "tick.index": 0,
+            "tick.count": 3,
+            "tick.time-ms": 1000,
+          },
+        },
+      ],
+    });
+    expect(await replayTraceState(outcome.trace, 100)).toEqual({
+      damage: statusExpectedFixture.damageByType,
+      health: 0,
+    });
+    expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
+    expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, statusScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("rejects a resolved Status Trace whose tick logical time was altered", async () => {
+    const outcome = await evaluateStatusGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = await rehash({
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) =>
+        decision.outcome === "applied" &&
+        decision.ruleId === "rule.status.construct-resolved-tick" &&
+        decision.eventTimeMs === 2000
+          ? { ...decision, eventTimeMs: 2001 }
+          : decision,
+      ),
+    });
+
+    await expect(replayTraceDamage(changed)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+  });
+
+  it("property-tests resolved Status tick timing, aggregation, Health clamp, and replay", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 16 }),
+        fc.integer({ min: 1, max: 1000 }),
+        fc.integer({ min: 0, max: 1000 }),
+        fc.integer({ min: 0, max: 10_000 }),
+        async (tickCount, tickIntervalMs, damagePerTick, health) => {
+          const changed = structuredClone(statusScenarioFixture);
+          const action = changed.actionPlan[0];
+          const target = changed.targets[0];
+          if (action === undefined || target === undefined) {
+            throw new Error("Resolved Status golden must contain one action and target");
+          }
+          action.parameters.tickCount = tickCount;
+          action.parameters.tickIntervalMs = tickIntervalMs;
+          action.parameters.resolvedHealthDamagePerTick = damagePerTick;
+          target.configuration.resolvedHealth = health;
+          changed.simulation.timeLimitMs = tickCount * tickIntervalMs;
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+
+          let remainingHealth = health;
+          for (let index = 0; index < tickCount; index += 1) {
+            remainingHealth =
+              damagePerTick >= remainingHealth ? 0 : remainingHealth - damagePerTick;
+          }
+          expect(first.result.metrics["status.tick-count"]).toBe(tickCount);
+          expect(first.result.metrics["status.tick-interval-ms"]).toBe(tickIntervalMs);
+          expect(first.result.metrics["damage.status.per-tick"]).toBe(damagePerTick);
+          expect(first.result.metrics["damage.status.total"]).toBe(damagePerTick * tickCount);
+          expect(first.result.metrics["target.health.remaining"]).toBe(remainingHealth);
+          expect(
+            first.trace.decisions
+              .filter(
+                (decision) =>
+                  decision.ruleId === "rule.status.construct-resolved-tick" ||
+                  decision.ruleId === "rule.status.commit-resolved-tick-health",
+              )
+              .map((decision) => decision.eventTimeMs),
+          ).toEqual(
+            Array.from({ length: tickCount }, (_, index) => [
+              (index + 1) * tickIntervalMs,
+              (index + 1) * tickIntervalMs,
+            ]).flat(),
+          );
+          expect(await replayTraceState(first.trace, health)).toEqual({
+            damage: first.result.damageByType,
+            health: remainingHealth,
+          });
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
+  it("rejects a resolved Status schedule above the execution limit without partial artifacts", async () => {
+    const changed = structuredClone(statusScenarioFixture);
+    const action = changed.actionPlan[0];
+    if (action === undefined) {
+      throw new Error("Resolved Status golden must contain one action");
+    }
+    action.parameters.tickCount = 65;
+    action.parameters.tickIntervalMs = 1;
+    changed.simulation.timeLimitMs = 65;
+    const scenario = await rehash(changed);
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    const outcome = await evaluateScenario({ scenario, catalog, ruleset });
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: "rule-execution-failed",
+        causeCode: "execution-limit-exceeded",
+      },
+    });
+    expect("result" in outcome).toBe(false);
+    expect("trace" in outcome).toBe(false);
+  });
+
   it("is canonically deterministic for identical Scenario, Catalog, Ruleset, and seed", async () => {
     const first = await evaluateGolden();
     const second = await evaluateGolden();
@@ -1050,7 +1234,11 @@ describe("evaluateScenario", () => {
         metric !== "damage.pellet.total" &&
         metric !== "radial.falloff.multiplier" &&
         metric !== "damage.radial.base.total" &&
-        metric !== "damage.radial.total",
+        metric !== "damage.radial.total" &&
+        metric !== "status.tick-count" &&
+        metric !== "status.tick-interval-ms" &&
+        metric !== "damage.status.per-tick" &&
+        metric !== "damage.status.total",
     );
     const metricSubset = fc.uniqueArray(fc.constantFrom(...fixedMetricIds), {
       minLength: 1,

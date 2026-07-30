@@ -8,6 +8,7 @@ typealias RulePhase =
     | "critical.roll"
     | "critical.resolve"
     | "damage.radial-falloff"
+    | "status.tick"
     | "target.mitigate"
     | "damage.commit"
     | "result.aggregate"
@@ -42,6 +43,19 @@ class ScaleStandardArmor extends RuleOperation {
 
 class ScaleResolvedRadialFalloff extends RuleOperation {
   kind = "damage-vector.scale-resolved-radial-falloff"
+}
+
+class ExpandResolvedStatusTicks extends RuleOperation {
+  kind = "event.expand-resolved-status-ticks"
+  maximumTicks: UInt(isPositive)
+}
+
+class CopyResolvedStatusTickDamage extends RuleOperation {
+  kind = "damage-vector.copy-resolved-status-tick"
+}
+
+class AggregateSequentialStatusTicks extends RuleOperation {
+  kind = "damage-vector.aggregate-sequential-status-ticks"
 }
 
 class CommitHealthDamage extends RuleOperation {

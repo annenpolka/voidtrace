@@ -1,0 +1,78 @@
+/// Experimental resolved synthetic Status ticks with explicit timing and Health damage.
+module voidtrace.mechanics.status
+
+import "../rules/model.pkl"
+
+scheduleResolvedTicksRule: model.Rule = new {
+  id = "rule.status.schedule-resolved-ticks"
+  description =
+    "Expand one explicit resolved Status action into a bounded count of ordered logical-time tick events."
+  phase = "attack.emit"
+  eventKind = "action.resolved-status-ticks"
+  reads {
+    "action.status-tick-count"
+    "action.status-tick-interval-ms"
+  }
+  writes {
+    "event.status-tick-count"
+  }
+  operation = new model.ExpandResolvedStatusTicks {
+    maximumTicks = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+constructResolvedTickRule: model.Rule = new {
+  id = "rule.status.construct-resolved-tick"
+  description =
+    "Construct one synthetic Status tick Damage Vector from explicit resolved Health damage without deriving a Status formula."
+  phase = "status.tick"
+  eventKind = "damage.status-tick"
+  reads {
+    "status.resolved-health-damage-per-tick"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.CopyResolvedStatusTickDamage {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+commitResolvedTickRule: model.Rule = new {
+  id = "rule.status.commit-resolved-tick-health"
+  description = "Commit one resolved synthetic Status tick to the target Health layer."
+  phase = "damage.commit"
+  eventKind = "damage.status-tick"
+  reads {
+    "event.damage"
+    "target.health"
+  }
+  writes {
+    "target.health"
+  }
+  operation = new model.CommitHealthDamage {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateResolvedTicksRule: model.Rule = new {
+  id = "rule.status.aggregate-resolved-ticks"
+  description =
+    "Aggregate every terminal Status tick Damage Vector and preserve the final sequential remaining Health."
+  phase = "result.aggregate"
+  eventKind = "action.resolved-status-ticks"
+  reads {
+    "tick.damage"
+    "tick.health-before"
+    "tick.health-after"
+  }
+  writes {
+    "event.damage"
+    "target.health"
+  }
+  operation = new model.AggregateSequentialStatusTicks {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

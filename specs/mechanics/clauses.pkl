@@ -57,6 +57,13 @@ resolvedRadialFalloffScalesDamage: base.ResolvedRadialFalloff = new {
   maturity = "active"
 }
 
+resolvedStatusTicksCommitInTimeOrder: base.ResolvedStatusTicks = new {
+  id = "STS-001"
+  desc =
+    "action.resolved-status-ticksはstatus.synthetic-resolved-dot、有限な非負resolvedHealthDamagePerTick、1以上のsafe-integer tickCount、正のsafe-integer tickIntervalMsを受理する。最大64 tickをintervalの倍数時刻で単一targetのHealthへ順次commitし、最後のtickはScenario timeLimitMs以下でなければならない。Status chance、type抽選、付与元Direct／Radial、Critical、Armor、stack、refresh、snapshot式、暗黙rollは生成しない"
+  maturity = "active"
+}
+
 armorDoesNotIncreaseDamage: base.ArmorMonotonic = new {
   id = "DEF-001"
   desc = "標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない"

@@ -6,6 +6,9 @@ import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor
 import expectedScenarioFixture from "../../../data/fixtures/golden/expected-critical-armor.scenario.json" with {
   type: "json",
 };
+import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
+  type: "json",
+};
 import { parseScenarioDomain } from "./scenario-domain.ts";
 
 type MutableScenarioFixture = {
@@ -68,6 +71,15 @@ async function changedExpectedScenario(
   change: (scenario: MutableScenarioFixture) => void,
 ): Promise<unknown> {
   const mutable = structuredClone(expectedScenarioFixture) as MutableScenarioFixture;
+  change(mutable);
+  const { contentHash: _contentHash, ...withoutHash } = mutable;
+  return attachArtifactContentHash(withoutHash);
+}
+
+async function changedStatusScenario(
+  change: (scenario: MutableScenarioFixture) => void,
+): Promise<unknown> {
+  const mutable = structuredClone(statusScenarioFixture) as MutableScenarioFixture;
   change(mutable);
   const { contentHash: _contentHash, ...withoutHash } = mutable;
   return attachArtifactContentHash(withoutHash);
@@ -479,6 +491,82 @@ describe("parseScenarioDomain", () => {
       code: "unsupported-radial-resolution",
       path: "/actionPlan/0/parameters",
       mechanicId: "mechanic.damage.radial",
+    });
+  });
+
+  it("accepts resolved synthetic Status ticks within the logical-time horizon", async () => {
+    const result = await parseScenarioDomain(structuredClone(statusScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          id: "action.resolved-status-ticks-1",
+          kind: "resolved-status-ticks",
+          targetId: "actor.target",
+          hitLocation: null,
+          damageLayer: "health",
+          criticalResolution: "none",
+          statusId: "status.synthetic-resolved-dot",
+          resolvedHealthDamagePerTick: 40,
+          statusTickCount: 3,
+          statusTickIntervalMs: 1000,
+        },
+        simulation: {
+          mode: "deterministic",
+          timeLimitMs: 3000,
+        },
+      },
+    });
+  });
+
+  it.each([
+    ["tickCount", 0],
+    ["tickCount", 1.5],
+    ["tickIntervalMs", 0],
+    ["tickIntervalMs", 1.5],
+    ["resolvedHealthDamagePerTick", -1],
+  ])("rejects invalid resolved Status %s value %s", async (key, value) => {
+    const scenario = await changedStatusScenario((mutable) => {
+      firstAction(mutable).parameters[key] = value;
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-configuration-value",
+      path: `/actionPlan/0/parameters/${key}`,
+      mechanicId: "mechanic.status.resolved-ticks",
+    });
+  });
+
+  it("rejects unsupported Status identities and expected mode", async () => {
+    const identity = await changedStatusScenario((mutable) => {
+      firstAction(mutable).parameters.statusId = "status.slash";
+    });
+    await expectFailure(identity, {
+      code: "unsupported-status-resolution",
+      path: "/actionPlan/0/parameters/statusId",
+      mechanicId: "mechanic.status.resolved-ticks",
+    });
+
+    const expected = await changedStatusScenario((mutable) => {
+      mutable.simulation = { mode: "expected", timeLimitMs: 3000 };
+    });
+    await expectFailure(expected, {
+      code: "unsupported-status-resolution",
+      path: "/simulation/mode",
+      mechanicId: "mechanic.status.resolved-ticks",
+    });
+  });
+
+  it("rejects resolved Status ticks beyond the Scenario time horizon", async () => {
+    const scenario = await changedStatusScenario((mutable) => {
+      mutable.simulation = { mode: "deterministic", timeLimitMs: 2999 };
+    });
+
+    await expectFailure(scenario, {
+      code: "status-time-horizon-exceeded",
+      path: "/simulation/timeLimitMs",
+      mechanicId: "mechanic.status.resolved-ticks",
     });
   });
 

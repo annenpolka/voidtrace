@@ -35,7 +35,7 @@ import {
 import { replayTraceState, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.7.0";
+export const KERNEL_ENGINE_VERSION = "0.8.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -118,6 +118,10 @@ const FIXED_MULTISHOT_EMISSION_PHASES = ["attack.emit"] as const satisfies Reado
 const FIXED_MULTISHOT_AGGREGATION_PHASES = ["result.aggregate"] as const satisfies ReadonlyArray<
   RuleDefinition["phase"]
 >;
+const RESOLVED_STATUS_TICK_PHASES = [
+  "status.tick",
+  "damage.commit",
+] as const satisfies ReadonlyArray<RuleDefinition["phase"]>;
 
 type BranchTraceMetadata = {
   readonly id: string;
@@ -129,6 +133,13 @@ type HitTraceMetadata = {
   readonly id: string;
   readonly index: number;
   readonly count: number;
+};
+
+type TickTraceMetadata = {
+  readonly id: string;
+  readonly index: number;
+  readonly count: number;
+  readonly timeMs: number;
 };
 
 function failure(
@@ -271,6 +282,7 @@ function operationParameters(
   execution: RuleExecution,
   branch?: BranchTraceMetadata,
   hit?: HitTraceMetadata,
+  tick?: TickTraceMetadata,
 ): ScalarRecord {
   const values: Record<string, string | number | boolean | null> = {
     ...execution.parameters,
@@ -287,6 +299,14 @@ function operationParameters(
           "hit.id": hit.id,
           "hit.index": hit.index,
           "hit.count": hit.count,
+        }),
+    ...(tick === undefined
+      ? {}
+      : {
+          "tick.id": tick.id,
+          "tick.index": tick.index,
+          "tick.count": tick.count,
+          "tick.time-ms": tick.timeMs,
         }),
   };
   if (execution.operationKind === "damage-vector.copy") {
@@ -309,6 +329,7 @@ function decisionForExecution(
   options: {
     readonly branch?: BranchTraceMetadata;
     readonly hit?: HitTraceMetadata;
+    readonly tick?: TickTraceMetadata;
     readonly readOverrides?: ScalarRecord;
   } = {},
 ): Trace["decisions"][number] {
@@ -352,7 +373,7 @@ function decisionForExecution(
     operations: Object.freeze([
       Object.freeze({
         kind: execution.operationKind,
-        parameters: operationParameters(execution, options.branch, options.hit),
+        parameters: operationParameters(execution, options.branch, options.hit, options.tick),
       }),
     ]),
     before: traceState(execution.before.damage, execution.before.health),
@@ -366,6 +387,7 @@ function createPhaseEvents(options: {
   readonly logicalId?: string;
   readonly parentEventId?: string;
   readonly kind?: string;
+  readonly timeMs?: number;
   readonly phases: ReadonlyArray<RuleDefinition["phase"]>;
 }): EventQueue<PhasePayload> {
   const queue = new EventQueue<PhasePayload>();
@@ -377,7 +399,7 @@ function createPhaseEvents(options: {
       id,
       logicalId: options.logicalId ?? options.actionId,
       ...(parentEventId === undefined ? {} : { parentEventId }),
-      timeMs: 0,
+      timeMs: options.timeMs ?? 0,
       sequence,
       kind: options.kind ?? "damage.direct",
       payload: Object.freeze({ phase }),
@@ -407,8 +429,10 @@ function updateMetricValues(
   switch (execution.operationKind) {
     case "event.expand-fixed-multishot":
     case "event.expand-fixed-pellets":
+    case "event.expand-resolved-status-ticks":
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
+    case "damage-vector.aggregate-sequential-status-ticks":
       return;
     case "damage-vector.copy":
       metricValues[
@@ -497,6 +521,9 @@ function updateMetricValues(
       metricValues["radial.falloff.multiplier"] = execution.factor;
       metricValues["damage.radial.total"] = execution.after.damageTotal;
       return;
+    case "damage-vector.copy-resolved-status-tick":
+      metricValues["damage.status.per-tick"] = execution.after.damageTotal;
+      return;
     case "damage.commit-health":
       metricValues["damage.health.total"] = execution.before.damageTotal;
       metricValues["target.health.remaining"] = execution.after.health;
@@ -529,6 +556,10 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "event.expand-fixed-pellets":
     case "damage-vector.aggregate-sequential-pellets":
       return "mechanic.pellet.fixed-count";
+    case "event.expand-resolved-status-ticks":
+    case "damage-vector.copy-resolved-status-tick":
+    case "damage-vector.aggregate-sequential-status-ticks":
+      return "mechanic.status.resolved-ticks";
     case "damage-vector.scale-resolved-radial-falloff":
       return "mechanic.damage.radial-falloff";
     case "damage-vector.copy":
@@ -1045,6 +1076,254 @@ function evaluateFixedRadialRuntime(
   });
 }
 
+function evaluateResolvedStatusTicksRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (
+    domain.action.kind !== "resolved-status-ticks" ||
+    domain.action.statusId !== "status.synthetic-resolved-dot"
+  ) {
+    throw new TypeError("Non-resolved Status input reached resolved Status tick evaluation");
+  }
+
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  const zeroDamage: DamageVector = Object.freeze({ "damage.synthetic-status": 0 });
+  let world = createWorldState([
+    {
+      id: domain.target.id,
+      values: Object.freeze({ health: domain.target.resolvedHealth }),
+    },
+  ]);
+  let decisionSequence = 0;
+  let scheduleExecution: RuleExecution | undefined;
+  let scheduleEventId: string | undefined;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-status-ticks",
+    phases: FIXED_MULTISHOT_EMISSION_PHASES,
+  }).drain()) {
+    scheduleEventId = event.id;
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeResolvedStatusTickScheduleRule(rule.id, {
+        tickCount: domain.action.statusTickCount,
+        tickIntervalMs: domain.action.statusTickIntervalMs,
+        initialHealth: domain.target.resolvedHealth,
+        zeroDamage,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          null,
+          null,
+          domain.target.resolvedArmor,
+          {
+            readOverrides: {
+              "action.status-tick-count": domain.action.statusTickCount,
+              "action.status-tick-interval-ms": domain.action.statusTickIntervalMs,
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        scheduleExecution = execution;
+      }
+    }
+  }
+  if (
+    scheduleExecution === undefined ||
+    scheduleExecution.operationKind !== "event.expand-resolved-status-ticks" ||
+    scheduleEventId === undefined ||
+    requiredNumber(scheduleExecution.parameters, "tickCount") !== domain.action.statusTickCount ||
+    requiredNumber(scheduleExecution.parameters, "tickIntervalMs") !==
+      domain.action.statusTickIntervalMs
+  ) {
+    throw new TypeError("Ruleset did not apply resolved Status tick scheduling");
+  }
+
+  const ticks: SequentialHit[] = [];
+  for (let index = 0; index < domain.action.statusTickCount; index += 1) {
+    const timeMs = (index + 1) * domain.action.statusTickIntervalMs;
+    const tick: TickTraceMetadata = Object.freeze({
+      id: `tick.status-${index}`,
+      index,
+      count: domain.action.statusTickCount,
+      timeMs,
+    });
+    const healthBefore = readHealth(world, domain.target.id);
+    let tickDamage: DamageVector = zeroDamage;
+
+    for (const event of createPhaseEvents({
+      actionId: domain.action.id,
+      namespace: `${domain.action.id}.${tick.id}`,
+      logicalId: `${domain.action.id}.${tick.id}`,
+      parentEventId: scheduleEventId,
+      kind: "damage.status-tick",
+      timeMs,
+      phases: RESOLVED_STATUS_TICK_PHASES,
+    }).drain()) {
+      for (const rule of ruleset.snapshot.rules) {
+        if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+          continue;
+        }
+        const execution =
+          rule.operation.kind === "damage-vector.copy-resolved-status-tick"
+            ? ruleset.executeResolvedStatusTickDamageRule(rule.id, {
+                resolvedHealthDamagePerTick: domain.action.resolvedHealthDamagePerTick,
+                health: readHealth(world, domain.target.id),
+              })
+            : ruleset.executeRule(
+                rule.id,
+                ruleContext(
+                  references,
+                  tickDamage,
+                  null,
+                  null,
+                  domain.target.resolvedArmor,
+                  readHealth(world, domain.target.id),
+                ),
+              );
+        decisions.push(
+          decisionForExecution(
+            decisionSequence,
+            event,
+            rule,
+            execution,
+            references,
+            null,
+            null,
+            domain.target.resolvedArmor,
+            {
+              tick,
+              ...(rule.operation.kind === "damage-vector.copy-resolved-status-tick"
+                ? {
+                    readOverrides: {
+                      "status.resolved-health-damage-per-tick":
+                        domain.action.resolvedHealthDamagePerTick,
+                    },
+                  }
+                : {}),
+            },
+          ),
+        );
+        decisionSequence += 1;
+        updateMetricValues(metricValues, execution, null, rule.eventKind);
+        if (execution.outcome === "applied") {
+          appliedRules.push(rule);
+          tickDamage = execution.after.damage;
+          world = replaceEntityState(world, domain.target.id, {
+            health: execution.after.health,
+          });
+        }
+      }
+    }
+
+    ticks.push(
+      Object.freeze({
+        id: tick.id,
+        index,
+        damage: tickDamage,
+        healthBefore,
+        healthAfter: readHealth(world, domain.target.id),
+      }),
+    );
+  }
+
+  let aggregateExecution: RuleExecution | undefined;
+  const finalTickTimeMs = domain.action.statusTickCount * domain.action.statusTickIntervalMs;
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-status-ticks",
+    parentEventId: scheduleEventId,
+    timeMs: finalTickTimeMs,
+    phases: FIXED_MULTISHOT_AGGREGATION_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeSequentialStatusTickAggregateRule(rule.id, {
+        initialHealth: domain.target.resolvedHealth,
+        hits: ticks,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          null,
+          null,
+          domain.target.resolvedArmor,
+          {
+            readOverrides: {
+              "tick.damage": canonicalizeJson(
+                ticks.map((tick) => ({
+                  id: tick.id,
+                  index: tick.index,
+                  damage: { ...tick.damage },
+                })),
+              ),
+              "tick.health-before": canonicalizeJson(
+                ticks.map((tick) => ({
+                  id: tick.id,
+                  index: tick.index,
+                  healthBefore: tick.healthBefore,
+                })),
+              ),
+              "tick.health-after": canonicalizeJson(
+                ticks.map((tick) => ({
+                  id: tick.id,
+                  index: tick.index,
+                  healthAfter: tick.healthAfter,
+                })),
+              ),
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        aggregateExecution = execution;
+      }
+    }
+  }
+  if (
+    aggregateExecution === undefined ||
+    aggregateExecution.operationKind !== "damage-vector.aggregate-sequential-status-ticks"
+  ) {
+    throw new TypeError("Ruleset did not apply resolved Status tick aggregation");
+  }
+
+  metricValues["status.tick-count"] = domain.action.statusTickCount;
+  metricValues["status.tick-interval-ms"] = domain.action.statusTickIntervalMs;
+  metricValues["damage.status.total"] = aggregateExecution.after.damageTotal;
+  metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
+  metricValues["target.health.remaining"] = aggregateExecution.after.health;
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage: aggregateExecution.after.damage,
+  });
+}
+
 function requiredNumber(
   parameters: Readonly<Record<string, string | number>>,
   key: string,
@@ -1376,7 +1655,10 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     );
   }
 
-  if (references.attackMode.delivery !== "hitscan") {
+  if (
+    domain.action.kind !== "resolved-status-ticks" &&
+    references.attackMode.delivery !== "hitscan"
+  ) {
     return failure(
       "unsupported-delivery",
       `Unsupported attack delivery in the first combat slice: ${references.attackMode.delivery}`,
@@ -1386,7 +1668,8 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     );
   }
   if (
-    domain.action.criticalResolution !== "fixed" &&
+    (domain.action.criticalResolution === "roll" ||
+      domain.action.criticalResolution === "expected") &&
     !criticalChanceHasRepresentableTiers(references.attackMode.criticalChance)
   ) {
     const path = attackModeFieldPath(catalog, references, "criticalChance");
@@ -1403,13 +1686,15 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
   let runtime: RuntimeEvaluation;
   try {
     runtime =
-      domain.action.kind === "radial-hit"
-        ? evaluateFixedRadialRuntime(domain, references, ruleset)
-        : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
-          ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
-          : domain.action.criticalResolution === "expected"
-            ? evaluateExpectedRuntime(domain, references, ruleset)
-            : evaluateDeterministicRuntime(domain, references, ruleset);
+      domain.action.kind === "resolved-status-ticks"
+        ? evaluateResolvedStatusTicksRuntime(domain, references, ruleset)
+        : domain.action.kind === "radial-hit"
+          ? evaluateFixedRadialRuntime(domain, references, ruleset)
+          : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
+            ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
+            : domain.action.criticalResolution === "expected"
+              ? evaluateExpectedRuntime(domain, references, ruleset)
+              : evaluateDeterministicRuntime(domain, references, ruleset);
   } catch (error) {
     if (error instanceof RulesError && error.code === "unsupported-critical-multiplier") {
       const path = attackModeFieldPath(catalog, references, "criticalMultiplier");

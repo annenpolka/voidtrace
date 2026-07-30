@@ -4,7 +4,7 @@
   "schemaVersion": "0.1.0",
   "id": "scenario.golden-multishot-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:9a9a703e7c6050594300a4f6f287fc39de99e9f1922f862669a94edb56a9c2bf",
+  "contentHash": "sha256:272c0af7199d04835d3dc01b45e0de2f4802c387215bef2fd4ebc4b750de8dcc",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +16,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.7.0",
+    "schemaVersion": "0.8.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:4cfce29bce7ff17900e4e06d7e2694adecc468094ab46f5056db7b63eeb67bf2",
+    "contentHash": "sha256:65cdeef7bd1882ae84b79b651d6a5a39cda5bd1cd5aeed373d12c86452b240a3",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {

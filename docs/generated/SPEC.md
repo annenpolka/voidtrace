@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:fc5d836677ff349da1ddc6367fbaac23fc71c1f79563583bc140a5426c820aa6`
+- Source fingerprint: `sha256:02b5d66b1f75b3fc98583883d283ac29aef361cb2b892b9eac365eb3583dff6b`
 - Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -40,11 +40,13 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `GOL-005` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/multishot-critical-armor.scenario.jsonは3個の順序付きDirect Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する |
 | `GOL-006` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/pellet-critical-armor.scenario.jsonは4個の順序付きpellet Direct Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する |
 | `GOL-007` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/radial-critical-armor.scenario.jsonはbase Damage 100、fixed Critical tier 1、resolved falloff 0.75、Armor 300からHealth Damage 75と残Health 925を独立literal expected vectorとしてResultおよびTraceと照合する |
+| `GOL-008` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-status-ticks.scenario.jsonは解決済みHealth Damage 40の3 tickを1000ms間隔でHealth 100へ順次commitし、時刻1000、2000、3000と最終Health 0を独立literal expected vectorとしてResultおよびTraceと照合する |
 | `MSH-001` | `mechanics` | `fixed_multishot_expansion` | `property-tested` | `active` | action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない |
 | `PLT-001` | `mechanics` | `fixed_pellet_expansion` | `property-tested` | `active` | action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない |
 | `RAD-001` | `mechanics` | `resolved_radial_falloff` | `property-tested` | `active` | action.radial-hitは明示された有限な0以上1以下のresolvedFalloffMultiplierと固定Critical tierを受理する。Radial Damage VectorはCritical解決後かつArmor適用前にこの倍率でscaleされる。距離式、物理配置、Direct sibling、Projectile親、Multishot、Pellet、複数target、暗黙rollは生成しない |
 | `RNG-001` | `kernel` | `same_logical_random` | `property-tested` | `active` | 同一seed、論理Event ID、roll purposeは同一乱数を返す |
 | `SCP-001` | `scope` | `scope_boundary` | `manual` | `active` | 物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない |
 | `SCP-002` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | 非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す |
+| `STS-001` | `mechanics` | `resolved_status_ticks` | `property-tested` | `active` | action.resolved-status-ticksはstatus.synthetic-resolved-dot、有限な非負resolvedHealthDamagePerTick、1以上のsafe-integer tickCount、正のsafe-integer tickIntervalMsを受理する。最大64 tickをintervalの倍数時刻で単一targetのHealthへ順次commitし、最後のtickはScenario timeLimitMs以下でなければならない。Status chance、type抽選、付与元Direct／Radial、Critical、Armor、stack、refresh、snapshot式、暗黙rollは生成しない |
 | `TRC-001` | `kernel` | `trace_reconstructs_result` | `property-tested` | `active` | Scenarioの初期HealthをアンカーとしてTraceの順序付きDamage Vector、Health commit、expected branch集約を再生すると、Resultの最終Damage Vectorとdeterministicまたはexpectedの残Healthに一致する |
 | `TRC-002` | `kernel` | `rejected_rule_has_reason` | `property-tested` | `planned` | 不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する |

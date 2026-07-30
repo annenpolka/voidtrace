@@ -14,6 +14,7 @@ export const KNOWN_PATTERNS = [
   "fixed_multishot_expansion",
   "fixed_pellet_expansion",
   "resolved_radial_falloff",
+  "resolved_status_ticks",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -54,6 +55,7 @@ export const RULE_PHASES = [
   "critical.roll",
   "critical.resolve",
   "damage.radial-falloff",
+  "status.tick",
   "target.mitigate",
   "damage.commit",
   "result.aggregate",
@@ -80,6 +82,10 @@ export type RuleOperation =
       maximumPellets: number;
     }
   | {
+      kind: "event.expand-resolved-status-ticks";
+      maximumTicks: number;
+    }
+  | {
       kind: "damage-vector.copy";
     }
   | {
@@ -99,6 +105,9 @@ export type RuleOperation =
       kind: "damage-vector.scale-resolved-radial-falloff";
     }
   | {
+      kind: "damage-vector.copy-resolved-status-tick";
+    }
+  | {
       kind: "damage.commit-health";
     }
   | {
@@ -109,6 +118,9 @@ export type RuleOperation =
     }
   | {
       kind: "damage-vector.aggregate-sequential-pellets";
+    }
+  | {
+      kind: "damage-vector.aggregate-sequential-status-ticks";
     };
 
 export type RuleDefinition = {
@@ -154,6 +166,7 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "fixed_multishot_expansion",
   "fixed_pellet_expansion",
   "resolved_radial_falloff",
+  "resolved_status_ticks",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -286,6 +299,16 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
           (candidate) => Number.isInteger(candidate) && candidate > 0,
         ),
       };
+    case "event.expand-resolved-status-ticks":
+      assertExactKeys(value, ["kind", "maximumTicks"], path);
+      return {
+        kind,
+        maximumTicks: requireFiniteNumber(
+          value.maximumTicks,
+          `${path}.maximumTicks`,
+          (candidate) => Number.isInteger(candidate) && candidate > 0,
+        ),
+      };
     case "damage-vector.copy":
       assertExactKeys(value, ["kind"], path);
       return { kind };
@@ -311,6 +334,9 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
     case "damage-vector.scale-resolved-radial-falloff":
       assertExactKeys(value, ["kind"], path);
       return { kind };
+    case "damage-vector.copy-resolved-status-tick":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
     case "damage.commit-health":
       assertExactKeys(value, ["kind"], path);
       return { kind };
@@ -321,6 +347,9 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
       assertExactKeys(value, ["kind"], path);
       return { kind };
     case "damage-vector.aggregate-sequential-pellets":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
+    case "damage-vector.aggregate-sequential-status-ticks":
       assertExactKeys(value, ["kind"], path);
       return { kind };
     default:

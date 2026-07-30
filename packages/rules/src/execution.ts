@@ -51,6 +51,18 @@ export type ResolvedRadialFalloffContext = {
   readonly health: number;
 };
 
+export type ResolvedStatusTickScheduleContext = {
+  readonly tickCount: number;
+  readonly tickIntervalMs: number;
+  readonly initialHealth: number;
+  readonly zeroDamage: DamageVector;
+};
+
+export type ResolvedStatusTickDamageContext = {
+  readonly resolvedHealthDamagePerTick: number;
+  readonly health: number;
+};
+
 export type SequentialHit = {
   readonly id: string;
   readonly index: number;
@@ -115,6 +127,10 @@ type ValidatedFixedMultishotContext = FixedMultishotContext;
 type ValidatedFixedPelletContext = FixedPelletContext;
 
 type ValidatedResolvedRadialFalloffContext = ResolvedRadialFalloffContext;
+
+type ValidatedResolvedStatusTickScheduleContext = ResolvedStatusTickScheduleContext;
+
+type ValidatedResolvedStatusTickDamageContext = ResolvedStatusTickDamageContext;
 
 type ValidatedSequentialHitAggregateContext = SequentialHitAggregateContext;
 
@@ -419,6 +435,57 @@ function snapshotResolvedRadialFalloffContext(
       "currentDamage",
     ),
     multiplier,
+    health: nonNegativeFinite(dataProperty(context, "health", "context"), "health"),
+  });
+}
+
+function snapshotResolvedStatusTickScheduleContext(
+  value: ResolvedStatusTickScheduleContext,
+): ValidatedResolvedStatusTickScheduleContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["tickCount", "tickIntervalMs", "initialHealth", "zeroDamage"],
+    "context",
+  );
+  const tickCount = dataProperty(context, "tickCount", "context");
+  const tickIntervalMs = dataProperty(context, "tickIntervalMs", "context");
+  if (!isNonNegativeSafeInteger(tickCount) || tickCount < 1) {
+    invalidContext("tickCount must be a positive safe integer", "tickCount");
+  }
+  if (!isNonNegativeSafeInteger(tickIntervalMs) || tickIntervalMs < 1) {
+    invalidContext("tickIntervalMs must be a positive safe integer", "tickIntervalMs");
+  }
+  const zeroDamage = snapshotDamageVector(
+    dataProperty(context, "zeroDamage", "context"),
+    "zeroDamage",
+  );
+  if (sumValidatedDamageVector(zeroDamage) !== 0) {
+    invalidContext("zeroDamage components must all be zero", "zeroDamage");
+  }
+  return Object.freeze({
+    tickCount,
+    tickIntervalMs,
+    initialHealth: nonNegativeFinite(
+      dataProperty(context, "initialHealth", "context"),
+      "initialHealth",
+    ),
+    zeroDamage,
+  });
+}
+
+function snapshotResolvedStatusTickDamageContext(
+  value: ResolvedStatusTickDamageContext,
+): ValidatedResolvedStatusTickDamageContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["resolvedHealthDamagePerTick", "health"],
+    "context",
+  );
+  return Object.freeze({
+    resolvedHealthDamagePerTick: nonNegativeFinite(
+      dataProperty(context, "resolvedHealthDamagePerTick", "context"),
+      "resolvedHealthDamagePerTick",
+    ),
     health: nonNegativeFinite(dataProperty(context, "health", "context"), "health"),
   });
 }
@@ -904,6 +971,83 @@ export function executeResolvedRadialFalloffRule(
   );
 }
 
+export function executeResolvedStatusTickScheduleRule(
+  rule: RuleDefinition,
+  context: ResolvedStatusTickScheduleContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "event.expand-resolved-status-ticks") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved Status tick expansion operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const operation = rule.operation as {
+    readonly kind: "event.expand-resolved-status-ticks";
+    readonly maximumTicks: unknown;
+  };
+  if (
+    typeof operation.maximumTicks !== "number" ||
+    !Number.isSafeInteger(operation.maximumTicks) ||
+    operation.maximumTicks < 1
+  ) {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid Status tick limit`, {
+      ruleId: rule.id,
+    });
+  }
+  const input = snapshotResolvedStatusTickScheduleContext(context);
+  if (input.tickCount > operation.maximumTicks) {
+    throw new RulesError(
+      "execution-limit-exceeded",
+      `Resolved Status tickCount ${input.tickCount} exceeds limit ${operation.maximumTicks}`,
+      { maximumTicks: operation.maximumTicks, tickCount: input.tickCount },
+    );
+  }
+  const projection = stateProjection(input.zeroDamage, input.initialHealth);
+  return applied(
+    rule,
+    1,
+    parameters({
+      factor: 1,
+      maximumTicks: operation.maximumTicks,
+      tickCount: input.tickCount,
+      tickIntervalMs: input.tickIntervalMs,
+    }),
+    projection,
+    projection,
+  );
+}
+
+export function executeResolvedStatusTickDamageRule(
+  rule: RuleDefinition,
+  context: ResolvedStatusTickDamageContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "damage-vector.copy-resolved-status-tick") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved Status tick Damage operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const input = snapshotResolvedStatusTickDamageContext(context);
+  const beforeDamage = Object.freeze({ "damage.synthetic-status": 0 });
+  const afterDamage = Object.freeze({
+    "damage.synthetic-status": input.resolvedHealthDamagePerTick,
+  });
+  return applied(
+    rule,
+    1,
+    parameters({
+      factor: 1,
+      "component.damage.synthetic-status": input.resolvedHealthDamagePerTick,
+    }),
+    stateProjection(beforeDamage, input.health),
+    stateProjection(afterDamage, input.health),
+  );
+}
+
 export function executeExpectedAggregateRule(
   rule: RuleDefinition,
   context: ExpectedAggregateContext,
@@ -997,7 +1141,8 @@ function executeSequentialAggregateRule(
   context: SequentialHitAggregateContext,
   operationKind:
     | "damage-vector.aggregate-sequential-hits"
-    | "damage-vector.aggregate-sequential-pellets",
+    | "damage-vector.aggregate-sequential-pellets"
+    | "damage-vector.aggregate-sequential-status-ticks",
 ): RuleExecution {
   assertExecutableRule(rule);
   if (rule.operation.kind !== operationKind) {
@@ -1008,12 +1153,14 @@ function executeSequentialAggregateRule(
   }
 
   const input = snapshotSequentialHitAggregateContext(context);
+  const itemPrefix =
+    operationKind === "damage-vector.aggregate-sequential-status-ticks" ? "tick" : "hit";
   const expectedDamageKeys = Object.keys(input.hits[0]?.damage ?? {});
   const aggregateDamage: Record<string, number> = Object.fromEntries(
     expectedDamageKeys.map((id) => [id, 0]),
   );
   const values: Record<string, RuleParameterValue> = {
-    hitCount: input.hits.length,
+    [`${itemPrefix}Count`]: input.hits.length,
   };
 
   for (const [index, hit] of input.hits.entries()) {
@@ -1024,11 +1171,11 @@ function executeSequentialAggregateRule(
     ) {
       invalidContext("All sequential hits must contain the same Damage Vector keys", "hits");
     }
-    values[`hit.${index}.id`] = hit.id;
-    values[`hit.${index}.index`] = hit.index;
-    values[`hit.${index}.damageTotal`] = sumValidatedDamageVector(hit.damage);
-    values[`hit.${index}.healthBefore`] = hit.healthBefore;
-    values[`hit.${index}.healthAfter`] = hit.healthAfter;
+    values[`${itemPrefix}.${index}.id`] = hit.id;
+    values[`${itemPrefix}.${index}.index`] = hit.index;
+    values[`${itemPrefix}.${index}.damageTotal`] = sumValidatedDamageVector(hit.damage);
+    values[`${itemPrefix}.${index}.healthBefore`] = hit.healthBefore;
+    values[`${itemPrefix}.${index}.healthAfter`] = hit.healthAfter;
     for (const id of expectedDamageKeys) {
       const aggregateComponent = (aggregateDamage[id] ?? 0) + (hit.damage[id] ?? 0);
       if (!Number.isFinite(aggregateComponent) || aggregateComponent < 0) {
@@ -1039,7 +1186,7 @@ function executeSequentialAggregateRule(
         );
       }
       aggregateDamage[id] = aggregateComponent;
-      values[`hit.${index}.damage.${id}`] = hit.damage[id] ?? 0;
+      values[`${itemPrefix}.${index}.damage.${id}`] = hit.damage[id] ?? 0;
     }
   }
 
@@ -1072,5 +1219,16 @@ export function executeSequentialPelletAggregateRule(
     rule,
     context,
     "damage-vector.aggregate-sequential-pellets",
+  );
+}
+
+export function executeSequentialStatusTickAggregateRule(
+  rule: RuleDefinition,
+  context: SequentialHitAggregateContext,
+): RuleExecution {
+  return executeSequentialAggregateRule(
+    rule,
+    context,
+    "damage-vector.aggregate-sequential-status-ticks",
   );
 }

@@ -16,6 +16,10 @@ import {
   executeFixedPelletRule,
   type ResolvedRadialFalloffContext,
   executeResolvedRadialFalloffRule,
+  type ResolvedStatusTickDamageContext,
+  executeResolvedStatusTickDamageRule,
+  type ResolvedStatusTickScheduleContext,
+  executeResolvedStatusTickScheduleRule,
   executeRule,
   type RuleContext,
   type RuleDefinition,
@@ -25,6 +29,7 @@ import {
   type SequentialHitAggregateContext,
   executeSequentialHitAggregateRule,
   executeSequentialPelletAggregateRule,
+  executeSequentialStatusTickAggregateRule,
 } from "./execution.ts";
 
 export type LoadedRuleset = {
@@ -38,11 +43,23 @@ export type LoadedRuleset = {
     id: string,
     context: ResolvedRadialFalloffContext,
   ): RuleExecution;
+  executeResolvedStatusTickScheduleRule(
+    id: string,
+    context: ResolvedStatusTickScheduleContext,
+  ): RuleExecution;
+  executeResolvedStatusTickDamageRule(
+    id: string,
+    context: ResolvedStatusTickDamageContext,
+  ): RuleExecution;
   executeSequentialHitAggregateRule(
     id: string,
     context: SequentialHitAggregateContext,
   ): RuleExecution;
   executeSequentialPelletAggregateRule(
+    id: string,
+    context: SequentialHitAggregateContext,
+  ): RuleExecution;
+  executeSequentialStatusTickAggregateRule(
     id: string,
     context: SequentialHitAggregateContext,
   ): RuleExecution;
@@ -74,6 +91,7 @@ const PHASES = [
   "critical.roll",
   "critical.resolve",
   "damage.radial-falloff",
+  "status.tick",
   "target.mitigate",
   "damage.commit",
   "result.aggregate",
@@ -93,6 +111,12 @@ const OPERATION_DECLARATIONS = {
     eventKind: "action.pellet-direct-hit",
     reads: ["action.pellet-count"],
     writes: ["event.direct-hit-count"],
+  },
+  "event.expand-resolved-status-ticks": {
+    phase: "attack.emit",
+    eventKind: "action.resolved-status-ticks",
+    reads: ["action.status-tick-count", "action.status-tick-interval-ms"],
+    writes: ["event.status-tick-count"],
   },
   "damage-vector.copy": {
     phase: "damage.construct",
@@ -139,7 +163,7 @@ const OPERATION_DECLARATIONS = {
   },
   "damage.commit-health": {
     phase: "damage.commit",
-    eventKind: ["damage.direct", "damage.radial"],
+    eventKind: ["damage.direct", "damage.radial", "damage.status-tick"],
     reads: ["event.damage", "target.health"],
     writes: ["target.health"],
   },
@@ -166,6 +190,18 @@ const OPERATION_DECLARATIONS = {
     eventKind: "damage.radial",
     reads: ["event.damage", "event.radial-falloff-multiplier"],
     writes: ["event.damage"],
+  },
+  "damage-vector.copy-resolved-status-tick": {
+    phase: "status.tick",
+    eventKind: "damage.status-tick",
+    reads: ["status.resolved-health-damage-per-tick"],
+    writes: ["event.damage"],
+  },
+  "damage-vector.aggregate-sequential-status-ticks": {
+    phase: "result.aggregate",
+    eventKind: "action.resolved-status-ticks",
+    reads: ["tick.damage", "tick.health-before", "tick.health-after"],
+    writes: ["event.damage", "target.health"],
   },
 } as const satisfies Record<RuleOperationKind, OperationDeclaration>;
 
@@ -209,6 +245,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     readonly constant?: unknown;
     readonly maximumHits?: unknown;
     readonly maximumPellets?: unknown;
+    readonly maximumTicks?: unknown;
   };
   switch (operation.kind) {
     case "event.expand-fixed-multishot":
@@ -229,6 +266,15 @@ function assertFiniteOperation(rule: RuleDefinition): void {
         return;
       }
       break;
+    case "event.expand-resolved-status-ticks":
+      if (
+        typeof operation.maximumTicks === "number" &&
+        Number.isSafeInteger(operation.maximumTicks) &&
+        operation.maximumTicks > 0
+      ) {
+        return;
+      }
+      break;
     case "damage-vector.copy":
     case "critical-tier.resolve-tier-roll":
     case "critical-tier.resolve-expected-branches":
@@ -238,6 +284,8 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
     case "damage-vector.scale-resolved-radial-falloff":
+    case "damage-vector.copy-resolved-status-tick":
+    case "damage-vector.aggregate-sequential-status-ticks":
       return;
     case "damage-vector.scale-standard-armor":
       if (
@@ -347,6 +395,14 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       id: string,
       context: ResolvedRadialFalloffContext,
     ): RuleExecution => executeResolvedRadialFalloffRule(resolveRule(id), context),
+    executeResolvedStatusTickScheduleRule: (
+      id: string,
+      context: ResolvedStatusTickScheduleContext,
+    ): RuleExecution => executeResolvedStatusTickScheduleRule(resolveRule(id), context),
+    executeResolvedStatusTickDamageRule: (
+      id: string,
+      context: ResolvedStatusTickDamageContext,
+    ): RuleExecution => executeResolvedStatusTickDamageRule(resolveRule(id), context),
     executeSequentialHitAggregateRule: (
       id: string,
       context: SequentialHitAggregateContext,
@@ -355,6 +411,10 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       id: string,
       context: SequentialHitAggregateContext,
     ): RuleExecution => executeSequentialPelletAggregateRule(resolveRule(id), context),
+    executeSequentialStatusTickAggregateRule: (
+      id: string,
+      context: SequentialHitAggregateContext,
+    ): RuleExecution => executeSequentialStatusTickAggregateRule(resolveRule(id), context),
   });
 }
 

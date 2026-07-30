@@ -208,11 +208,11 @@ export type Result = {
 /** Generated finite Rule IR interpreted by the Kernel-facing Rules package. */
 export type Ruleset = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:ruleset:0.7.0";
+  readonly "$schema": "urn:voidtrace:schema:ruleset:0.8.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "ruleset";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.7.0";
+  readonly "schemaVersion": "0.8.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -230,7 +230,7 @@ export type Ruleset = {
     /** Human-readable normative operation semantics. */
     readonly "description": string;
     /** Finite execution phase. */
-    readonly "phase": "attack.emit" | "damage.construct" | "critical.roll" | "critical.expected" | "critical.resolve" | "damage.radial-falloff" | "target.mitigate" | "damage.commit" | "result.aggregate";
+    readonly "phase": "attack.emit" | "damage.construct" | "critical.roll" | "critical.expected" | "critical.resolve" | "damage.radial-falloff" | "status.tick" | "target.mitigate" | "damage.commit" | "result.aggregate";
     /** Stable event discriminator matched by this Rule. */
     readonly "eventKind": string;
     /** Declared scalar or vector paths read by this Rule. */
@@ -249,8 +249,16 @@ export type Ruleset = {
       /** Positive safe execution bound for one resolved pellet action. */
       readonly "maximumPellets": number;
     } | {
+      /** Expand one resolved Status action into an explicit bounded count of ordered logical-time tick events. */
+      readonly "kind": "event.expand-resolved-status-ticks";
+      /** Positive safe execution bound for one resolved Status action. */
+      readonly "maximumTicks": number;
+    } | {
       /** Copy the input base Damage Vector into event damage. */
       readonly "kind": "damage-vector.copy";
+    } | {
+      /** Construct one synthetic Status tick Damage Vector from explicit resolved Health damage. */
+      readonly "kind": "damage-vector.copy-resolved-status-tick";
     } | {
       /** Resolve safe non-negative Critical tiers from an explicit roll and the fractional part of Critical chance; integer chance keeps next tier equal to base tier. */
       readonly "kind": "critical-tier.resolve-tier-roll";
@@ -280,6 +288,9 @@ export type Ruleset = {
     } | {
       /** Aggregate ordered terminal pellet Damage Vectors and preserve the final sequential Health state. */
       readonly "kind": "damage-vector.aggregate-sequential-pellets";
+    } | {
+      /** Aggregate ordered terminal Status tick Damage Vectors and preserve the final sequential Health state. */
+      readonly "kind": "damage-vector.aggregate-sequential-status-ticks";
     };
     /** Game-mechanics evidence status, independent of implementation maturity. */
     readonly "evidenceStatus": "verified" | "experimental" | "disputed" | "unsupported" | "approximated";

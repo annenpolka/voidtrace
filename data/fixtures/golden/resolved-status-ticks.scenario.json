@@ -2,9 +2,9 @@
   "$schema": "urn:voidtrace:schema:scenario:0.1.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.1.0",
-  "id": "scenario.golden-pellet-critical-armor",
+  "id": "scenario.golden-resolved-status-ticks",
   "revision": 0,
-  "contentHash": "sha256:4e7e2a1e12bad6c5432025dd61f0216b26cb546e6540412f74d1e264ec9e15f2",
+  "contentHash": "sha256:e8b44412a39ee8830c2ae11357c7a2d5eb3c92cd52518a87873ae16f038ef3c0",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -34,7 +34,7 @@
       "id": "actor.target",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 350,
+        "resolvedHealth": 100,
         "resolvedShield": 0,
         "resolvedArmor": 300,
         "resolvedOverguard": 0
@@ -44,40 +44,38 @@
   "initialState": {},
   "actionPlan": [
     {
-      "id": "action.pellet-shot-1",
-      "kind": "action.pellet-direct-hit",
+      "id": "action.resolved-status-ticks-1",
+      "kind": "action.resolved-status-ticks",
       "parameters": {
         "targetId": "actor.target",
-        "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
-        "criticalTier": 1,
-        "pelletCount": 4
+        "statusId": "status.synthetic-resolved-dot",
+        "resolvedHealthDamagePerTick": 40,
+        "tickCount": 3,
+        "tickIntervalMs": 1000
       }
     }
   ],
   "simulation": {
     "mode": "deterministic",
-    "timeLimitMs": 1
+    "timeLimitMs": 3000
   },
   "metrics": [
-    "pellet.count",
-    "damage.direct-hit.total",
-    "critical.tier",
-    "critical.multiplier",
-    "damage.post-critical.total",
-    "armor.remaining-multiplier",
+    "status.tick-count",
+    "status.tick-interval-ms",
+    "damage.status.per-tick",
+    "damage.status.total",
     "damage.health.total",
-    "damage.pellet.total",
     "target.health.remaining"
   ],
   "assumptions": [
     {
-      "id": "assumption.synthetic-pellets",
-      "description": "Synthetic resolved fixed-count pellet fixture; not a verified current-game Warframe claim."
+      "id": "assumption.synthetic-resolved-status",
+      "description": "Synthetic resolved Status ticks; not a verified current-game Warframe Status or damage formula."
     },
     {
-      "id": "assumption.fixed-critical-tier",
-      "description": "Every emitted pellet uses the same explicit fixed Critical tier; no Critical, Multishot, or pellet roll is generated."
+      "id": "assumption.resolved-status-health-damage",
+      "description": "Each tick supplies final resolved Health damage directly; no Status chance, type roll, Critical, Armor, stack, refresh, or snapshot formula is evaluated."
     }
   ]
 }

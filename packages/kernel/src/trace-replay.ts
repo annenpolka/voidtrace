@@ -75,6 +75,10 @@ type HitMetadata = {
   readonly count: number;
 };
 
+type TickMetadata = HitMetadata & {
+  readonly timeMs: number;
+};
+
 function branchMetadata(
   parameters: Readonly<Record<string, string | number | boolean | null>>,
 ): BranchMetadata | undefined {
@@ -127,6 +131,35 @@ function hitMetadata(
   return Object.freeze({ id, index, count });
 }
 
+function tickMetadata(
+  parameters: Readonly<Record<string, string | number | boolean | null>>,
+): TickMetadata | undefined {
+  const id = parameters["tick.id"];
+  const index = parameters["tick.index"];
+  const count = parameters["tick.count"];
+  const timeMs = parameters["tick.time-ms"];
+  if (id === undefined && index === undefined && count === undefined && timeMs === undefined) {
+    return undefined;
+  }
+  if (
+    typeof id !== "string" ||
+    !isStableId(id) ||
+    typeof index !== "number" ||
+    !Number.isSafeInteger(index) ||
+    index < 0 ||
+    typeof count !== "number" ||
+    !Number.isSafeInteger(count) ||
+    count < 1 ||
+    index >= count ||
+    typeof timeMs !== "number" ||
+    !Number.isSafeInteger(timeMs) ||
+    timeMs < 1
+  ) {
+    invalidParameters("Trace tick operation has incomplete or invalid tick metadata");
+  }
+  return Object.freeze({ id, index, count, timeMs });
+}
+
 export type ReplayedTraceState = {
   readonly damage: DamageVector;
   readonly health: number;
@@ -162,6 +195,13 @@ function requiredBranchMetadata(
 function requiredHitMetadata(metadata: HitMetadata | undefined, subject: string): HitMetadata {
   if (metadata === undefined) {
     invalidParameters(`${subject} omitted hit metadata`);
+  }
+  return metadata;
+}
+
+function requiredTickMetadata(metadata: TickMetadata | undefined, subject: string): TickMetadata {
+  if (metadata === undefined) {
+    invalidParameters(`${subject} omitted tick metadata`);
   }
   return metadata;
 }
@@ -378,8 +418,9 @@ function aggregateSequentialHits(
   hits: ReadonlyMap<string, HitReplayState>,
   reads: Readonly<Record<string, string | number | boolean | null>>,
   initialHealth: number,
+  itemPrefix: "hit" | "tick" = "hit",
 ): ReplayedTraceState {
-  const count = parameters.hitCount;
+  const count = parameters[`${itemPrefix}Count`];
   if (
     typeof count !== "number" ||
     !Number.isSafeInteger(count) ||
@@ -428,16 +469,16 @@ function aggregateSequentialHits(
     }
     expectedDamageKeys = damageKeys;
     if (
-      parameters[`hit.${index}.id`] !== id ||
-      parameters[`hit.${index}.index`] !== index ||
-      parameters[`hit.${index}.damageTotal`] !== sumDamageVector(hit.damage) ||
-      parameters[`hit.${index}.healthBefore`] !== hit.healthBefore ||
-      parameters[`hit.${index}.healthAfter`] !== hit.health
+      parameters[`${itemPrefix}.${index}.id`] !== id ||
+      parameters[`${itemPrefix}.${index}.index`] !== index ||
+      parameters[`${itemPrefix}.${index}.damageTotal`] !== sumDamageVector(hit.damage) ||
+      parameters[`${itemPrefix}.${index}.healthBefore`] !== hit.healthBefore ||
+      parameters[`${itemPrefix}.${index}.healthAfter`] !== hit.health
     ) {
       invalidParameters(`Trace sequential aggregation hit ${index} is inconsistent`);
     }
     for (const [damageTypeId, component] of Object.entries(hit.damage)) {
-      if (parameters[`hit.${index}.damage.${damageTypeId}`] !== component) {
+      if (parameters[`${itemPrefix}.${index}.damage.${damageTypeId}`] !== component) {
         invalidParameters(
           `Trace sequential aggregation hit ${index} component ${damageTypeId} is inconsistent`,
         );
@@ -455,10 +496,12 @@ function aggregateSequentialHits(
   }
   if (
     Object.keys(reads).toSorted().join("\u0000") !==
-      ["hit.damage", "hit.health-after", "hit.health-before"].join("\u0000") ||
-    reads["hit.damage"] !== canonicalizeJson(damageReads) ||
-    reads["hit.health-before"] !== canonicalizeJson(beforeReads) ||
-    reads["hit.health-after"] !== canonicalizeJson(afterReads)
+      [`${itemPrefix}.damage`, `${itemPrefix}.health-after`, `${itemPrefix}.health-before`].join(
+        "\u0000",
+      ) ||
+    reads[`${itemPrefix}.damage`] !== canonicalizeJson(damageReads) ||
+    reads[`${itemPrefix}.health-before`] !== canonicalizeJson(beforeReads) ||
+    reads[`${itemPrefix}.health-after`] !== canonicalizeJson(afterReads)
   ) {
     invalidParameters("Trace sequential aggregation reads do not match terminal hits");
   }
@@ -506,7 +549,10 @@ async function replayTrace(
   let initialHealth = anchoredInitialHealth;
   const branches = new Map<string, BranchReplayState>();
   const hits = new Map<string, HitReplayState>();
+  const ticks = new Map<string, HitReplayState>();
   let expectedHitCount: number | undefined;
+  let expectedTickCount: number | undefined;
+  let expectedTickIntervalMs: number | undefined;
 
   for (const decision of trace.decisions) {
     if (decision.outcome !== "applied") {
@@ -523,12 +569,18 @@ async function replayTrace(
     const operationBranchId = operationBranch?.id;
     const operationHit = hitMetadata(operation.parameters);
     const operationHitId = operationHit?.id;
-    if (operationBranchId !== undefined && operationHitId !== undefined) {
-      invalidParameters(`Trace decision ${decision.sequence} mixes branch and hit metadata`);
+    const operationTick = tickMetadata(operation.parameters);
+    const operationTickId = operationTick?.id;
+    if (
+      [operationBranchId, operationHitId, operationTickId].filter((id) => id !== undefined).length >
+      1
+    ) {
+      invalidParameters(`Trace decision ${decision.sequence} mixes branch, hit, or tick metadata`);
     }
     const branchState =
       operationBranchId === undefined ? undefined : branches.get(operationBranchId);
     const hitState = operationHitId === undefined ? undefined : hits.get(operationHitId);
+    const tickState = operationTickId === undefined ? undefined : ticks.get(operationTickId);
     if (
       operationBranch !== undefined &&
       branchState !== undefined &&
@@ -543,20 +595,86 @@ async function replayTrace(
     ) {
       invalidParameters(`Trace decision ${decision.sequence} changed hit metadata`);
     }
+    if (
+      operationTick !== undefined &&
+      tickState !== undefined &&
+      (operationTick.index !== tickState.index ||
+        operationTick.count !== tickState.count ||
+        operationTick.timeMs !== decision.eventTimeMs)
+    ) {
+      invalidParameters(`Trace decision ${decision.sequence} changed tick metadata or time`);
+    }
     const currentDamage =
       operationBranchId !== undefined
         ? branchState?.damage
         : operationHitId !== undefined
           ? hitState?.damage
-          : damage;
+          : operationTickId !== undefined
+            ? tickState?.damage
+            : damage;
     const currentHealth =
       operationBranchId !== undefined
         ? branchState?.health
         : operationHitId !== undefined
           ? hitState?.health
-          : health;
+          : operationTickId !== undefined
+            ? tickState?.health
+            : health;
 
     switch (operation.kind) {
+      case "event.expand-resolved-status-ticks": {
+        const tickCount = operation.parameters.tickCount;
+        const tickIntervalMs = operation.parameters.tickIntervalMs;
+        const maximumTicks = operation.parameters.maximumTicks;
+        if (
+          typeof tickCount !== "number" ||
+          !Number.isSafeInteger(tickCount) ||
+          tickCount < 1 ||
+          typeof tickIntervalMs !== "number" ||
+          !Number.isSafeInteger(tickIntervalMs) ||
+          tickIntervalMs < 1 ||
+          typeof maximumTicks !== "number" ||
+          !Number.isSafeInteger(maximumTicks) ||
+          maximumTicks < tickCount ||
+          decision.reads["action.status-tick-count"] !== tickCount ||
+          decision.reads["action.status-tick-interval-ms"] !== tickIntervalMs ||
+          decision.eventTimeMs !== 0
+        ) {
+          invalidParameters("Trace resolved Status tick expansion has invalid parameters");
+        }
+        const beforeDamage = projectionDamage(
+          decision.before,
+          `Trace decision ${decision.sequence} before`,
+        );
+        const beforeHealth = requiredNonNegativeNumber(
+          decision.before,
+          "target.health",
+          `Trace decision ${decision.sequence} before`,
+        );
+        if (sumDamageVector(beforeDamage) !== 0) {
+          invalidParameters("Trace resolved Status tick expansion does not start at zero Damage");
+        }
+        if (initialHealth === undefined) {
+          initialHealth = beforeHealth;
+        }
+        assertProjection(
+          decision.before,
+          beforeDamage,
+          initialHealth,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          beforeDamage,
+          initialHealth,
+          `Trace decision ${decision.sequence} after`,
+        );
+        expectedTickCount = tickCount;
+        expectedTickIntervalMs = tickIntervalMs;
+        damage = beforeDamage;
+        health = initialHealth;
+        break;
+      }
       case "event.expand-fixed-multishot":
       case "event.expand-fixed-pellets": {
         const isMultishot = operation.kind === "event.expand-fixed-multishot";
@@ -606,7 +724,8 @@ async function replayTrace(
         health = initialHealth;
         break;
       }
-      case "damage-vector.copy": {
+      case "damage-vector.copy":
+      case "damage-vector.copy-resolved-status-tick": {
         if (initialHealth === undefined) {
           initialHealth = requiredNonNegativeNumber(
             decision.before,
@@ -624,7 +743,7 @@ async function replayTrace(
           );
         }
         const copyHealth =
-          operationHitId === undefined
+          operationHitId === undefined && operationTickId === undefined
             ? initialHealth
             : requiredNonNegativeNumber(
                 decision.before,
@@ -644,7 +763,36 @@ async function replayTrace(
           copyHealth,
           `Trace decision ${decision.sequence} after`,
         );
-        if (operationHitId !== undefined) {
+        if (operationTickId !== undefined) {
+          const metadata = requiredTickMetadata(
+            operationTick,
+            `Trace copy decision ${decision.sequence}`,
+          );
+          if (
+            expectedTickCount === undefined ||
+            expectedTickIntervalMs === undefined ||
+            metadata.count !== expectedTickCount ||
+            metadata.index !== ticks.size ||
+            metadata.timeMs !== (metadata.index + 1) * expectedTickIntervalMs ||
+            metadata.timeMs !== decision.eventTimeMs ||
+            ticks.has(operationTickId) ||
+            copyHealth !== health ||
+            decision.reads["status.resolved-health-damage-per-tick"] !== sumDamageVector(copied)
+          ) {
+            invalidParameters(`Trace constructs invalid sequential tick ${operationTickId}`);
+          }
+          ticks.set(
+            operationTickId,
+            Object.freeze({
+              damage: copied,
+              health: copyHealth,
+              healthBefore: copyHealth,
+              committed: false,
+              index: metadata.index,
+              count: metadata.count,
+            }),
+          );
+        } else if (operationHitId !== undefined) {
           const metadata = requiredHitMetadata(
             operationHit,
             `Trace copy decision ${decision.sequence}`,
@@ -865,7 +1013,31 @@ async function replayTrace(
           healthAfter,
           `Trace decision ${decision.sequence} after`,
         );
-        if (operationHitId !== undefined) {
+        if (operationTickId !== undefined) {
+          const metadata = requiredTickMetadata(
+            operationTick,
+            `Trace Health commit ${decision.sequence}`,
+          );
+          if (
+            tickState === undefined ||
+            tickState.committed ||
+            metadata.timeMs !== decision.eventTimeMs
+          ) {
+            invalidParameters(`Trace commits invalid tick ${operationTickId}`);
+          }
+          ticks.set(
+            operationTickId,
+            Object.freeze({
+              damage: currentDamage,
+              health: healthAfter,
+              healthBefore: tickState.healthBefore,
+              committed: true,
+              index: metadata.index,
+              count: metadata.count,
+            }),
+          );
+          health = healthAfter;
+        } else if (operationHitId !== undefined) {
           const metadata = requiredHitMetadata(
             operationHit,
             `Trace Health commit ${decision.sequence}`,
@@ -941,6 +1113,47 @@ async function replayTrace(
         );
         if (hits.size !== expectedHitCount) {
           invalidParameters("Trace sequential aggregation does not include every emitted hit");
+        }
+        assertProjection(
+          decision.before,
+          aggregate.damage,
+          initialHealth,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          aggregate.damage,
+          aggregate.health,
+          `Trace decision ${decision.sequence} after`,
+        );
+        damage = aggregate.damage;
+        health = aggregate.health;
+        committed = true;
+        break;
+      }
+      case "damage-vector.aggregate-sequential-status-ticks": {
+        if (initialHealth === undefined || expectedTickCount === undefined) {
+          invalidParameters(
+            "Trace aggregates sequential Status ticks before resolved tick expansion",
+          );
+        }
+        if (
+          expectedTickIntervalMs === undefined ||
+          decision.eventTimeMs !== expectedTickCount * expectedTickIntervalMs
+        ) {
+          invalidParameters("Trace Status tick aggregate has invalid logical time");
+        }
+        const aggregate = aggregateSequentialHits(
+          operation.parameters,
+          ticks,
+          decision.reads,
+          initialHealth,
+          "tick",
+        );
+        if (ticks.size !== expectedTickCount) {
+          invalidParameters(
+            "Trace sequential Status aggregation does not include every emitted tick",
+          );
         }
         assertProjection(
           decision.before,

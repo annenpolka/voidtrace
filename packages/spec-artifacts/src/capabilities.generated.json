@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:fc5d836677ff349da1ddc6367fbaac23fc71c1f79563583bc140a5426c820aa6",
+  "sourceFingerprint": "sha256:02b5d66b1f75b3fc98583883d283ac29aef361cb2b892b9eac365eb3583dff6b",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -80,6 +80,15 @@
       "activeClauseRefs": [
         "GOL-007",
         "RAD-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.resolved-status-ticks",
+      "status": "supported",
+      "activeClauseRefs": [
+        "GOL-008",
+        "STS-001"
       ],
       "plannedClauseRefs": []
     },

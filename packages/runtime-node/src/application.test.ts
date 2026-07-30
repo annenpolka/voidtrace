@@ -42,6 +42,9 @@ const pelletScenarioPath = fileURLToPath(
 const radialScenarioPath = fileURLToPath(
   new URL("../../../data/fixtures/golden/radial-critical-armor.scenario.json", import.meta.url),
 );
+const statusScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/resolved-status-ticks.scenario.json", import.meta.url),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -246,6 +249,29 @@ describe("createNodeApplication", () => {
       phase: "damage.radial-falloff",
       ruleId: "rule.radial.apply-resolved-falloff",
     });
+  });
+
+  it("evaluates resolved Status ticks through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: statusScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toEqual({
+      "status.tick-count": 3,
+      "status.tick-interval-ms": 1000,
+      "damage.status.per-tick": 40,
+      "damage.status.total": 120,
+      "damage.health.total": 120,
+      "target.health.remaining": 0,
+    });
+    expect(outcome.trace.decisions.map((decision) => decision.eventTimeMs)).toEqual([
+      0, 1000, 1000, 2000, 2000, 3000, 3000, 3000,
+    ]);
   });
 
   it("produces the same outcome for file and stdin Scenario sources", async () => {
