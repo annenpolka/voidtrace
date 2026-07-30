@@ -41,7 +41,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 08:26:00Z) 独立oracle、境界/propertyテスト、Runtime/CLI E2Eを追加し、Node 26/24で21ファイル297テストを通した。
 - [x] (2026-07-30 08:26:00Z) repository-local skillへStatus操作例と停止境界を追加し、empirical-prompt-tuning第2ラウンドで対応・非対応シナリオとも100% checklist、retry 0、fill-in 0を確認した。
 - [x] (2026-07-30 08:26:00Z) Statusマイルストーンを `5f1fa73` としてコミットした。
-- [ ] 次の複数target縦切りに向け、物理座標ではなく解決済みTarget Graph関係を表す最小Contractと停止境界を仕様化する。
+- [x] (2026-07-30 08:32:00Z) Scenario Contract `0.2.0`へresolved impact-distance/LoSとordered punch-through/chain/ricochet pathの有限Target Graph入力を追加した。
+- [x] (2026-07-30 08:32:00Z) 現在のRuntimeは空relationsだけを受理し、非空Target Graphを `unsupported-target-graph` として部分Artifactなしで拒否する境界を実装した。
+- [x] (2026-07-30 08:32:00Z) Node 26/24で33 Clauses、8 Contracts、21ファイル299テストを通し、Target Graph契約境界を `5ebc4f4` としてコミットした。
+- [ ] 最初の実行可能な複数target sliceとして、resolved punch-through順序に沿う固定Critical Direct Hit列とtarget別World State／Traceを設計する。
 
 ## Surprises & Discoveries
 
@@ -74,6 +77,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: repository-local skillの旧境界はStatus全体をunsupportedとしており、新しいresolved sliceも拒否した。
   Evidence: empirical-prompt-tuning初回の対応シナリオは実行を停止した。resolved Health Damage、tick数、間隔だけを許可し、chance／type／stack等を個別に拒否する記述へ直した第2ラウンドは対応・非対応とも全項目を満たした。
+
+- Observation: Scenarioは当初から複数targetsを構文上許したが、対象間関係を表す場所がなく、配列順へ意味を暗黙付与する危険があった。
+  Evidence: Scenario `0.2.0`はtarget配列と独立した `targetGraph.relations` を必須化し、impact-distanceとordered-pathだけを閉じたunionとして生成する。既存Goldenは全て空relationsを明示する。
 
 ## Decision Log
 
@@ -129,6 +135,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: 対象関係の表現とWorld State／Result／Traceの複数target化は別の検証課題である。Contractだけを受理して単体評価へ無視することは、unsupported mechanicをゼロ効果へ縮退するため禁止する。
   Date/Author: 2026-07-30 08:26:00Z / Codex
 
+- Decision: 最初に実行するTarget Graph relationは、`pathKind: punch-through` の解決済みordered pathとする。
+  Rationale: 順序が明示された複数targetへ既存Direct Hit Ruleを再利用し、World State、Result、Trace replayのtarget identityを検証できる。貫通減衰、壁厚、物理衝突、chain選択、ricochet角度は同時に導入しない。
+  Date/Author: 2026-07-30 08:32:00Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -140,6 +150,8 @@ Pelletマイルストーンでは、明示された1〜64の固定pellet count�
 Radialマイルストーンでは、有限な `[0, 1]` の解決済みfalloff multiplierを持つ単独Radial Hitを、Directと別のevent kind、Rule ID、capability、Result metricで評価できるようになった。Goldenは `base 100 → Critical後 200 → falloff後 150 → Armor後 75 → Health 925` の5 decisionを固定する。距離式、物理配置、Direct sibling、Projectile親、Multishot／Pellet合成、複数target、Radialのroll／expected valueは非対応である。
 
 Statusマイルストーンでは、`status.synthetic-resolved-dot` の最終Health Damage、tick数、間隔を明示する単独actionを、論理時刻つきEvent Queueで評価できるようになった。Goldenは40 Damageを1000ms間隔で3回commitし、Healthを `100→60→20→0` と更新する8 decisionを固定する。64 tick超、time horizon超過、安全でない時刻は部分Artifactなしで拒否する。Status chance／type、付与元、Critical／Armor導出、stack、refresh、snapshot、防御変化、期待値、生成rollは非対応である。
+
+Target Graph契約境界では、Scenario `0.2.0`にKernel外で解決済みのimpact距離／LoSとordered pathを表す有限relation unionを追加した。全既存Goldenは空graphを明示し、既存の単一target Result／Traceを維持する。非空graphは構造化unsupportedとなり、関係を無視した単体計算へ縮退しない。複数target Damage評価、falloff導出、punch-through減衰、chain／ricochet選択は次の実行sliceである。
 
 ## Context and Orientation
 
@@ -295,6 +307,15 @@ Statusマイルストーンの検証記録は次のとおりである。
     status event times: 0 / 1000 / 1000 / 2000 / 2000 / 3000 / 3000 / 3000
     final Health: 0
     empirical skill evaluation: supported 100%, unsupported 100%, retry 0, fill-in 0
+
+Target Graph契約境界の検証記録は次のとおりである。
+
+    Scenario Contract 0.2.0
+    Clauses / Contracts: 33 / 8
+    Node.js 26.0.0: 21 files, 299 tests passed
+    Node.js 24.18.0: 21 files, 299 tests passed
+    non-empty relation result: unsupported-target-graph
+    partial Result / Trace: absent
     final Health: 925
 
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。

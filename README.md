@@ -5,7 +5,7 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The current repository state is **Commit 13: resolved synthetic Status ticks**. It establishes the
+The current repository state is **Commit 14: resolved Target Graph contract boundary**. It establishes the
 normative Pkl specification, deterministic generated artifacts, eight versioned public contracts,
 and Ruleset `0.8.0` revision `1` on the Kernel foundation: an ordered Event Queue,
 logical-coordinate RNG, explicit World State transitions, and generated finite Rule IR. Strictly
