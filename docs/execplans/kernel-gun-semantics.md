@@ -74,6 +74,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 13:54:34Z) 合成Catalogへbase Damage 80のRadial modeを追加し、Domain／Kernel／Trace／CLI／skillを実装した。Node 26／24で47 Clauses、8 Contracts、生成24ファイル、21ファイル359テストを通した。
 - [x] (2026-07-30 13:54:34Z) empirical-prompt-tuningはfeature commit後のIteration 2／3で対応・非対応・hold-outがすべて5/5、不明点0となった。対応fixtureはtracked／HEAD一致、未知modeはstale hashとCatalog参照失敗を区別した。
 - [x] (2026-07-30 13:54:34Z) 別mode実装を `26e5712`、新Clauseのcapability誤分類修正を `bca8414` としてコミットした。
+- [x] (2026-07-30 16:32:22Z) 次の縦切りを、既存impact actionの互換性を保ったままDirectとRadialへ別の明示固定Critical tierを適用できる拡張に固定した。
+- [ ] `IMP-003`と`GOL-016`でDirect／Radial別固定tier、旧共有tier、共有World Stateの境界を規定し、Ruleset `0.16.0`を生成する。
+- [ ] Domain／Kernel／Trace／CLI／skillを実装し、Node 26／24の全ゲート、empirical評価、public push、CIを完了する。
 
 ## Surprises & Discoveries
 
@@ -270,6 +273,22 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: relation unionや永続wire shapeは変わらない一方、同じaction kindが受理する明示parameter集合とCatalog bindingが増えるため、Ruleset参照を更新して旧評価境界と混同しない。
   Date/Author: 2026-07-30 13:43:18Z / Codex
 
+- Decision: 別固定tier版も既存 `action.resolved-direct-radial-impact` を使い、`criticalTier` をDirectへ、明示された `radialCriticalTier` をRadialへ適用する。`radialCriticalTier` 省略時は従来どおり `criticalTier` を共有する。
+  Rationale: 固定tierの分離はEvent DAGやCatalog bindingを変えず、attack mode分離と直交する。新action kindや暗黙defaultを増やさず、共有mode／別modeの既存Goldenを互換性試験として残せる。
+  Date/Author: 2026-07-30 16:32:22Z / Codex
+
+- Decision: `radialCriticalTier` は非負safe-integerだけを受理し、Direct／Radial双方とも既存の一般化tier倍率Ruleを使う。roll、Critical chance、roll共有、expected分岐は扱わない。
+  Rationale: この縦切りは二つの明示固定値を正しいchild eventへbindすることだけを検証する。確率解決や共有roll規則を同時に入れると、入力契約と分岐集約が別の検証課題になる。
+  Date/Author: 2026-07-30 16:32:22Z / Codex
+
+- Decision: 新Goldenは別attack modeと別固定tierを組み合わせ、Directにtier 1、Radialにtier 2を与える。Direct target AのHealthは300とし、Health-zero clampで因果差が隠れない値を使う。
+  Rationale: Direct base 100×tier 1×Armor 0.5=100、Radial Aはbase 80×tier 2×Armor 0.5=120、Cは80×3×falloff 0.7×Armor 0.25=42となる。Aを300→200→80、Cを90→48へ更新すれば、各tierのTrace読取と共有World Stateをliteral値で同時に検査できる。
+  Date/Author: 2026-07-30 16:32:22Z / Codex
+
+- Decision: `radialCriticalTier` は既存Scenario Contract `0.3.0` のscalar parameter mapで表し、Scenario schemaは据え置く。新Clauseと受理可能domainはRuleset `0.16.0`で識別する。
+  Rationale: relation unionとArtifact wire typeは変わらないが、同じactionが受理する明示parameter集合と評価bindingは増える。Ruleset参照を更新して旧境界と混同しない。
+  Date/Author: 2026-07-30 16:32:22Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -371,6 +390,8 @@ Resolved Pellet allocationは、target配列順と異なるrelation順、同じt
 Resolved Direct＋Radial impactは、targets配列順と異なるrelation順、Direct targetがRadialにも命中するGoldenで受け入れる。TraceではDirectとRadial target eventsが同じ親impact eventをたどれ、DirectのHealth commit後にRadialが同一targetの更新済みHealthを読む。ResultはDirect Damage、Radial Damage、合計Damage、Radial命中数、全target終端Healthを区別する。Direct target不明、impact ID不一致、重複relation、別Critical tier／roll、Projectile軌道、複数attack modeは部分Artifactなしで拒否する。
 
 別attack mode Direct＋Radial impactは、attackerの `attackModeId` をDirectへ、actionの `radialAttackModeId` をRadialへ解決する合成Goldenで受け入れる。Direct decisionはDirect modeのbase Damage、Radial decisionはRadial modeのbase Damageを読み、既存の親子順序と同一target Health連鎖を保つ。未知のRadial mode、別weaponに属するmode、非hitscan delivery、別Critical tier／roll、roll共有規則、Projectile物理は部分Artifactなしで拒否する。`radialAttackModeId` を省略した既存Goldenは共有mode挙動のまま回帰試験に残す。
+
+別固定tier Direct＋Radial impactは、`criticalTier: 1`をDirectへ、`radialCriticalTier: 2`をRadialへbindする合成Goldenで受け入れる。TraceはDirectの `event.critical-tier` 1とRadial二件の2を区別し、Direct Damage 100、Radial Damage 162、合計262、終端Health A=80／C=48／B=60、残Health合計188を再生する。負数、非整数、安全でないtierは部分Artifactなしで拒否する。`radialCriticalTier`を省略した共有mode／別mode既存Goldenは共有tier挙動のまま残す。roll、Critical chance、roll共有規則、expected分岐、Projectile物理は扱わない。
 
 ## Idempotence and Recovery
 
