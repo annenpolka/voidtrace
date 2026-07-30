@@ -36,7 +36,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.15.0";
+export const KERNEL_ENGINE_VERSION = "0.16.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -1588,6 +1588,10 @@ function evaluateResolvedRadialTargetsRuntime(
     throw new TypeError("Invalid input reached resolved multi-target Radial evaluation");
   }
   const isDirectRadialImpact = domain.action.kind === "resolved-direct-radial-impact";
+  const radialCriticalTier =
+    isDirectRadialImpact && domain.action.radialCriticalTier !== null
+      ? domain.action.radialCriticalTier
+      : domain.action.criticalTier;
   const appliedRules: RuleDefinition[] = [];
   const decisions: Trace["decisions"][number][] = [];
   const metricValues: Record<string, number> = {};
@@ -1759,7 +1763,7 @@ function evaluateResolvedRadialTargetsRuntime(
                   ruleContext(
                     radialReferences,
                     targetDamage,
-                    domain.action.criticalTier,
+                    radialCriticalTier,
                     null,
                     target.resolvedArmor,
                     readHealth(world, target.id),
@@ -1772,7 +1776,7 @@ function evaluateResolvedRadialTargetsRuntime(
               rule,
               execution,
               radialReferences,
-              domain.action.criticalTier,
+              radialCriticalTier,
               null,
               target.resolvedArmor,
               {

@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.15.0",
+    "schemaVersion": "0.16.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:dfa2f84e4d25aa6e8fd24331a71e84e7603e67eb575e59a773b688bd3a81dc3a",
+    "contentHash": "sha256:3ff9a8da03bf756e46387836cee3ace00bfd9d1328b80fc9f4622b277f7a59c8",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -80,5 +80,5 @@
       "description": "Synthetic expected-value fixture; not a verified current-game Warframe claim."
     }
   ],
-  "contentHash": "sha256:b70bc6459aa96b3f0b8f1ef5df0cec051162939b8a92a4f97c5cf2a01eefd1e0"
+  "contentHash": "sha256:3ffba453f0e531f83574caf2b576cdf70eb795d5c078c138d435cac269e7e274"
 }

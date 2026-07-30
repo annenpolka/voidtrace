@@ -3,7 +3,7 @@
 # Runtime rules
 
 - Ruleset: `ruleset.synthetic-core`
-- Version: `0.15.0`
+- Version: `0.16.0`
 - Revision: `1`
 - Game build: `synthetic-fixture-0`
 - Generated IR: `packages/spec-artifacts/src/rulesets/core.generated.json`

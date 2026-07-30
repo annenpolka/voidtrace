@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.15.0",
+    "schemaVersion": "0.16.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:dfa2f84e4d25aa6e8fd24331a71e84e7603e67eb575e59a773b688bd3a81dc3a",
+    "contentHash": "sha256:3ff9a8da03bf756e46387836cee3ace00bfd9d1328b80fc9f4622b277f7a59c8",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -104,5 +104,5 @@
       "description": "Each target receives one independent Direct Hit without wall, collision, or penetration attenuation."
     }
   ],
-  "contentHash": "sha256:c3cfd34aa94f5daf4a8ea279f39436743fe1ef0ec638b72d71bd54cae8121632"
+  "contentHash": "sha256:41df7fca036698d172792aa24d0a7b8dd10b63579c6684ac457d01ec26a24c4d"
 }

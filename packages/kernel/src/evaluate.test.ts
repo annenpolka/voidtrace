@@ -90,6 +90,12 @@ import distinctModeImpactExpectedFixture from "../../../data/fixtures/golden/res
 import distinctModeImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.scenario.json" with {
   type: "json",
 };
+import distinctTierImpactExpectedFixture from "../../../data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.expected.json" with {
+  type: "json",
+};
+import distinctTierImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json" with {
+  type: "json",
+};
 import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
   type: "json",
 };
@@ -226,6 +232,14 @@ async function evaluateDirectRadialImpactGolden() {
 async function evaluateDistinctModeImpactGolden() {
   return evaluateScenario({
     scenario: structuredClone(distinctModeImpactScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateDistinctTierImpactGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(distinctTierImpactScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -1567,6 +1581,117 @@ describe("evaluateScenario", () => {
       },
     });
   });
+
+  it("uses distinct fixed Critical tiers for Direct and Radial children", async () => {
+    const outcome = await evaluateDistinctTierImpactGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    expect(outcome.result.metrics).toEqual(distinctTierImpactExpectedFixture.metrics);
+    expect(outcome.result.damageBySource).toEqual(distinctTierImpactExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(distinctTierImpactExpectedFixture.damageByType);
+    expect(outcome.result.targetStates).toEqual(distinctTierImpactExpectedFixture.targetStates);
+    const directCritical = outcome.trace.decisions.find(
+      (decision) => decision.ruleId === "rule.critical.scale-tier",
+    );
+    const radialCriticals = outcome.trace.decisions.filter(
+      (decision) => decision.ruleId === "rule.radial.scale-critical-tier",
+    );
+    expect(directCritical?.reads["event.critical-tier"]).toBe(
+      distinctTierImpactExpectedFixture.directCriticalTier,
+    );
+    expect(radialCriticals.map((decision) => decision.reads["event.critical-tier"])).toEqual([
+      distinctTierImpactExpectedFixture.radialCriticalTier,
+      distinctTierImpactExpectedFixture.radialCriticalTier,
+    ]);
+    expect(outcome.trace.decisions).toHaveLength(16);
+    expect(
+      await replayTraceTargetStates(outcome.trace, {
+        "actor.target-a": 300,
+        "actor.target-b": 60,
+        "actor.target-c": 90,
+      }),
+    ).toEqual({
+      damage: distinctTierImpactExpectedFixture.damageByType,
+      health: 188,
+      healthByTarget: {
+        "actor.target-a": 80,
+        "actor.target-c": 48,
+        "actor.target-b": 60,
+      },
+    });
+  });
+
+  it("property-tests independent non-negative fixed Direct and Radial tiers", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 0, max: 5 }),
+        fc.integer({ min: 0, max: 5 }),
+        async (directTier, radialTier) => {
+          const changed = structuredClone(distinctTierImpactScenarioFixture);
+          const action = changed.actionPlan[0];
+          const directTarget = changed.targets.find((target) => target.id === "actor.target-a");
+          const radialTarget = changed.targets.find((target) => target.id === "actor.target-c");
+          if (action === undefined || directTarget === undefined || radialTarget === undefined) {
+            throw new Error("Distinct-tier impact golden is incomplete");
+          }
+          action.parameters.criticalTier = directTier;
+          action.parameters.radialCriticalTier = radialTier;
+          directTarget.configuration.resolvedHealth = 2000;
+          radialTarget.configuration.resolvedHealth = 1000;
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+          const directDamage = 50 * (1 + directTier);
+          const radialDamage = 54 * (1 + radialTier);
+          expect(first.result.metrics["impact.direct.damage-total"]).toBe(directDamage);
+          expect(first.result.metrics["impact.radial.damage-total"]).toBeCloseTo(radialDamage, 6);
+          expect(first.result.metrics["impact.damage-total"]).toBeCloseTo(
+            directDamage + radialDamage,
+            6,
+          );
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
+  it.each([-1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid explicit Radial Critical tier %s without partial Artifacts",
+    async (radialCriticalTier) => {
+      const changed = structuredClone(distinctTierImpactScenarioFixture);
+      const action = changed.actionPlan[0];
+      if (action === undefined) {
+        throw new Error("Distinct-tier impact golden omitted its action");
+      }
+      action.parameters.radialCriticalTier = radialCriticalTier;
+      const scenario = await rehash(changed);
+      const outcome = await evaluateScenario({
+        scenario,
+        catalog: structuredClone(catalogFixture),
+      });
+
+      expect(outcome).toMatchObject({
+        ok: false,
+        error: {
+          code: "scenario-invalid",
+          causeCode: "unsupported-critical-tier",
+          path: "/actionPlan/0/parameters/radialCriticalTier",
+        },
+      });
+    },
+  );
 
   it("property-tests Direct-before-Radial shared World State and deterministic replay", async () => {
     const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));

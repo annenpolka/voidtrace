@@ -1,0 +1,11 @@
+/// Literal obligation for one impact whose Direct and Radial children bind distinct fixed Critical tiers.
+module voidtrace.golden.resolvedDistinctTierDirectRadialImpact
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-016"
+  desc =
+    "data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.jsonはDirectにbase Damage 100のprimary modeと固定tier 1、Radialにbase Damage 80のradial modeと固定tier 2を使う。DirectはAを300→200へ更新し、続くRadialはAを200→80、Cを90→48へ更新し、Bは範囲外で60を保つ。Direct Damage 100、Radial Damage 162、合計262、残Health合計188をliteral expected vectorとしてResultおよびTraceと照合し、各child decisionが対応するevent.critical-tierを読む"
+  maturity = "active"
+}

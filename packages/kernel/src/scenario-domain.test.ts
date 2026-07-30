@@ -24,6 +24,9 @@ import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved
 import distinctModeImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.scenario.json" with {
   type: "json",
 };
+import distinctTierImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json" with {
+  type: "json",
+};
 import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
   type: "json",
 };
@@ -427,6 +430,21 @@ describe("parseScenarioDomain", () => {
           kind: "resolved-direct-radial-impact",
           radialAttackModeId: "attack-mode.synthetic-aperture.radial",
           criticalTier: 0,
+        },
+      },
+    });
+  });
+
+  it("binds explicit Direct and Radial fixed Critical tiers on one resolved impact", async () => {
+    const result = await parseScenarioDomain(structuredClone(distinctTierImpactScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          kind: "resolved-direct-radial-impact",
+          criticalTier: 1,
+          radialCriticalTier: 2,
         },
       },
     });

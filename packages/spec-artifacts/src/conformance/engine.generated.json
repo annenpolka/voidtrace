@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:10d28316d27363c9d36e700c2463d73a6b2e295027411cb7f01606b44f306882",
+  "sourceFingerprint": "sha256:d2437f821925e61e2e2567d4263ac6baa363ab107a47841a81a131978cb5da6d",
   "activeClauses": [
     {
       "id": "CHN-001",
@@ -252,6 +252,14 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-016",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.jsonはDirectにbase Damage 100のprimary modeと固定tier 1、Radialにbase Damage 80のradial modeと固定tier 2を使う。DirectはAを300→200へ更新し、続くRadialはAを200→80、Cを90→48へ更新し、Bは範囲外で60を保つ。Direct Damage 100、Radial Damage 162、合計262、残Health合計188をliteral expected vectorとしてResultおよびTraceと照合し、各child decisionが対応するevent.critical-tierを読む",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "IMP-001",
       "pattern": "resolved_direct_radial_impact",
       "desc": "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。radialAttackModeIdを省略した場合はattackerのattackModeIdをDirectとRadialで共有する。Projectile軌道、衝突、爆心、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない",
@@ -262,7 +270,15 @@
     {
       "id": "IMP-002",
       "pattern": "resolved_direct_radial_impact",
-      "desc": "action.resolved-direct-radial-impactが明示的なradialAttackModeIdを持つ場合、DirectはattackerのattackModeId、Radialは同じweapon内のradialAttackModeIdからbase DamageとCritical multiplierを別々に読み、共有された固定Critical tierを適用する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。未知または別weaponのattack mode、非hitscan delivery、DirectとRadialで別のCritical tierまたはrollは受理せず、実ゲーム値やroll共有規則は導出しない",
+      "desc": "action.resolved-direct-radial-impactが明示的なradialAttackModeIdを持つ場合、DirectはattackerのattackModeId、Radialは同じweapon内のradialAttackModeIdからbase DamageとCritical multiplierを別々に読む。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。未知または別weaponのattack mode、非hitscan deliveryは受理せず、実ゲーム値やroll共有規則は導出しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "IMP-003",
+      "pattern": "resolved_direct_radial_impact",
+      "desc": "action.resolved-direct-radial-impactが明示的なradialCriticalTierを持つ場合、DirectはcriticalTier、RadialはradialCriticalTierとしてそれぞれ非負safe-integer固定tierを読み、各attack modeのCritical multiplierを既存の一般化tier倍率Ruleへ適用する。radialCriticalTierを省略した場合はcriticalTierを共有する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。負数、非整数、安全でないtier、別roll、Critical chance、roll共有、expected分岐は受理または導出しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"

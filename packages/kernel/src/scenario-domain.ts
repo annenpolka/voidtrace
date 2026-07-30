@@ -123,6 +123,7 @@ export type ScenarioDomain = {
     readonly damageLayer: "health";
     readonly criticalResolution: "fixed" | "roll" | "expected" | "none";
     readonly criticalTier: number | null;
+    readonly radialCriticalTier: number | null;
     readonly criticalRoll: number | null;
     readonly hitCount: number;
     readonly resolvedRadialFalloffMultiplier: number;
@@ -248,10 +249,6 @@ const RESOLVED_RADIAL_TARGET_PARAMETER_KEYS = Object.freeze([
 const RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS = Object.freeze([
   ...RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
   "directTargetId",
-] as const);
-const RESOLVED_DISTINCT_MODE_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS = Object.freeze([
-  ...RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS,
-  "radialAttackModeId",
 ] as const);
 const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "multishot.hit-count",
@@ -464,6 +461,10 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
     isDirectRadialImpact &&
     candidateAction !== undefined &&
     Object.hasOwn(candidateAction.parameters, "radialAttackModeId");
+  const hasDistinctRadialCriticalTier =
+    isDirectRadialImpact &&
+    candidateAction !== undefined &&
+    Object.hasOwn(candidateAction.parameters, "radialCriticalTier");
   const mechanicId = isDirectRadialImpact
     ? "mechanic.impact.resolved-direct-radial"
     : "mechanic.radial.resolved-targets";
@@ -555,9 +556,11 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
   const actionKeyError = exactKeys(
     action.parameters,
     isDirectRadialImpact
-      ? hasDistinctRadialAttackMode
-        ? RESOLVED_DISTINCT_MODE_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS
-        : RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS
+      ? [
+          ...RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS,
+          ...(hasDistinctRadialAttackMode ? ["radialAttackModeId"] : []),
+          ...(hasDistinctRadialCriticalTier ? ["radialCriticalTier"] : []),
+        ]
       : RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
     "/actionPlan/0/parameters",
   );
@@ -602,6 +605,22 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       "unsupported-critical-tier",
       "/actionPlan/0/parameters/criticalTier",
       "Resolved multi-target Radial criticalTier must be a non-negative safe integer",
+      "mechanic.critical.tier-multiplier",
+    );
+  }
+  const radialCriticalTier = hasDistinctRadialCriticalTier
+    ? action.parameters.radialCriticalTier
+    : null;
+  if (
+    radialCriticalTier !== null &&
+    (typeof radialCriticalTier !== "number" ||
+      !Number.isSafeInteger(radialCriticalTier) ||
+      radialCriticalTier < 0)
+  ) {
+    return failure(
+      "unsupported-critical-tier",
+      "/actionPlan/0/parameters/radialCriticalTier",
+      "Resolved impact radialCriticalTier must be a non-negative safe integer",
       "mechanic.critical.tier-multiplier",
     );
   }
@@ -886,6 +905,7 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       damageLayer: "health",
       criticalResolution: "fixed",
       criticalTier,
+      radialCriticalTier,
       criticalRoll: null,
       hitCount: radialTargetRelations.filter((relation) => relation.hit).length,
       resolvedRadialFalloffMultiplier: 1,
@@ -1256,6 +1276,7 @@ function parseResolvedPelletAllocationDomain(scenario: Scenario): ScenarioDomain
         damageLayer: "health",
         criticalResolution: "fixed",
         criticalTier,
+        radialCriticalTier: null,
         criticalRoll: null,
         hitCount,
         resolvedRadialFalloffMultiplier: 1,
@@ -1616,6 +1637,7 @@ function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseR
       damageLayer: "health",
       criticalResolution: "fixed",
       criticalTier,
+      radialCriticalTier: null,
       criticalRoll: null,
       hitCount: relation.targetIds.length,
       resolvedRadialFalloffMultiplier: 1,
@@ -1987,6 +2009,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
         damageLayer: "health",
         criticalResolution: "none",
         criticalTier: null,
+        radialCriticalTier: null,
         criticalRoll: null,
         hitCount: 1,
         resolvedRadialFalloffMultiplier: 1,
@@ -2280,6 +2303,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       damageLayer: "health",
       criticalResolution,
       criticalTier,
+      radialCriticalTier: null,
       criticalRoll,
       hitCount,
       resolvedRadialFalloffMultiplier,

@@ -81,7 +81,14 @@ resolvedDirectRadialImpactSharesParentAndWorldState: base.ResolvedDirectRadialIm
 resolvedDirectRadialImpactCanBindDistinctAttackModes: base.ResolvedDirectRadialImpact = new {
   id = "IMP-002"
   desc =
-    "action.resolved-direct-radial-impactが明示的なradialAttackModeIdを持つ場合、DirectはattackerのattackModeId、Radialは同じweapon内のradialAttackModeIdからbase DamageとCritical multiplierを別々に読み、共有された固定Critical tierを適用する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。未知または別weaponのattack mode、非hitscan delivery、DirectとRadialで別のCritical tierまたはrollは受理せず、実ゲーム値やroll共有規則は導出しない"
+    "action.resolved-direct-radial-impactが明示的なradialAttackModeIdを持つ場合、DirectはattackerのattackModeId、Radialは同じweapon内のradialAttackModeIdからbase DamageとCritical multiplierを別々に読む。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。未知または別weaponのattack mode、非hitscan deliveryは受理せず、実ゲーム値やroll共有規則は導出しない"
+  maturity = "active"
+}
+
+resolvedDirectRadialImpactCanBindDistinctFixedCriticalTiers: base.ResolvedDirectRadialImpact = new {
+  id = "IMP-003"
+  desc =
+    "action.resolved-direct-radial-impactが明示的なradialCriticalTierを持つ場合、DirectはcriticalTier、RadialはradialCriticalTierとしてそれぞれ非負safe-integer固定tierを読み、各attack modeのCritical multiplierを既存の一般化tier倍率Ruleへ適用する。radialCriticalTierを省略した場合はcriticalTierを共有する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。負数、非整数、安全でないtier、別roll、Critical chance、roll共有、expected分岐は受理または導出しない"
   maturity = "active"
 }
 

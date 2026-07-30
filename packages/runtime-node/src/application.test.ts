@@ -69,6 +69,12 @@ const distinctModeImpactScenarioPath = fileURLToPath(
     import.meta.url,
   ),
 );
+const distinctTierImpactScenarioPath = fileURLToPath(
+  new URL(
+    "../../../data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json",
+    import.meta.url,
+  ),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -453,6 +459,27 @@ describe("createNodeApplication", () => {
       "impact.radial-target-count": 2,
       "damage.health.total": 104,
       "targets.health.remaining-total": 226,
+      "targets.defeated-count": 0,
+    });
+  });
+
+  it("evaluates distinct Direct and Radial fixed tiers through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: distinctTierImpactScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toEqual({
+      "impact.direct.damage-total": 100,
+      "impact.radial.damage-total": 162,
+      "impact.damage-total": 262,
+      "impact.radial-target-count": 2,
+      "damage.health.total": 262,
+      "targets.health.remaining-total": 188,
       "targets.defeated-count": 0,
     });
   });

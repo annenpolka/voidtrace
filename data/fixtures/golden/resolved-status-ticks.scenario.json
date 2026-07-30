@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.15.0",
+    "schemaVersion": "0.16.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:dfa2f84e4d25aa6e8fd24331a71e84e7603e67eb575e59a773b688bd3a81dc3a",
+    "contentHash": "sha256:3ff9a8da03bf756e46387836cee3ace00bfd9d1328b80fc9f4622b277f7a59c8",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -80,5 +80,5 @@
       "description": "Each tick supplies final resolved Health damage directly; no Status chance, type roll, Critical, Armor, stack, refresh, or snapshot formula is evaluated."
     }
   ],
-  "contentHash": "sha256:053032c52071c2238b9a5a73c33f5d7f776ff5100d99ad1b3a384acf65081f03"
+  "contentHash": "sha256:27e4eaaa7bbe0249babd55c031b6af3c44096ff6b980b6a7fd0de89878da436b"
 }

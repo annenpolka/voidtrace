@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.15.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.16.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.15.0"
+      "const": "urn:voidtrace:schema:ruleset:0.16.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.15.0"
+      "const": "0.16.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",

@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.15.0",
+    "schemaVersion": "0.16.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:dfa2f84e4d25aa6e8fd24331a71e84e7603e67eb575e59a773b688bd3a81dc3a",
+    "contentHash": "sha256:3ff9a8da03bf756e46387836cee3ace00bfd9d1328b80fc9f4622b277f7a59c8",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -129,5 +129,5 @@
       "description": "The fixture resolves impact, Direct target, distances, LoS, and falloff boundaries without trajectory, collision, terrain, or current-game falloff derivation."
     }
   ],
-  "contentHash": "sha256:6df34db555e4e8ac5b8799e05036da03552f644c2336e1c4c7d61151154aee92"
+  "contentHash": "sha256:71729e944d43562b894cf77a63fee262f3e58935bdd4a186ece63db1c6f2d350"
 }
