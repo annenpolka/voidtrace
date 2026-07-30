@@ -86,6 +86,9 @@ export type ResolvedPunchThroughAggregateContext = {
 export type ResolvedRicochetExpansionContext = ResolvedPunchThroughExpansionContext;
 export type ResolvedRicochetTargetHit = ResolvedPunchThroughTargetHit;
 export type ResolvedRicochetAggregateContext = ResolvedPunchThroughAggregateContext;
+export type ResolvedChainExpansionContext = ResolvedPunchThroughExpansionContext;
+export type ResolvedChainTargetHit = ResolvedPunchThroughTargetHit;
+export type ResolvedChainAggregateContext = ResolvedPunchThroughAggregateContext;
 
 export type SequentialHit = {
   readonly id: string;
@@ -1272,6 +1275,53 @@ export function executeResolvedRicochetExpansionRule(
   );
 }
 
+export function executeResolvedChainExpansionRule(
+  rule: RuleDefinition,
+  context: ResolvedChainExpansionContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "event.expand-resolved-chain-targets") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved chain expansion operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const operation = rule.operation as {
+    readonly kind: "event.expand-resolved-chain-targets";
+    readonly maximumTargets: unknown;
+  };
+  if (
+    typeof operation.maximumTargets !== "number" ||
+    !Number.isSafeInteger(operation.maximumTargets) ||
+    operation.maximumTargets < 1
+  ) {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid target limit`, {
+      ruleId: rule.id,
+    });
+  }
+  const input = snapshotResolvedPunchThroughExpansionContext(context);
+  if (input.targetCount > operation.maximumTargets) {
+    throw new RulesError(
+      "execution-limit-exceeded",
+      `Resolved chain targetCount ${input.targetCount} exceeds limit ${operation.maximumTargets}`,
+      { maximumTargets: operation.maximumTargets, targetCount: input.targetCount },
+    );
+  }
+  const projection = stateProjection(input.zeroDamage, input.initialHealthTotal);
+  return applied(
+    rule,
+    1,
+    parameters({
+      factor: 1,
+      maximumTargets: operation.maximumTargets,
+      targetCount: input.targetCount,
+    }),
+    projection,
+    projection,
+  );
+}
+
 export function executeExpectedAggregateRule(
   rule: RuleDefinition,
   context: ExpectedAggregateContext,
@@ -1567,6 +1617,68 @@ export function executeResolvedRicochetAggregateRule(
         throw new RulesError(
           "arithmetic-invalid",
           `Ricochet aggregate overflowed damage component ${id}`,
+          { id, targetId: target.targetId },
+        );
+      }
+      aggregateDamage[id] = component;
+      values[`target.${index}.damage.${id}`] = target.damage[id] ?? 0;
+    }
+  }
+  const damage = Object.freeze(aggregateDamage);
+  return applied(
+    rule,
+    1,
+    parameters(values),
+    stateProjection(damage, input.initialHealthTotal),
+    stateProjection(damage, remainingHealthTotal),
+  );
+}
+
+export function executeResolvedChainAggregateRule(
+  rule: RuleDefinition,
+  context: ResolvedChainAggregateContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "damage-vector.aggregate-resolved-chain-targets") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved chain aggregate operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const input = snapshotResolvedPunchThroughAggregateContext(context);
+  const expectedDamageKeys = Object.keys(input.targets[0]?.damage ?? {});
+  const aggregateDamage: Record<string, number> = Object.fromEntries(
+    expectedDamageKeys.map((id) => [id, 0]),
+  );
+  const values: Record<string, RuleParameterValue> = {
+    targetCount: input.targets.length,
+  };
+  let remainingHealthTotal = 0;
+  for (const [index, target] of input.targets.entries()) {
+    const damageKeys = Object.keys(target.damage);
+    if (
+      damageKeys.length !== expectedDamageKeys.length ||
+      damageKeys.some((id, keyIndex) => id !== expectedDamageKeys[keyIndex])
+    ) {
+      invalidContext("All chain targets must contain the same Damage Vector keys", "targets");
+    }
+    values[`target.${index}.id`] = target.targetId;
+    values[`target.${index}.event-id`] = target.id;
+    values[`target.${index}.index`] = target.index;
+    values[`target.${index}.damageTotal`] = sumValidatedDamageVector(target.damage);
+    values[`target.${index}.healthBefore`] = target.healthBefore;
+    values[`target.${index}.healthAfter`] = target.healthAfter;
+    remainingHealthTotal += target.healthAfter;
+    if (!Number.isFinite(remainingHealthTotal)) {
+      throw new RulesError("arithmetic-invalid", "Target Health sum overflowed finite arithmetic");
+    }
+    for (const id of expectedDamageKeys) {
+      const component = (aggregateDamage[id] ?? 0) + (target.damage[id] ?? 0);
+      if (!Number.isFinite(component) || component < 0) {
+        throw new RulesError(
+          "arithmetic-invalid",
+          `Chain aggregate overflowed damage component ${id}`,
           { id, targetId: target.targetId },
         );
       }

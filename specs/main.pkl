@@ -16,6 +16,7 @@ import "golden/multishot-critical-armor.pkl"
 import "golden/pellet-critical-armor.pkl"
 import "golden/probability-critical-armor.pkl"
 import "golden/radial-critical-armor.pkl"
+import "golden/resolved-chain.pkl"
 import "golden/resolved-punch-through.pkl"
 import "golden/resolved-ricochet.pkl"
 import "golden/resolved-status-ticks.pkl"
@@ -24,6 +25,7 @@ import "kernel/determinism.pkl"
 import "kernel/event-ordering.pkl"
 import "kernel/rng.pkl"
 import "kernel/scope.pkl"
+import "mechanics/chain.pkl"
 import "mechanics/clauses.pkl" as mechanicsClauses
 import "mechanics/critical.pkl"
 import "mechanics/defense.pkl"
@@ -58,6 +60,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.resolvedStatusTicksCommitInTimeOrder
   mechanicsClauses.resolvedPunchThroughVisitsTargetsInPathOrder
   mechanicsClauses.resolvedRicochetVisitsTargetsInPathOrder
+  mechanicsClauses.resolvedChainVisitsTargetsInPathOrder
   mechanicsClauses.armorDoesNotIncreaseDamage
   mechanicsClauses.armorThreeHundredHalvesDamage
   mechanicsClauses.traceReconstructsDamage
@@ -72,6 +75,7 @@ clauses: Listing<base.Clause> = new {
   `resolved-status-ticks`.roundTrip
   `resolved-punch-through`.roundTrip
   `resolved-ricochet`.roundTrip
+  `resolved-chain`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
   cliSurface.streamExitDiscipline
@@ -93,7 +97,7 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.10.0"
+  version = "0.11.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
@@ -102,6 +106,7 @@ ruleset: ruleModel.Ruleset = new {
     status.scheduleResolvedTicksRule
     `punch-through`.expandResolvedTargetsRule
     ricochet.expandResolvedTargetsRule
+    chain.expandResolvedTargetsRule
     critical.resolveExpectedBranchesRule
     `direct-hit`.rule
     radial.constructRule
@@ -121,5 +126,6 @@ ruleset: ruleModel.Ruleset = new {
     status.aggregateResolvedTicksRule
     `punch-through`.aggregateResolvedTargetsRule
     ricochet.aggregateResolvedTargetsRule
+    chain.aggregateResolvedTargetsRule
   }
 }

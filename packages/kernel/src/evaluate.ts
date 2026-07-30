@@ -36,7 +36,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.10.0";
+export const KERNEL_ENGINE_VERSION = "0.11.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -456,11 +456,13 @@ function updateMetricValues(
     case "event.expand-resolved-status-ticks":
     case "event.expand-resolved-punch-through-targets":
     case "event.expand-resolved-ricochet-targets":
+    case "event.expand-resolved-chain-targets":
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
     case "damage-vector.aggregate-sequential-status-ticks":
     case "damage-vector.aggregate-resolved-punch-through-targets":
     case "damage-vector.aggregate-resolved-ricochet-targets":
+    case "damage-vector.aggregate-resolved-chain-targets":
       return;
     case "damage-vector.copy":
       metricValues[
@@ -594,6 +596,9 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "event.expand-resolved-ricochet-targets":
     case "damage-vector.aggregate-resolved-ricochet-targets":
       return "mechanic.ricochet.resolved-path";
+    case "event.expand-resolved-chain-targets":
+    case "damage-vector.aggregate-resolved-chain-targets":
+      return "mechanic.chain.resolved-path";
     case "damage-vector.scale-resolved-radial-falloff":
       return "mechanic.damage.radial-falloff";
     case "damage-vector.copy":
@@ -1027,7 +1032,8 @@ function evaluateResolvedTargetPathRuntime(
 ): RuntimeEvaluation {
   if (
     (domain.action.kind !== "resolved-punch-through" &&
-      domain.action.kind !== "resolved-ricochet") ||
+      domain.action.kind !== "resolved-ricochet" &&
+      domain.action.kind !== "resolved-chain") ||
     domain.action.criticalResolution !== "fixed" ||
     domain.action.criticalTier === null ||
     domain.action.targetPathRelationId === null
@@ -1035,16 +1041,23 @@ function evaluateResolvedTargetPathRuntime(
     throw new TypeError("Invalid input reached resolved target-path evaluation");
   }
   const isPunchThrough = domain.action.kind === "resolved-punch-through";
-  const pathLabel = isPunchThrough ? "punch-through" : "ricochet";
+  const isRicochet = domain.action.kind === "resolved-ricochet";
+  const pathLabel = isPunchThrough ? "punch-through" : isRicochet ? "ricochet" : "chain";
   const actionEventKind = isPunchThrough
     ? "action.resolved-punch-through-direct-hits"
-    : "action.resolved-ricochet-direct-hits";
+    : isRicochet
+      ? "action.resolved-ricochet-direct-hits"
+      : "action.resolved-chain-direct-hits";
   const expansionOperationKind = isPunchThrough
     ? "event.expand-resolved-punch-through-targets"
-    : "event.expand-resolved-ricochet-targets";
+    : isRicochet
+      ? "event.expand-resolved-ricochet-targets"
+      : "event.expand-resolved-chain-targets";
   const aggregateOperationKind = isPunchThrough
     ? "damage-vector.aggregate-resolved-punch-through-targets"
-    : "damage-vector.aggregate-resolved-ricochet-targets";
+    : isRicochet
+      ? "damage-vector.aggregate-resolved-ricochet-targets"
+      : "damage-vector.aggregate-resolved-chain-targets";
   const appliedRules: RuleDefinition[] = [];
   const decisions: Trace["decisions"][number][] = [];
   const metricValues: Record<string, number> = {};
@@ -1080,7 +1093,9 @@ function evaluateResolvedTargetPathRuntime(
       };
       const execution = isPunchThrough
         ? ruleset.executeResolvedPunchThroughExpansionRule(rule.id, context)
-        : ruleset.executeResolvedRicochetExpansionRule(rule.id, context);
+        : isRicochet
+          ? ruleset.executeResolvedRicochetExpansionRule(rule.id, context)
+          : ruleset.executeResolvedChainExpansionRule(rule.id, context);
       decisions.push(
         decisionForExecution(
           decisionSequence,
@@ -1197,7 +1212,9 @@ function evaluateResolvedTargetPathRuntime(
       };
       const execution = isPunchThrough
         ? ruleset.executeResolvedPunchThroughAggregateRule(rule.id, context)
-        : ruleset.executeResolvedRicochetAggregateRule(rule.id, context);
+        : isRicochet
+          ? ruleset.executeResolvedRicochetAggregateRule(rule.id, context)
+          : ruleset.executeResolvedChainAggregateRule(rule.id, context);
       decisions.push(
         decisionForExecution(
           decisionSequence,
@@ -1973,7 +1990,8 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       domain.action.kind === "resolved-status-ticks"
         ? evaluateResolvedStatusTicksRuntime(domain, references, ruleset)
         : domain.action.kind === "resolved-punch-through" ||
-            domain.action.kind === "resolved-ricochet"
+            domain.action.kind === "resolved-ricochet" ||
+            domain.action.kind === "resolved-chain"
           ? evaluateResolvedTargetPathRuntime(domain, references, ruleset)
           : domain.action.kind === "radial-hit"
             ? evaluateFixedRadialRuntime(domain, references, ruleset)
@@ -2091,7 +2109,8 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     }
     if (
       domain.action.kind === "resolved-punch-through" ||
-      domain.action.kind === "resolved-ricochet"
+      domain.action.kind === "resolved-ricochet" ||
+      domain.action.kind === "resolved-chain"
     ) {
       try {
         const replayed = await replayTraceTargetStates(

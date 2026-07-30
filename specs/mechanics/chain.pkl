@@ -1,0 +1,43 @@
+/// Experimental resolved chain target path without candidate selection or branching.
+module voidtrace.mechanics.chain
+
+import "../rules/model.pkl"
+
+expandResolvedTargetsRule: model.Rule = new {
+  id = "rule.chain.expand-resolved-targets"
+  description =
+    "Expand one explicit resolved chain path into a bounded ordered sequence of target Direct Hit events."
+  phase = "attack.emit"
+  eventKind = "action.resolved-chain-direct-hits"
+  reads {
+    "action.target-path-count"
+  }
+  writes {
+    "event.direct-hit-count"
+  }
+  operation = new model.ExpandResolvedChainTargets {
+    maximumTargets = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateResolvedTargetsRule: model.Rule = new {
+  id = "rule.chain.aggregate-resolved-targets"
+  description =
+    "Aggregate terminal Damage and target-specific Health from every target visited by one resolved chain path."
+  phase = "result.aggregate"
+  eventKind = "action.resolved-chain-direct-hits"
+  reads {
+    "path-target.damage"
+    "path-target.health-before"
+    "path-target.health-after"
+  }
+  writes {
+    "event.damage"
+    "targets.health"
+  }
+  operation = new model.AggregateResolvedChainTargets {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

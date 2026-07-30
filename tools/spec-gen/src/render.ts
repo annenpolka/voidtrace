@@ -233,6 +233,9 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
   const ricochetClauses = spec.clauses.filter(
     (clause) => clause.id.startsWith("RCH-") || clause.id === "GOL-010",
   );
+  const chainClauses = spec.clauses.filter(
+    (clause) => clause.id.startsWith("CHN-") || clause.id === "GOL-011",
+  );
   const directCriticalArmorClauses = spec.clauses.filter(
     (clause) =>
       clause.area === "mechanics" &&
@@ -241,7 +244,8 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       !radialClauses.includes(clause) &&
       !statusClauses.includes(clause) &&
       !punchThroughClauses.includes(clause) &&
-      !ricochetClauses.includes(clause),
+      !ricochetClauses.includes(clause) &&
+      !chainClauses.includes(clause),
   );
   const cliClauses = spec.clauses.filter((clause) => clause.area === "cli");
   const rulesetContract = spec.contracts.find((contract) => contract.id === "ruleset");
@@ -312,6 +316,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       capability("mechanics.resolved-status-ticks", statusClauses),
       capability("mechanics.resolved-punch-through", punchThroughClauses),
       capability("mechanics.resolved-ricochet", ricochetClauses),
+      capability("mechanics.resolved-chain", chainClauses),
       capability("cli.core", cliClauses),
     ],
   };

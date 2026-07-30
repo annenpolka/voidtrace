@@ -2,7 +2,7 @@
   "$schema": "urn:voidtrace:schema:scenario:0.2.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.2.0",
-  "id": "scenario.golden-resolved-punch-through",
+  "id": "scenario.golden-resolved-chain",
   "revision": 0,
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
@@ -30,22 +30,22 @@
   },
   "targets": [
     {
-      "id": "actor.target-a",
+      "id": "actor.target-b",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 150,
+        "resolvedHealth": 60,
         "resolvedShield": 0,
-        "resolvedArmor": 300,
+        "resolvedArmor": 0,
         "resolvedOverguard": 0
       }
     },
     {
-      "id": "actor.target-b",
+      "id": "actor.target-a",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 80,
+        "resolvedHealth": 120,
         "resolvedShield": 0,
-        "resolvedArmor": 0,
+        "resolvedArmor": 300,
         "resolvedOverguard": 0
       }
     },
@@ -53,7 +53,7 @@
       "id": "actor.target-c",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 60,
+        "resolvedHealth": 90,
         "resolvedShield": 0,
         "resolvedArmor": 900,
         "resolvedOverguard": 0
@@ -63,23 +63,23 @@
   "targetGraph": {
     "relations": [
       {
-        "id": "target-relation.punch-through-1",
+        "id": "target-relation.chain-1",
         "kind": "target-relation.ordered-path",
-        "pathKind": "punch-through",
-        "targetIds": ["actor.target-a", "actor.target-b", "actor.target-c"]
+        "pathKind": "chain",
+        "targetIds": ["actor.target-a", "actor.target-c", "actor.target-b"]
       }
     ]
   },
   "initialState": {},
   "actionPlan": [
     {
-      "id": "action.resolved-punch-through-1",
-      "kind": "action.resolved-punch-through-direct-hits",
+      "id": "action.resolved-chain-1",
+      "kind": "action.resolved-chain-direct-hits",
       "parameters": {
-        "targetPathRelationId": "target-relation.punch-through-1",
+        "targetPathRelationId": "target-relation.chain-1",
         "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
-        "criticalTier": 1
+        "criticalTier": 0
       }
     }
   ],
@@ -88,21 +88,21 @@
     "timeLimitMs": 1
   },
   "metrics": [
-    "punch-through.target-count",
-    "damage.punch-through.total",
+    "chain.target-count",
+    "damage.chain.total",
     "damage.health.total",
     "targets.health.remaining-total",
     "targets.defeated-count"
   ],
   "assumptions": [
     {
-      "id": "assumption.synthetic-resolved-punch-through",
-      "description": "Synthetic resolved punch-through order; not a verified current-game Warframe punch-through or attenuation rule."
+      "id": "assumption.synthetic-resolved-chain",
+      "description": "Synthetic resolved chain order; not a verified current-game Warframe chain or target-selection rule."
     },
     {
-      "id": "assumption.no-punch-through-attenuation",
-      "description": "Each target receives one independent Direct Hit without wall, collision, or penetration attenuation."
+      "id": "assumption.no-chain-selection",
+      "description": "Each target receives one independent Direct Hit without candidate search, branching, distance, selection, revisit, or attenuation."
     }
   ],
-  "contentHash": "sha256:1e078e596829fa3e533e0751ecaa08fe75ce8b057f362717286c7cb3b3bc553b"
+  "contentHash": "sha256:53cabab978d253619b85ed3ad8db7acf03050d1cafec7d33abbb33136193473e"
 }

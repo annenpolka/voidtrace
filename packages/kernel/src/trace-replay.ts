@@ -722,7 +722,8 @@ async function replayTrace(
 
     switch (operation.kind) {
       case "event.expand-resolved-punch-through-targets":
-      case "event.expand-resolved-ricochet-targets": {
+      case "event.expand-resolved-ricochet-targets":
+      case "event.expand-resolved-chain-targets": {
         const targetCount = operation.parameters.targetCount;
         const maximumTargets = operation.parameters.maximumTargets;
         if (
@@ -1376,7 +1377,8 @@ async function replayTrace(
         break;
       }
       case "damage-vector.aggregate-resolved-punch-through-targets":
-      case "damage-vector.aggregate-resolved-ricochet-targets": {
+      case "damage-vector.aggregate-resolved-ricochet-targets":
+      case "damage-vector.aggregate-resolved-chain-targets": {
         if (
           anchoredInitialHealthByTarget === undefined ||
           expectedPathTargetCount === undefined ||

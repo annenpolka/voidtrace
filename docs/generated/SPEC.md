@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:f12d85d6fae9823a42e76089a4b7cc5896237f946e0cd0ce8ee87c6d533eeaf3`
+- Source fingerprint: `sha256:3fb3598dc7ed9e720577e244a0d77d7ce6295a12287dd4c0fc9fab58f3bf05e3`
 - Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -18,6 +18,7 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 
 | ID | Area | Pattern | Guarantee | Maturity | Normative statement |
 | --- | --- | --- | --- | --- | --- |
+| `CHN-001` | `mechanics` | `resolved_chain_path` | `property-tested` | `active` | action.resolved-chain-direct-hitsは一つのpathKind chain ordered-path relationをtargetPathRelationIdで参照し、その1以上64以下のtargetIdsを順番どおり一度ずつ固定Critical Direct Hitとして評価する。各targetは自身のresolved ArmorとHealthを読み、target別World Stateへcommitする。候補探索、branch、距離、target選択、減衰、再訪、暗黙rollは生成しない |
 | `CLI-001` | `cli` | `cli_command_output_selection` | `example-tested` | `active` | helpメタデータ要求を除き、describe実行成功時はCapability Manifest、run実行成功時はResult、trace実行成功時はTraceだけをstdoutへ出力する |
 | `CLI-002` | `cli` | `cli_deterministic_json` | `example-tested` | `active` | 同一のコマンド引数とArtifact入力は同一のcanonical単一行JSONを生成し、pretty表示はJSON値を変更しない |
 | `CLI-003` | `cli` | `cli_stream_exit_discipline` | `example-tested` | `active` | describe、run、traceのdomain実行成功はexit 0と選択されたJSONだけをstdoutへ出し、domain実行失敗はstdoutを空にしてProblemだけをstderrへ出し、input=2、unsupported=3、limit=4、internal=5へ分類する。helpメタデータ要求はexit 0の人間可読stdoutとする |
@@ -43,6 +44,7 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `GOL-008` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-status-ticks.scenario.jsonは解決済みHealth Damage 40の3 tickを1000ms間隔でHealth 100へ順次commitし、時刻1000、2000、3000と最終Health 0を独立literal expected vectorとしてResultおよびTraceと照合する |
 | `GOL-009` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-punch-through.scenario.jsonは明示されたA→B→Cのpunch-through ordered pathを固定Critical tier 1で評価し、target別ArmorによりHealthを150→50、80→0、60→10へ独立commitして、Damage合計350と残Health合計60をliteral expected vectorとしてResultおよびTraceと照合する |
 | `GOL-010` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-ricochet.scenario.jsonはtargets配列と異なるC→A→Bのricochet ordered pathを固定Critical tier 2で評価し、target別ArmorによりHealthを100→25、250→100、80→0へ独立commitして、Damage合計525と残Health合計125をliteral expected vectorとしてResultおよびTraceと照合する |
+| `GOL-011` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-chain.scenario.jsonはtargets配列B→A→Cと異なるA→C→Bのchain ordered pathを固定Critical tier 0で評価し、target別ArmorによりHealthを120→70、90→65、60→0へ独立commitして、Damage合計175と残Health合計135をliteral expected vectorとしてResultおよびTraceと照合する |
 | `MSH-001` | `mechanics` | `fixed_multishot_expansion` | `property-tested` | `active` | action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない |
 | `PLT-001` | `mechanics` | `fixed_pellet_expansion` | `property-tested` | `active` | action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない |
 | `PTH-001` | `mechanics` | `resolved_punch_through_path` | `property-tested` | `active` | action.resolved-punch-through-direct-hitsは一つのpathKind punch-through ordered-path relationをtargetPathRelationIdで参照し、その1以上64以下のtargetIdsを順番どおり一度ずつ固定Critical Direct Hitとして評価する。各targetは自身のresolved ArmorとHealthを読み、target別World Stateへcommitする。壁厚、衝突、貫通減衰、target選択、暗黙rollは生成しない |
@@ -51,7 +53,7 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `RNG-001` | `kernel` | `same_logical_random` | `property-tested` | `active` | 同一seed、論理Event ID、roll purposeは同一乱数を返す |
 | `SCP-001` | `scope` | `scope_boundary` | `manual` | `active` | 物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない |
 | `SCP-002` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | 非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す |
-| `SCP-003` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relationsまたはresolved punch-through／ricochet Direct Hit列が参照する一つのordered pathだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する |
+| `SCP-003` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relationsまたはresolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered pathだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する |
 | `STS-001` | `mechanics` | `resolved_status_ticks` | `property-tested` | `active` | action.resolved-status-ticksはstatus.synthetic-resolved-dot、有限な非負resolvedHealthDamagePerTick、1以上のsafe-integer tickCount、正のsafe-integer tickIntervalMsを受理する。最大64 tickをintervalの倍数時刻で単一targetのHealthへ順次commitし、最後のtickはScenario timeLimitMs以下でなければならない。Status chance、type抽選、付与元Direct／Radial、Critical、Armor、stack、refresh、snapshot式、暗黙rollは生成しない |
 | `TRC-001` | `kernel` | `trace_reconstructs_result` | `property-tested` | `active` | Scenarioの初期HealthをアンカーとしてTraceの順序付きDamage Vector、Health commit、expected branch集約を再生すると、Resultの最終Damage Vectorとdeterministicまたはexpectedの残Healthに一致する |
 | `TRC-002` | `kernel` | `rejected_rule_has_reason` | `property-tested` | `planned` | 不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する |

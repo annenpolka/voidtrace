@@ -51,6 +51,9 @@ const punchThroughScenarioPath = fileURLToPath(
 const ricochetScenarioPath = fileURLToPath(
   new URL("../../../data/fixtures/golden/resolved-ricochet.scenario.json", import.meta.url),
 );
+const chainScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/resolved-chain.scenario.json", import.meta.url),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -338,6 +341,31 @@ describe("createNodeApplication", () => {
     });
     expect(outcome.trace.decisions.at(-1)).toMatchObject({
       ruleId: "rule.ricochet.aggregate-resolved-targets",
+    });
+  });
+
+  it("evaluates resolved chain target paths through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: chainScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toEqual({
+      "chain.target-count": 3,
+      "damage.chain.total": 175,
+      "damage.health.total": 175,
+      "targets.health.remaining-total": 135,
+      "targets.defeated-count": 1,
+    });
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      ruleId: "rule.chain.expand-resolved-targets",
+    });
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      ruleId: "rule.chain.aggregate-resolved-targets",
     });
   });
 

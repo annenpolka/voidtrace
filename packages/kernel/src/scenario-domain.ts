@@ -40,6 +40,8 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "damage.punch-through.total",
   "ricochet.target-count",
   "damage.ricochet.total",
+  "chain.target-count",
+  "damage.chain.total",
   "targets.health.remaining-total",
   "targets.defeated-count",
 ] as const);
@@ -95,7 +97,8 @@ export type ScenarioDomain = {
       | "radial-hit"
       | "resolved-status-ticks"
       | "resolved-punch-through"
-      | "resolved-ricochet";
+      | "resolved-ricochet"
+      | "resolved-chain";
     readonly targetId: string;
     readonly targetPathRelationId: string | null;
     readonly pathTargetIds: readonly string[];
@@ -236,6 +239,16 @@ const RICOCHET_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
 ]);
 const RICOCHET_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   ...RICOCHET_ONLY_METRIC_IDS,
+  "damage.health.total",
+]);
+const CHAIN_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "chain.target-count",
+  "damage.chain.total",
+  "targets.health.remaining-total",
+  "targets.defeated-count",
+]);
+const CHAIN_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  ...CHAIN_ONLY_METRIC_IDS,
   "damage.health.total",
 ]);
 const DISTRIBUTION_CRITICAL_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
@@ -380,31 +393,43 @@ function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseR
   if (
     relation === undefined ||
     relation.kind !== "target-relation.ordered-path" ||
-    (relation.pathKind !== "punch-through" && relation.pathKind !== "ricochet")
+    (relation.pathKind !== "punch-through" &&
+      relation.pathKind !== "ricochet" &&
+      relation.pathKind !== "chain")
   ) {
     return failure(
       "unsupported-target-graph",
       "/targetGraph/relations/0",
-      "Only resolved punch-through or ricochet ordered-path relations are executable",
+      "Only resolved punch-through, ricochet, or chain ordered-path relations are executable",
       "mechanic.target-graph",
     );
   }
   const pathKind = relation.pathKind;
-  const pathLabel = pathKind === "punch-through" ? "punch-through" : "ricochet";
+  const pathLabel = pathKind;
   const mechanicId =
     pathKind === "punch-through"
       ? "mechanic.punch-through.resolved-path"
-      : "mechanic.ricochet.resolved-path";
+      : pathKind === "ricochet"
+        ? "mechanic.ricochet.resolved-path"
+        : "mechanic.chain.resolved-path";
   const expectedActionKind =
     pathKind === "punch-through"
       ? "action.resolved-punch-through-direct-hits"
-      : "action.resolved-ricochet-direct-hits";
+      : pathKind === "ricochet"
+        ? "action.resolved-ricochet-direct-hits"
+        : "action.resolved-chain-direct-hits";
   const domainActionKind =
-    pathKind === "punch-through" ? "resolved-punch-through" : "resolved-ricochet";
+    pathKind === "punch-through"
+      ? "resolved-punch-through"
+      : pathKind === "ricochet"
+        ? "resolved-ricochet"
+        : "resolved-chain";
   const availableMetricIds =
     pathKind === "punch-through"
       ? PUNCH_THROUGH_AVAILABLE_METRIC_IDS
-      : RICOCHET_AVAILABLE_METRIC_IDS;
+      : pathKind === "ricochet"
+        ? RICOCHET_AVAILABLE_METRIC_IDS
+        : CHAIN_AVAILABLE_METRIC_IDS;
   if (relation.targetIds.length > 64) {
     return failure(
       "unsupported-target-graph",

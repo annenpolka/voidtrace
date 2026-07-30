@@ -4,12 +4,12 @@
 
 ## Current state
 
-- Total clauses: 37
-- Active clauses: 36
+- Total clauses: 39
+- Active clauses: 38
 - Planned clauses: 1
 - Retired clauses: 0
 
-36 Clauses are active. Machine-verified Clauses have independent oracles exercised by `just check`; manual Clauses remain review obligations.
+38 Clauses are active. Machine-verified Clauses have independent oracles exercised by `just check`; manual Clauses remain review obligations.
 A planned property-test is a declared obligation, not a passing runtime guarantee.
 
 The 8 generated Contract schemas are independently compiled and
@@ -17,8 +17,8 @@ validated by `@voidtrace/contracts`; this does not activate any Kernel behavior 
 
 ## Intended verification methods
 
-- Property-tested: 19
-- Example-tested: 17
+- Property-tested: 20
+- Example-tested: 18
 - Manual: 1
 
 ## Clauses by area
@@ -27,5 +27,5 @@ validated by `@voidtrace/contracts`; this does not activate any Kernel behavior 
 | --- | --- |
 | `cli` | 6 |
 | `kernel` | 5 |
-| `mechanics` | 23 |
+| `mechanics` | 25 |
 | `scope` | 3 |

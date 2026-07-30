@@ -60,6 +60,11 @@ class ExpandResolvedRicochetTargets extends RuleOperation {
   maximumTargets: UInt(isPositive)
 }
 
+class ExpandResolvedChainTargets extends RuleOperation {
+  kind = "event.expand-resolved-chain-targets"
+  maximumTargets: UInt(isPositive)
+}
+
 class CopyResolvedStatusTickDamage extends RuleOperation {
   kind = "damage-vector.copy-resolved-status-tick"
 }
@@ -74,6 +79,10 @@ class AggregateResolvedPunchThroughTargets extends RuleOperation {
 
 class AggregateResolvedRicochetTargets extends RuleOperation {
   kind = "damage-vector.aggregate-resolved-ricochet-targets"
+}
+
+class AggregateResolvedChainTargets extends RuleOperation {
+  kind = "damage-vector.aggregate-resolved-chain-targets"
 }
 
 class CommitHealthDamage extends RuleOperation {

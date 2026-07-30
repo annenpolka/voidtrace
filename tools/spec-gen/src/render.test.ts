@@ -207,6 +207,12 @@ describe("renderGeneratedFiles", () => {
           area: "mechanics",
           maturity: "active",
         },
+        {
+          ...clause,
+          id: "CHN-001",
+          area: "mechanics",
+          maturity: "active",
+        },
       ],
     });
     const capabilities = generated.find(
@@ -252,6 +258,11 @@ describe("renderGeneratedFiles", () => {
           id: "mechanics.resolved-ricochet",
           status: "supported",
           activeClauseRefs: ["RCH-001"],
+        }),
+        expect.objectContaining({
+          id: "mechanics.resolved-chain",
+          status: "supported",
+          activeClauseRefs: ["CHN-001"],
         }),
       ]),
     );

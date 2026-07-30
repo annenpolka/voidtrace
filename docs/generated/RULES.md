@@ -3,7 +3,7 @@
 # Runtime rules
 
 - Ruleset: `ruleset.synthetic-core`
-- Version: `0.10.0`
+- Version: `0.11.0`
 - Revision: `1`
 - Game build: `synthetic-fixture-0`
 - Generated IR: `packages/spec-artifacts/src/rulesets/core.generated.json`
@@ -17,6 +17,7 @@
 | `rule.status.schedule-resolved-ticks` | `attack.emit` | `event.expand-resolved-status-ticks` | `experimental` | Expand one explicit resolved Status action into a bounded count of ordered logical-time tick events. |
 | `rule.punch-through.expand-resolved-targets` | `attack.emit` | `event.expand-resolved-punch-through-targets` | `experimental` | Expand one explicit resolved punch-through path into a bounded ordered sequence of target Direct Hit events. |
 | `rule.ricochet.expand-resolved-targets` | `attack.emit` | `event.expand-resolved-ricochet-targets` | `experimental` | Expand one explicit resolved ricochet path into a bounded ordered sequence of target Direct Hit events. |
+| `rule.chain.expand-resolved-targets` | `attack.emit` | `event.expand-resolved-chain-targets` | `experimental` | Expand one explicit resolved chain path into a bounded ordered sequence of target Direct Hit events. |
 | `rule.critical.resolve-expected-branches` | `critical.expected` | `critical-tier.resolve-expected-branches` | `experimental` | For non-negative Critical chance c, resolve the same safe adjacent-tier probability distribution as explicit-roll resolution without selecting a realized tier. |
 | `rule.damage.direct-hit` | `damage.construct` | `damage-vector.copy` | `experimental` | For a resolved Direct Hit without modifiers, copy the Catalog attack mode base Damage Vector unchanged into event damage. |
 | `rule.radial.construct-hit` | `damage.construct` | `damage-vector.copy` | `experimental` | Copy the Catalog attack mode base Damage Vector into one resolved Radial Hit. |
@@ -36,3 +37,4 @@
 | `rule.status.aggregate-resolved-ticks` | `result.aggregate` | `damage-vector.aggregate-sequential-status-ticks` | `experimental` | Aggregate every terminal Status tick Damage Vector and preserve the final sequential remaining Health. |
 | `rule.punch-through.aggregate-resolved-targets` | `result.aggregate` | `damage-vector.aggregate-resolved-punch-through-targets` | `experimental` | Aggregate terminal Damage and target-specific Health from every target visited by one resolved punch-through path. |
 | `rule.ricochet.aggregate-resolved-targets` | `result.aggregate` | `damage-vector.aggregate-resolved-ricochet-targets` | `experimental` | Aggregate terminal Damage and target-specific Health from every target visited by one resolved ricochet path. |
+| `rule.chain.aggregate-resolved-targets` | `result.aggregate` | `damage-vector.aggregate-resolved-chain-targets` | `experimental` | Aggregate terminal Damage and target-specific Health from every target visited by one resolved chain path. |

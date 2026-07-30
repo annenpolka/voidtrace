@@ -9,6 +9,8 @@ import {
   executeResolvedPunchThroughExpansionRule,
   executeResolvedRicochetAggregateRule,
   executeResolvedRicochetExpansionRule,
+  executeResolvedChainAggregateRule,
+  executeResolvedChainExpansionRule,
   executeResolvedStatusTickDamageRule,
   executeResolvedStatusTickScheduleRule,
   executeSequentialHitAggregateRule,
@@ -115,6 +117,8 @@ describe("generated core Rule execution", async () => {
   const punchThroughAggregate = loaded.resolveRule("rule.punch-through.aggregate-resolved-targets");
   const ricochetExpansion = loaded.resolveRule("rule.ricochet.expand-resolved-targets");
   const ricochetAggregate = loaded.resolveRule("rule.ricochet.aggregate-resolved-targets");
+  const chainExpansion = loaded.resolveRule("rule.chain.expand-resolved-targets");
+  const chainAggregate = loaded.resolveRule("rule.chain.aggregate-resolved-targets");
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -397,6 +401,42 @@ describe("generated core Rule execution", async () => {
       damage: { "damage.synthetic": 125 },
       damageTotal: 125,
       health: 25,
+    });
+  });
+
+  it("keeps resolved chain expansion and aggregation as distinct operations", () => {
+    const expansion = executeResolvedChainExpansionRule(chainExpansion, {
+      targetCount: 2,
+      initialHealthTotal: 150,
+      zeroDamage: { "damage.synthetic": 0 },
+    });
+    expect(expansion.operationKind).toBe("event.expand-resolved-chain-targets");
+    const aggregate = executeResolvedChainAggregateRule(chainAggregate, {
+      initialHealthTotal: 150,
+      targets: [
+        {
+          id: "path-target.0",
+          targetId: "actor.target-a",
+          index: 0,
+          damage: { "damage.synthetic": 50 },
+          healthBefore: 100,
+          healthAfter: 50,
+        },
+        {
+          id: "path-target.1",
+          targetId: "actor.target-b",
+          index: 1,
+          damage: { "damage.synthetic": 50 },
+          healthBefore: 50,
+          healthAfter: 0,
+        },
+      ],
+    });
+    expect(aggregate.operationKind).toBe("damage-vector.aggregate-resolved-chain-targets");
+    expect(aggregate.after).toEqual({
+      damage: { "damage.synthetic": 100 },
+      damageTotal: 100,
+      health: 50,
     });
   });
 

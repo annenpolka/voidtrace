@@ -78,6 +78,13 @@ resolvedRicochetVisitsTargetsInPathOrder: base.ResolvedRicochetPath = new {
   maturity = "active"
 }
 
+resolvedChainVisitsTargetsInPathOrder: base.ResolvedChainPath = new {
+  id = "CHN-001"
+  desc =
+    "action.resolved-chain-direct-hitsは一つのpathKind chain ordered-path relationをtargetPathRelationIdで参照し、その1以上64以下のtargetIdsを順番どおり一度ずつ固定Critical Direct Hitとして評価する。各targetは自身のresolved ArmorとHealthを読み、target別World Stateへcommitする。候補探索、branch、距離、target選択、減衰、再訪、暗黙rollは生成しない"
+  maturity = "active"
+}
+
 armorDoesNotIncreaseDamage: base.ArmorMonotonic = new {
   id = "DEF-001"
   desc = "標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない"

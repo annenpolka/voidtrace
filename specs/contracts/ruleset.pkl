@@ -4,8 +4,8 @@ module voidtrace.contracts.ruleset
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.10.0"
-local contractVersion = "0.10.0"
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.11.0"
+local contractVersion = "0.11.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -140,6 +140,28 @@ function expandResolvedRicochetTargets(): model.ObjectNode = new model.ObjectNod
     new model.Field {
       name = "maximumTargets"
       description = "Positive safe execution bound for one resolved ricochet path."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 1
+      }
+    }
+  }
+}
+
+function expandResolvedChainTargets(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Expand one resolved chain path into an explicit bounded count of ordered target events."
+      required = true
+      schema = new model.LiteralNode {
+        value = "event.expand-resolved-chain-targets"
+      }
+    }
+    new model.Field {
+      name = "maximumTargets"
+      description = "Positive safe execution bound for one resolved chain path."
       required = true
       schema = new model.IntegerNode {
         minimum = 1
@@ -334,6 +356,20 @@ function aggregateResolvedRicochetTargets(): model.ObjectNode = new model.Object
   }
 }
 
+function aggregateResolvedChainTargets(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Aggregate terminal Damage and target-specific Health for a resolved chain path."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.aggregate-resolved-chain-targets"
+      }
+    }
+  }
+}
+
 function rule(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
@@ -396,6 +432,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           expandResolvedStatusTicks()
           expandResolvedPunchThroughTargets()
           expandResolvedRicochetTargets()
+          expandResolvedChainTargets()
           copyDamageVector()
           copyResolvedStatusTickDamage()
           resolveCriticalTierRoll()
@@ -410,6 +447,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           aggregateSequentialStatusTicks()
           aggregateResolvedPunchThroughTargets()
           aggregateResolvedRicochetTargets()
+          aggregateResolvedChainTargets()
         }
       }
     }

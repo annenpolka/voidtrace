@@ -17,6 +17,6 @@ unsupportedIsExplicit: base.UnsupportedMechanicRejected = new {
 targetGraphIsResolvedAndExplicit: base.UnsupportedMechanicRejected = new {
   id = "SCP-003"
   desc =
-    "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relationsまたはresolved punch-through／ricochet Direct Hit列が参照する一つのordered pathだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する"
+    "Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoSまたはordered pathだけを有限構造として保持する。Runtimeは空relationsまたはresolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered pathだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する"
   maturity = "active"
 }

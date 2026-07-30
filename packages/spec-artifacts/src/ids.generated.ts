@@ -1,6 +1,7 @@
 // Generated from specs/main.pkl. Do not edit.
 
 export const CLAUSE_IDS = [
+  "CHN-001",
   "CLI-001",
   "CLI-002",
   "CLI-003",
@@ -26,6 +27,7 @@ export const CLAUSE_IDS = [
   "GOL-008",
   "GOL-009",
   "GOL-010",
+  "GOL-011",
   "MSH-001",
   "PLT-001",
   "PTH-001",

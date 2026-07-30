@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for resolved chain target order.
+module voidtrace.golden.resolvedChain
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-011"
+  desc =
+    "data/fixtures/golden/resolved-chain.scenario.jsonはtargets配列B→A→Cと異なるA→C→Bのchain ordered pathを固定Critical tier 0で評価し、target別ArmorによりHealthを120→70、90→65、60→0へ独立commitして、Damage合計175と残Health合計135をliteral expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

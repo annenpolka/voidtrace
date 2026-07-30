@@ -123,6 +123,12 @@ class ResolvedRicochetPath extends Clause {
   area = "mechanics"
 }
 
+class ResolvedChainPath extends Clause {
+  pattern = "resolved_chain_path"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
 class ArmorMonotonic extends Clause {
   pattern = "armor_monotonic"
   guarantee = "property-tested"

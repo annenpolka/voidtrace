@@ -1,0 +1,47 @@
+{
+  "id": "golden.resolved-chain",
+  "scenarioId": "scenario.golden-resolved-chain",
+  "metrics": {
+    "chain.target-count": 3,
+    "damage.chain.total": 175,
+    "damage.health.total": 175,
+    "targets.health.remaining-total": 135,
+    "targets.defeated-count": 1
+  },
+  "damageBySource": {
+    "action.resolved-chain-1": 175
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 175
+  },
+  "targetStates": {
+    "actor.target-a": {
+      "health": 70
+    },
+    "actor.target-b": {
+      "health": 0
+    },
+    "actor.target-c": {
+      "health": 65
+    }
+  },
+  "appliedRuleIds": [
+    "rule.chain.expand-resolved-targets",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.chain.aggregate-resolved-targets"
+  ],
+  "rejectedRules": [],
+  "targetOrder": ["actor.target-a", "actor.target-c", "actor.target-b"],
+  "tolerance": 0.000001
+}

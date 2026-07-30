@@ -15,6 +15,9 @@ import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-
 import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
   type: "json",
 };
+import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.scenario.json" with {
+  type: "json",
+};
 import { parseScenarioDomain } from "./scenario-domain.ts";
 
 type MutableScenarioFixture = {
@@ -107,6 +110,15 @@ async function changedRicochetScenario(
   change: (scenario: MutableScenarioFixture) => void,
 ): Promise<unknown> {
   const mutable = structuredClone(ricochetScenarioFixture) as MutableScenarioFixture;
+  change(mutable);
+  const { contentHash: _contentHash, ...withoutHash } = mutable;
+  return attachArtifactContentHash(withoutHash);
+}
+
+async function changedChainScenario(
+  change: (scenario: MutableScenarioFixture) => void,
+): Promise<unknown> {
+  const mutable = structuredClone(chainScenarioFixture) as MutableScenarioFixture;
   change(mutable);
   const { contentHash: _contentHash, ...withoutHash } = mutable;
   return attachArtifactContentHash(withoutHash);
@@ -309,6 +321,40 @@ describe("parseScenarioDomain", () => {
       code: "invalid-target-reference",
       path: "/actionPlan/0/parameters/targetPathRelationId",
       mechanicId: "mechanic.ricochet.resolved-path",
+    });
+  });
+
+  it("accepts one resolved chain path in relation order rather than targets array order", async () => {
+    const result = await parseScenarioDomain(structuredClone(chainScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          kind: "resolved-chain",
+          targetPathRelationId: "target-relation.chain-1",
+          pathTargetIds: ["actor.target-a", "actor.target-c", "actor.target-b"],
+          hitCount: 3,
+          criticalTier: 0,
+        },
+        targets: [
+          { id: "actor.target-a", resolvedArmor: 300, resolvedHealth: 120 },
+          { id: "actor.target-c", resolvedArmor: 900, resolvedHealth: 90 },
+          { id: "actor.target-b", resolvedArmor: 0, resolvedHealth: 60 },
+        ],
+      },
+    });
+  });
+
+  it("rejects a chain action whose relation reference does not match", async () => {
+    const scenario = await changedChainScenario((mutable) => {
+      firstAction(mutable).parameters.targetPathRelationId = "target-relation.missing";
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-target-reference",
+      path: "/actionPlan/0/parameters/targetPathRelationId",
+      mechanicId: "mechanic.chain.resolved-path",
     });
   });
 

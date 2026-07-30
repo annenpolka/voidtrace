@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.10.0",
+    "schemaVersion": "0.11.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:35bd681169c978d775748c69aa6db446214e76fcc551efcb22b5a89a7c4da2f1",
+    "contentHash": "sha256:58ee179184026675d9f66a8843e2c8d5ec5ceeb7e7661102a87f241b6d677669",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -82,5 +82,5 @@
       "description": "The fixture supplies falloff 0.75 directly and does not evaluate distance, geometry, a Direct sibling, or a Projectile parent."
     }
   ],
-  "contentHash": "sha256:764e68b12f3a86edccb753720d682c58c801851424d5a19b530295dca174738f"
+  "contentHash": "sha256:3251f02686b4a31e72b3f89fa87eb16ba99f4ddcc7f67cb227e70cd6fcfec470"
 }

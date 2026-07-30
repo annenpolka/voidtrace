@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, resolved synthetic Status ticks, resolved ordered punch-through and ricochet Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, geometry-derived or attenuated target paths, distance-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, distance-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -19,8 +19,8 @@ present its values as verified current Warframe mechanics.
 ## Supported requests
 
 The interface supports one action from the finite set below. Every slice uses exactly one target
-except the checked-in resolved punch-through Scenario, whose one ordered path contains three
-explicit targets, and the checked-in resolved ricochet Scenario:
+except the checked-in resolved punch-through, ricochet, and chain Scenarios, whose one ordered path
+contains three explicit targets:
 
 - one hitscan Direct Hit using the bundled synthetic Catalog and generated core Ruleset;
 - deterministic mode with any non-negative safe-integer fixed Critical tier through the helper;
@@ -41,6 +41,9 @@ explicit targets, and the checked-in resolved ricochet Scenario:
 - the repository-local resolved ricochet Scenario through the formal CLI, where one explicit
   ordered path defines C→A→B independently from targets array order and each target receives the
   same fixed-tier Direct Hit through its resolved Armor and Health;
+- the repository-local resolved chain Scenario through the formal CLI, where one explicit ordered
+  path defines A→C→B independently from targets array order and each target receives the same
+  fixed-tier Direct Hit through its resolved Armor and Health;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
@@ -49,8 +52,8 @@ explicit targets, and the checked-in resolved ricochet Scenario:
 
 The helper does not synthesize or vary Critical chance or rolls. The formal CLI can evaluate the
 repository-local explicit-roll, expected, resolved fixed-count Multishot, resolved
-punch-through, and resolved ricochet Scenarios. The helper does not accept a Multishot count,
-pellet count, target path, or per-target override. Generated random rolls, custom Critical
+punch-through, resolved ricochet, and resolved chain Scenarios. The helper does not accept a
+Multishot count, pellet count, target path, or per-target override. Generated random rolls, custom Critical
 chance, probabilistic or custom-count Multishot, custom-count or probabilistic pellets,
 Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, Multishot or pellet
 expected values, hit distribution, Spread, unsafe or unrepresentable tiers, Monte Carlo
@@ -65,11 +68,12 @@ mechanic and stop. Do not approximate it as zero effect and do not silently adap
 supported slice.
 The Scenario Contract contains an explicit resolved `targetGraph`. The current evaluator accepts
 either `relations: []` or exactly one checked-in-style `target-relation.ordered-path` with
-`pathKind: punch-through` or `pathKind: ricochet`, referenced by its matching resolved action.
-Impact-distance, chain, more than one relation, geometry or collision derivation, wall thickness,
-reflection angles, target selection, path derivation, attenuation, per-target Critical
-variation, and rolls remain unsupported. Do not silently reduce another Target Graph to a
-supported path or infer missing effects.
+`pathKind: punch-through`, `pathKind: ricochet`, or `pathKind: chain`, referenced by its matching
+resolved action. Impact-distance, more than one relation, geometry or collision derivation, wall
+thickness, reflection angles, target selection, chain candidate search, branching, distance,
+revisit behavior, path derivation, attenuation, per-target Critical variation, and rolls remain
+unsupported. Do not silently reduce another Target Graph to a supported path or infer missing
+effects.
 
 ## Commands
 
@@ -115,6 +119,10 @@ pnpm exec vt trace data/fixtures/golden/resolved-punch-through.scenario.json \
 pnpm exec vt run data/fixtures/golden/resolved-ricochet.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-ricochet.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-chain.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-chain.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -222,6 +230,14 @@ for another agent or script. `--help` lists the finite adapter options.
   `targets.defeated-count`, and every target Health. The Golden relation is C→A→B even though the
   targets array is A→B→C; preserve `path.index` and `target.id` from Trace. Do not infer a
   reflection angle, trajectory, collision, automatic target choice, attenuation, chain, or roll.
+- Resolved chain starts with `rule.chain.expand-resolved-targets`, applies the same four
+  target-local Rules in the relation-defined order, and ends with
+  `rule.chain.aggregate-resolved-targets`. Report `chain.target-count`,
+  `damage.chain.total`, `damage.health.total`, `targets.health.remaining-total`,
+  `targets.defeated-count`, and every target Health. The Golden targets array is B→A→C while the
+  relation is A→C→B; preserve the relation order, `path.index`, and `target.id` from Trace. Do not
+  infer candidate search, branching, distance, revisit behavior, automatic target choice,
+  attenuation, or a roll.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
 For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,
