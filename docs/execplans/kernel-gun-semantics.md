@@ -35,7 +35,13 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 08:09:00Z) 独立oracle、境界/propertyテスト、Runtime/CLI E2Eを追加し、Node 26/24で21ファイル280テストを通した。
 - [x] (2026-07-30 08:09:00Z) repository-local skillへRadial操作例と停止境界を追加し、empirical-prompt-tuning第2ラウンドで対応・非対応シナリオとも100% checklist達成を確認した。
 - [x] (2026-07-30 08:09:00Z) Radialマイルストーンを `1e7a3ea` としてコミットした。
-- [ ] 元計画の次の領域であるStatusについて、時間・snapshot・stackを混ぜずに検証できる最小縦切りをPklで設計する。
+- [x] (2026-07-30 08:14:00Z) 元計画の次の領域であるStatusについて、時間・snapshot・stackを混ぜずに検証できる最小縦切りを設計した。
+- [x] (2026-07-30 08:26:00Z) 解決済みsynthetic Status tickのPkl Clause、Rule IR、Scenario入力、Golden Scenarioを定義し、Ruleset `0.8.0`を生成した。
+- [x] (2026-07-30 08:26:00Z) 論理時刻へ最大64 tickをscheduleし、逐次Health commit、Result集約、Trace replayを実装した。
+- [x] (2026-07-30 08:26:00Z) 独立oracle、境界/propertyテスト、Runtime/CLI E2Eを追加し、Node 26/24で21ファイル297テストを通した。
+- [x] (2026-07-30 08:26:00Z) repository-local skillへStatus操作例と停止境界を追加し、empirical-prompt-tuning第2ラウンドで対応・非対応シナリオとも100% checklist、retry 0、fill-in 0を確認した。
+- [x] (2026-07-30 08:26:00Z) Statusマイルストーンを `5f1fa73` としてコミットした。
+- [ ] 次の複数target縦切りに向け、物理座標ではなく解決済みTarget Graph関係を表す最小Contractと停止境界を仕様化する。
 
 ## Surprises & Discoveries
 
@@ -62,6 +68,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: Radial falloffを汎用scaleとしてTrace再生するだけでは、宣言済み入力との一致を検査できない。
   Evidence: replayはoperationの `factor`、`multiplier`、decision readの `event.radial-falloff-multiplier` が一致しないTraceを構造化エラーとして拒否する。
+
+- Observation: Status tickの順序だけをTraceへ残しても、論理時刻が改ざんされるとEvent Queueの因果性を再生できない。
+  Evidence: tick metadataへ予定時刻を含め、construct／commit／aggregateの `eventTimeMs` とinterval倍数の一致をreplayで検査する。時刻だけを再hashしたTraceも回帰テストで拒否する。
+
+- Observation: repository-local skillの旧境界はStatus全体をunsupportedとしており、新しいresolved sliceも拒否した。
+  Evidence: empirical-prompt-tuning初回の対応シナリオは実行を停止した。resolved Health Damage、tick数、間隔だけを許可し、chance／type／stack等を個別に拒否する記述へ直した第2ラウンドは対応・非対応とも全項目を満たした。
 
 ## Decision Log
 
@@ -97,6 +109,26 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: Direct／Radial共有rollや親子DAG、Target Graphは別の構造マイルストーンである。単独RadialのDamage pipelineとresolved input境界を先に固定する。
   Date/Author: 2026-07-30 07:58:00Z / Codex
 
+- Decision: 最初のStatus sliceは、`status.synthetic-resolved-dot` の1 tickあたり解決済みHealth Damage、正のtick数、正の間隔を持つ単一targetの独立actionとする。
+  Rationale: Status chance、type抽選、Damage式、Armor、防御変化、stack、duration refresh、snapshot元を同時に推測せず、Event Queueの時間進行、逐次Health commit、Trace因果性だけを先に検証できる。
+  Date/Author: 2026-07-30 08:14:00Z / Codex
+
+- Decision: 最初のStatus sliceは最大64 tickとし、最後のtickがScenarioの `timeLimitMs` を超える入力、安全に表現できない時刻、expected／Monte Carloを受理しない。
+  Rationale: 部分Resultを返さず有限実行を保証し、これまで未使用だったScenarioの実行時間 horizonを初めて検証可能な境界として固定する。
+  Date/Author: 2026-07-30 08:14:00Z / Codex
+
+- Decision: 初回StatusではDirect／Radialからの付与、Critical、Status chance、forced Proc、type weighting、stack、refresh、実ゲーム固有DoT式を扱わない。
+  Rationale: 入力名を `resolvedHealthDamagePerTick` として防御後の確定値に限定し、未実装の計算をゼロ効果や暗黙formulaとして混入させない。
+  Date/Author: 2026-07-30 08:14:00Z / Codex
+
+- Decision: Status後の次の構造マイルストーンは、元計画で複数targetの中心に置かれたTarget Graphとする。
+  Rationale: 現在のScenario Contractはtargets配列を持つが、Kernelは単一targetだけへ狭めている。Radial、Punch Through、Chain、Ricochet、Pellet配分を個別の座標計算として足す前に、解決済みの対象関係をArtifactとして表す共通境界が必要である。
+  Date/Author: 2026-07-30 08:26:00Z / Codex
+
+- Decision: 最初のTarget Graph変更は関係入力のContractと明示的なunsupported境界を先に固定し、複数target Damage評価を同じ変更へ暗黙に含めない。
+  Rationale: 対象関係の表現とWorld State／Result／Traceの複数target化は別の検証課題である。Contractだけを受理して単体評価へ無視することは、unsupported mechanicをゼロ効果へ縮退するため禁止する。
+  Date/Author: 2026-07-30 08:26:00Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -106,6 +138,8 @@ Multishotマイルストーンでは、明示された1〜64の固定hit count�
 Pelletマイルストーンでは、明示された1〜64の固定pellet countを一回の射撃に属する安定した子Direct Hitへ展開し、Multishotと別のRule、capability、Trace identity、Result aggregateとして扱えるようになった。4-pellet Goldenは共通の固定Critical tierとArmorを各pelletへ適用し、Healthを `350→250→150→50→0` と逐次commitする。Multishotとの合成、命中分配、Spread、pellet別roll、pellet expected valueは非対応である。
 
 Radialマイルストーンでは、有限な `[0, 1]` の解決済みfalloff multiplierを持つ単独Radial Hitを、Directと別のevent kind、Rule ID、capability、Result metricで評価できるようになった。Goldenは `base 100 → Critical後 200 → falloff後 150 → Armor後 75 → Health 925` の5 decisionを固定する。距離式、物理配置、Direct sibling、Projectile親、Multishot／Pellet合成、複数target、Radialのroll／expected valueは非対応である。
+
+Statusマイルストーンでは、`status.synthetic-resolved-dot` の最終Health Damage、tick数、間隔を明示する単独actionを、論理時刻つきEvent Queueで評価できるようになった。Goldenは40 Damageを1000ms間隔で3回commitし、Healthを `100→60→20→0` と更新する8 decisionを固定する。64 tick超、time horizon超過、安全でない時刻は部分Artifactなしで拒否する。Status chance／type、付与元、Critical／Armor導出、stack、refresh、snapshot、防御変化、期待値、生成rollは非対応である。
 
 ## Context and Orientation
 
@@ -243,6 +277,24 @@ Radialマイルストーンの検証記録は次のとおりである。
     mechanics.resolved-radial: supported
     radial decisions: 5
     base / post-critical / post-falloff / post-armor: 100 / 200 / 150 / 75
+
+Statusマイルストーンの検証記録は次のとおりである。
+
+    Node.js 26.0.0
+    Specification is valid, 24 generated files are fresh.
+    Test Files 21 passed
+    Tests 297 passed
+
+    Node.js 24.18.0
+    Specification is valid, 24 generated files are fresh.
+    Test Files 21 passed
+    Tests 297 passed
+
+    mechanics.resolved-status-ticks: supported
+    status ticks / interval / damage per tick: 3 / 1000 / 40
+    status event times: 0 / 1000 / 1000 / 2000 / 2000 / 3000 / 3000 / 3000
+    final Health: 0
+    empirical skill evaluation: supported 100%, unsupported 100%, retry 0, fill-in 0
     final Health: 925
 
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
