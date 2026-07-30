@@ -57,7 +57,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 11:02:00Z) Ruleset `0.11.0`のchain展開／集約Rule、Golden、property、Runtime、formal CLI、installed CLI aliasを追加し、Node 26/24で39 Clauses、8 Contracts、生成24ファイル、21ファイル329テストを通した。
 - [x] (2026-07-30 11:07:00Z) repository-local skillへresolved chain操作例と停止境界を追加した。empirical-prompt-tuningはfeature commit後の第2・第3回で対応7/7・非対応6/6、不明点0を連続達成し、relation/action不一致のhold-outも暗黙修正せず拒否した。
 - [x] (2026-07-30 11:07:00Z) Resolved chainマイルストーンを `abde40d` としてコミットした。
-- [ ] 次の複数target sliceとして、resolved impact-distance／LoS relationsを消費する合成multi-target Radialを実装する。（2026-07-30 11:10:00Z開始。爆心座標・地形・LoS・実ゲームfalloffは導出せず、actionに明示した合成線形falloff境界だけを適用する）
+- [x] (2026-07-30 11:17:00Z) 次の複数target sliceとして、resolved impact-distance／LoS relationsを消費する合成multi-target Radialを実装した。爆心座標・地形・LoS・実ゲームfalloffは導出せず、actionに明示した合成線形falloff境界だけを適用する。
+- [x] (2026-07-30 11:17:00Z) Ruleset `0.12.0`のRadial target展開／集約Rule、4-target Golden、線形falloff/LoS property、Trace replay、Runtime、formal CLI、installed CLI aliasを追加し、Node 26/24で41 Clauses、8 Contracts、生成24ファイル、21ファイル339テストを通した。
+- [x] (2026-07-30 11:20:00Z) repository-local skillへresolved multi-target Radial操作例と停止境界を追加した。empirical-prompt-tuningはfeature commit後の第1・第2回で対応7/7・非対応6/6、不明点0を連続達成し、action／relationのimpact ID不一致hold-outも暗黙修正せず拒否した。
+- [x] (2026-07-30 11:20:00Z) Resolved multi-target Radialマイルストーンを `f96fdb9` としてコミットした。
 
 ## Surprises & Discoveries
 
@@ -105,6 +108,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: skillの実行説明が正しくても、開発中の未追跡fixtureを「checked-in」と呼ぶとempirical評価のcritical項目は満たせない。
   Evidence: chain第1回対応評価はrun/trace、順序、全metric、14 decision、停止境界を正しく報告したが、`git ls-files`でScenarioが未追跡だったため7項目中1項目をpartialと自己判定した。feature commit後に同じ条件を再評価する。
+
+- Observation: LoS falseや範囲外のRadial targetは子Damage eventを持たないため、従来のpath-target replayだけでは全targetの終端Healthを再構成できない。
+  Evidence: Radial aggregate operationは命中2体の子eventに加えて非命中2体のzero Damage、初期Health、終端Healthを列挙する。replayはScenarioのtarget別初期Healthをアンカーに非命中のHealth不変を検査し、4体すべての `healthByTarget` を復元する。
 
 ## Decision Log
 
@@ -219,6 +225,8 @@ Resolved punch-throughマイルストーンでは、一つの `pathKind: punch-t
 Resolved ricochetマイルストーンでは、一つの `pathKind: ricochet` ordered pathとmatching actionを、punch-throughと別Rule、operation、capability、metricで実行可能にした。Goldenはtargets配列A→B→Cに対してrelation順C→A→Bを使い、固定Critical tier 2とtarget別ArmorによりHealthを `100→25`、`250→100`、`80→0` へ更新する。ResultはDamage合計525、残Health合計125、撃破1を持つ。反射角、軌道、衝突、自動target選択、減衰、chain、rollは引き続き非対応である。
 
 Resolved chainマイルストーンでは、一つの `pathKind: chain` ordered pathとmatching actionを、punch-through／ricochetと別Rule、operation、capability、metricで実行可能にした。Goldenはtargets配列B→A→Cに対してrelation順A→C→Bを使い、固定Critical tier 0とtarget別ArmorによりHealthを `120→70`、`90→65`、`60→0` へ更新する。ResultはDamage合計175、残Health合計135、撃破1を持つ。候補探索、分岐、距離、自動target選択、減衰、再訪規則、rollは引き続き非対応である。
+
+Resolved multi-target Radialマイルストーンでは、一つの `impactId` を持つ4件のimpact-distance／LoS relationを宣言順A→C→B→Dで検査し、明示された開始2m、終了8m、最小倍率0.4の合成線形falloffを適用する。Aは距離0で倍率1、Cは距離5で倍率0.7となり、Bは範囲外、Dはresolved LoS falseとしてHealth不変である。Resultは命中2、Damage合計67.5、全target残Health合計242.5、撃破0を持つ。爆心座標、地形、LoS、距離、Catalog／現行ゲームfalloff parameter、Direct sibling、Projectile親、rollは引き続き非対応である。
 
 ## Context and Orientation
 
@@ -421,6 +429,18 @@ Resolved chainマイルストーンの検証記録は次のとおりである。
     Trace decisions: 14
     empirical skill evaluation: iterations 2/3 supported 100%, unsupported 100%, hold-out accepted, unclear points 0
 
+Resolved multi-target Radialマイルストーンの検証記録は次のとおりである。
+
+    Ruleset / Result Contract: 0.12.0 / 0.2.0
+    Clauses / Contracts / generated files: 41 / 8 / 24
+    Node.js 26.0.0: 21 files, 339 tests passed
+    Node.js 24.18.0: 21 files, 339 tests passed
+    targets array / relation order / hit order: B-D-A-C / A-C-B-D / A-C
+    target Health: A=70 / C=72.5 / B=60 / D=40
+    hit count / aggregate Damage / remaining Health / defeated: 2 / 67.5 / 242.5 / 0
+    Trace decisions: 12
+    empirical skill evaluation: iterations 1/2 supported 100%, unsupported 100%, hold-out accepted, unclear points 0
+
 公開済みremote基準線は `e4cee8b feat: add binary critical roll resolution` である。Ruleset `0.4.0` revision `1` と解析的期待値を含むローカル基準線は `2639b6a feat: generalize critical and add analytic expected values` としてコミット済みである。
 
 Ruleset `0.5.0` revision `1` と解決済み固定count Multishotを含むローカル基準線は `92019a6 feat: add fixed multishot vertical slice` としてコミット済みである。
@@ -434,6 +454,8 @@ Ruleset `0.9.0` revision `1`、Result Contract `0.2.0`、resolved punch-through 
 Ruleset `0.10.0` revision `1` とresolved ricochet target pathを含むローカル基準線は `27aaefd feat: add resolved ricochet target path` としてコミット済みである。
 
 Ruleset `0.11.0` revision `1` とresolved chain target pathを含むローカル基準線は `abde40d feat: add resolved chain target path` としてコミット済みである。
+
+Ruleset `0.12.0` revision `1` とresolved multi-target Radialを含むローカル基準線は `f96fdb9 feat: add resolved multi-target radial` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
