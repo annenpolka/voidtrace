@@ -13,6 +13,7 @@ export const KNOWN_PATTERNS = [
   "expected_critical_branches",
   "fixed_multishot_expansion",
   "fixed_pellet_expansion",
+  "resolved_radial_falloff",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -52,6 +53,7 @@ export const RULE_PHASES = [
   "damage.construct",
   "critical.roll",
   "critical.resolve",
+  "damage.radial-falloff",
   "target.mitigate",
   "damage.commit",
   "result.aggregate",
@@ -92,6 +94,9 @@ export type RuleOperation =
   | {
       kind: "damage-vector.scale-standard-armor";
       constant: number;
+    }
+  | {
+      kind: "damage-vector.scale-resolved-radial-falloff";
     }
   | {
       kind: "damage.commit-health";
@@ -148,6 +153,7 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "expected_critical_branches",
   "fixed_multishot_expansion",
   "fixed_pellet_expansion",
+  "resolved_radial_falloff",
   "armor_monotonic",
   "armor_formula_example",
   "trace_reconstructs_result",
@@ -302,6 +308,9 @@ function parseRuleOperation(value: unknown, path: string): RuleOperation {
           (candidate) => candidate > 0,
         ),
       };
+    case "damage-vector.scale-resolved-radial-falloff":
+      assertExactKeys(value, ["kind"], path);
+      return { kind };
     case "damage.commit-health":
       assertExactKeys(value, ["kind"], path);
       return { kind };

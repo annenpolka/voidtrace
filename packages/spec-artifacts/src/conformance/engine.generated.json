@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:f7c00ca852fd351db7855054c9c7a434be9abdb8f171ec5fc731e3a51d57415c",
+  "sourceFingerprint": "sha256:fc5d836677ff349da1ddc6367fbaac23fc71c1f79563583bc140a5426c820aa6",
   "activeClauses": [
     {
       "id": "CLI-001",
@@ -172,6 +172,14 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-007",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/radial-critical-armor.scenario.jsonはbase Damage 100、fixed Critical tier 1、resolved falloff 0.75、Armor 300からHealth Damage 75と残Health 925を独立literal expected vectorとしてResultおよびTraceと照合する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "MSH-001",
       "pattern": "fixed_multishot_expansion",
       "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
@@ -183,6 +191,14 @@
       "id": "PLT-001",
       "pattern": "fixed_pellet_expansion",
       "desc": "action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "RAD-001",
+      "pattern": "resolved_radial_falloff",
+      "desc": "action.radial-hitは明示された有限な0以上1以下のresolvedFalloffMultiplierと固定Critical tierを受理する。Radial Damage VectorはCritical解決後かつArmor適用前にこの倍率でscaleされる。距離式、物理配置、Direct sibling、Projectile親、Multishot、Pellet、複数target、暗黙rollは生成しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"

@@ -35,7 +35,7 @@ import {
 import { replayTraceState, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.6.0";
+export const KERNEL_ENGINE_VERSION = "0.7.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -89,6 +89,13 @@ type ScalarRecord = Readonly<Record<string, string | number | boolean | null>>;
 const FIXED_CRITICAL_PHASES = [
   "damage.construct",
   "critical.resolve",
+  "target.mitigate",
+  "damage.commit",
+] as const satisfies ReadonlyArray<RuleDefinition["phase"]>;
+const FIXED_RADIAL_PHASES = [
+  "damage.construct",
+  "critical.resolve",
+  "damage.radial-falloff",
   "target.mitigate",
   "damage.commit",
 ] as const satisfies ReadonlyArray<RuleDefinition["phase"]>;
@@ -392,6 +399,7 @@ function updateMetricValues(
   metricValues: Record<string, number>,
   execution: RuleExecution,
   criticalTier: number | null,
+  eventKind = "damage.direct",
 ): void {
   if (execution.outcome !== "applied") {
     return;
@@ -403,7 +411,9 @@ function updateMetricValues(
     case "damage-vector.aggregate-sequential-pellets":
       return;
     case "damage-vector.copy":
-      metricValues["damage.direct-hit.total"] = execution.after.damageTotal;
+      metricValues[
+        eventKind === "damage.radial" ? "damage.radial.base.total" : "damage.direct-hit.total"
+      ] = execution.after.damageTotal;
       return;
     case "critical-tier.resolve-tier-roll": {
       if (execution.resolvedCriticalTier === undefined) {
@@ -483,6 +493,10 @@ function updateMetricValues(
     case "damage-vector.scale-standard-armor":
       metricValues["armor.remaining-multiplier"] = execution.factor;
       return;
+    case "damage-vector.scale-resolved-radial-falloff":
+      metricValues["radial.falloff.multiplier"] = execution.factor;
+      metricValues["damage.radial.total"] = execution.after.damageTotal;
+      return;
     case "damage.commit-health":
       metricValues["damage.health.total"] = execution.before.damageTotal;
       metricValues["target.health.remaining"] = execution.after.health;
@@ -515,8 +529,12 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "event.expand-fixed-pellets":
     case "damage-vector.aggregate-sequential-pellets":
       return "mechanic.pellet.fixed-count";
+    case "damage-vector.scale-resolved-radial-falloff":
+      return "mechanic.damage.radial-falloff";
     case "damage-vector.copy":
-      return "mechanic.damage.direct-hit";
+      return rule.eventKind === "damage.radial"
+        ? "mechanic.damage.radial"
+        : "mechanic.damage.direct-hit";
     case "critical-tier.resolve-tier-roll":
       return "mechanic.critical.probability";
     case "critical-tier.resolve-expected-branches":
@@ -936,6 +954,97 @@ function evaluateFixedHitGroupRuntime(
   });
 }
 
+function evaluateFixedRadialRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (
+    domain.action.kind !== "radial-hit" ||
+    domain.action.criticalResolution !== "fixed" ||
+    domain.action.criticalTier === null
+  ) {
+    throw new TypeError("Non-fixed Radial input reached fixed Radial evaluation");
+  }
+
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  let damage = zeroVector(references.attackMode.baseDamage);
+  let world = createWorldState([
+    {
+      id: domain.target.id,
+      values: Object.freeze({ health: domain.target.resolvedHealth }),
+    },
+  ]);
+  let decisionSequence = 0;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "damage.radial",
+    phases: FIXED_RADIAL_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const isFalloff = rule.operation.kind === "damage-vector.scale-resolved-radial-falloff";
+      const execution = isFalloff
+        ? ruleset.executeResolvedRadialFalloffRule(rule.id, {
+            currentDamage: damage,
+            multiplier: domain.action.resolvedRadialFalloffMultiplier,
+            health: readHealth(world, domain.target.id),
+          })
+        : ruleset.executeRule(
+            rule.id,
+            ruleContext(
+              references,
+              damage,
+              domain.action.criticalTier,
+              null,
+              domain.target.resolvedArmor,
+              readHealth(world, domain.target.id),
+            ),
+          );
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          domain.target.resolvedArmor,
+          isFalloff
+            ? {
+                readOverrides: {
+                  "event.radial-falloff-multiplier": domain.action.resolvedRadialFalloffMultiplier,
+                },
+              }
+            : {},
+        ),
+      );
+      decisionSequence += 1;
+      updateMetricValues(metricValues, execution, domain.action.criticalTier, rule.eventKind);
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        damage = execution.after.damage;
+        world = replaceEntityState(world, domain.target.id, {
+          health: execution.after.health,
+        });
+      }
+    }
+  }
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage,
+  });
+}
+
 function requiredNumber(
   parameters: Readonly<Record<string, string | number>>,
   key: string,
@@ -1294,11 +1403,13 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
   let runtime: RuntimeEvaluation;
   try {
     runtime =
-      domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
-        ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
-        : domain.action.criticalResolution === "expected"
-          ? evaluateExpectedRuntime(domain, references, ruleset)
-          : evaluateDeterministicRuntime(domain, references, ruleset);
+      domain.action.kind === "radial-hit"
+        ? evaluateFixedRadialRuntime(domain, references, ruleset)
+        : domain.action.kind === "fixed-multishot" || domain.action.kind === "fixed-pellets"
+          ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
+          : domain.action.criticalResolution === "expected"
+            ? evaluateExpectedRuntime(domain, references, ruleset)
+            : evaluateDeterministicRuntime(domain, references, ruleset);
   } catch (error) {
     if (error instanceof RulesError && error.code === "unsupported-critical-multiplier") {
       const path = attackModeFieldPath(catalog, references, "criticalMultiplier");

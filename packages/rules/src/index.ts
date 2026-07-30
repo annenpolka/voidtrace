@@ -10,6 +10,8 @@ export {
   executeFixedMultishotRule,
   type FixedPelletContext,
   executeFixedPelletRule,
+  type ResolvedRadialFalloffContext,
+  executeResolvedRadialFalloffRule,
   executeRule,
   type PredicateRejectedRuleExecution,
   type RuleContext,

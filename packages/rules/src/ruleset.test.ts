@@ -22,18 +22,23 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.schemaVersion).toBe("0.6.0");
+    expect(loaded.snapshot.schemaVersion).toBe("0.7.0");
     expect(loaded.snapshot.revision).toBe(1);
-    expect(loaded.snapshot.rules).toHaveLength(11);
+    expect(loaded.snapshot.rules).toHaveLength(16);
     expect(loaded.snapshot.rules.map((rule) => rule.id)).toEqual([
       "rule.multishot.emit-fixed-hits",
       "rule.pellet.emit-fixed-hits",
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
+      "rule.radial.construct-hit",
       "rule.critical.resolve-tier-roll",
       "rule.critical.scale-tier",
+      "rule.radial.scale-critical-tier",
+      "rule.radial.apply-resolved-falloff",
       "rule.defense.standard-armor",
+      "rule.radial.standard-armor",
       "rule.damage.commit-health",
+      "rule.radial.commit-health",
       "rule.critical.aggregate-expected-branches",
       "rule.multishot.aggregate-fixed-hits",
       "rule.pellet.aggregate-fixed-hits",
@@ -70,6 +75,12 @@ describe("loadRuleset", () => {
     expect(loaded.resolveRule("rule.critical.scale-tier")).toMatchObject({
       phase: "critical.resolve",
       operation: { kind: "damage-vector.scale-critical-tier" },
+    });
+    expect(loaded.resolveRule("rule.radial.apply-resolved-falloff")).toMatchObject({
+      phase: "damage.radial-falloff",
+      eventKind: "damage.radial",
+      reads: ["event.damage", "event.radial-falloff-multiplier"],
+      operation: { kind: "damage-vector.scale-resolved-radial-falloff" },
     });
     expect(loaded.resolveRule("rule.critical.resolve-expected-branches")).toMatchObject({
       phase: "critical.expected",
@@ -166,6 +177,33 @@ describe("loadRuleset", () => {
       },
       after: {
         damage: { "damage.synthetic": 0 },
+        health: 1000,
+      },
+    });
+  });
+
+  it("exposes resolved Radial falloff through its dedicated context", async () => {
+    const loaded = await loadRuleset();
+    const result = loaded.executeResolvedRadialFalloffRule("rule.radial.apply-resolved-falloff", {
+      currentDamage: { "damage.synthetic": 200 },
+      multiplier: 0.75,
+      health: 1000,
+    });
+
+    expect(result).toMatchObject({
+      operationKind: "damage-vector.scale-resolved-radial-falloff",
+      factor: 0.75,
+      parameters: {
+        factor: 0.75,
+        multiplier: 0.75,
+      },
+      before: {
+        damageTotal: 200,
+        health: 1000,
+      },
+      after: {
+        damage: { "damage.synthetic": 150 },
+        damageTotal: 150,
         health: 1000,
       },
     });

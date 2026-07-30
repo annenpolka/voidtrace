@@ -754,6 +754,7 @@ async function replayTrace(
       }
       case "damage-vector.scale-fixed-critical":
       case "damage-vector.scale-critical-tier":
+      case "damage-vector.scale-resolved-radial-falloff":
       case "damage-vector.scale-standard-armor": {
         if (currentDamage === undefined || currentHealth === undefined) {
           throw new TraceReplayError(
@@ -767,7 +768,15 @@ async function replayTrace(
           currentHealth,
           `Trace decision ${decision.sequence} before`,
         );
-        const scaled = scaleDamageVector(currentDamage, scaleFactor(operation.parameters));
+        const factor = scaleFactor(operation.parameters);
+        if (
+          operation.kind === "damage-vector.scale-resolved-radial-falloff" &&
+          (operation.parameters.multiplier !== factor ||
+            decision.reads["event.radial-falloff-multiplier"] !== factor)
+        ) {
+          invalidParameters("Trace resolved Radial falloff does not match its declared read");
+        }
+        const scaled = scaleDamageVector(currentDamage, factor);
         assertProjection(
           decision.after,
           scaled,

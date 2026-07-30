@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for a standalone resolved Radial Hit.
+module voidtrace.golden.radialCriticalArmor
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-007"
+  desc =
+    "data/fixtures/golden/radial-critical-armor.scenario.jsonはbase Damage 100、fixed Critical tier 1、resolved falloff 0.75、Armor 300からHealth Damage 75と残Health 925を独立literal expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

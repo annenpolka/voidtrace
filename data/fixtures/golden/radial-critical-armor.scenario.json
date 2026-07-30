@@ -2,17 +2,9 @@
   "$schema": "urn:voidtrace:schema:scenario:0.1.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.1.0",
-  "id": "scenario.golden-direct-critical-armor",
-  "revision": 2,
-  "createdFrom": {
-    "kind": "voidtrace.scenario",
-    "schemaVersion": "0.1.0",
-    "id": "scenario.golden-direct-critical-armor",
-    "revision": 1,
-    "contentHash": "sha256:d1d5ccd92b5ffc0ae5d44e0ffcb1a90ef5a085047893d531770dd40854d07ca7",
-    "gameBuild": "synthetic-fixture-0"
-  },
-  "contentHash": "sha256:5f76c69f86131e5f0f8927dff555d555cd18071537defd634597125d8b0b2f7d",
+  "id": "scenario.golden-radial-critical-armor",
+  "revision": 0,
+  "contentHash": "sha256:e521bb8a306b2e7ebedb43c8064399f533e5f7b518a0e91609fc05f2d4c49582",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -52,13 +44,14 @@
   "initialState": {},
   "actionPlan": [
     {
-      "id": "action.direct-hit-1",
-      "kind": "action.direct-hit",
+      "id": "action.radial-hit-1",
+      "kind": "action.radial-hit",
       "parameters": {
         "targetId": "actor.target",
         "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
-        "criticalTier": 1
+        "criticalTier": 1,
+        "resolvedFalloffMultiplier": 0.75
       }
     }
   ],
@@ -67,22 +60,24 @@
     "timeLimitMs": 1
   },
   "metrics": [
-    "damage.direct-hit.total",
+    "damage.radial.base.total",
     "critical.tier",
     "critical.multiplier",
     "damage.post-critical.total",
+    "radial.falloff.multiplier",
+    "damage.radial.total",
     "armor.remaining-multiplier",
     "damage.health.total",
     "target.health.remaining"
   ],
   "assumptions": [
     {
-      "id": "assumption.synthetic-mechanics",
-      "description": "The fixture and Ruleset are synthetic and do not claim verified current Warframe behavior."
+      "id": "assumption.synthetic-radial",
+      "description": "Synthetic standalone Radial Hit with resolved falloff input; not a verified current-game Warframe claim."
     },
     {
-      "id": "assumption.fixed-critical-tier",
-      "description": "This Scenario supplies a fixed Critical tier, so it does not evaluate Critical probability or a roll."
+      "id": "assumption.resolved-radial-falloff",
+      "description": "The fixture supplies falloff 0.75 directly and does not evaluate distance, geometry, a Direct sibling, or a Projectile parent."
     }
   ]
 }

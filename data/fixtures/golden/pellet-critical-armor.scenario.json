@@ -4,7 +4,7 @@
   "schemaVersion": "0.1.0",
   "id": "scenario.golden-pellet-critical-armor",
   "revision": 0,
-  "contentHash": "sha256:68e53d4e21097fb1983cd3f7db5ec2c94d5a2e68cc5ecd3e67c92be7ebba7d13",
+  "contentHash": "sha256:fd974a8a6990332941cde2d702cd367d767d23f6f0db362006d0f4bd90dbd758",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -16,10 +16,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.6.0",
+    "schemaVersion": "0.7.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:e66d73f7b47f365bebc7f4bf888fb1e3c804cc7094d179b53788a9ae697b7fb3",
+    "contentHash": "sha256:4cfce29bce7ff17900e4e06d7e2694adecc468094ab46f5056db7b63eeb67bf2",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {

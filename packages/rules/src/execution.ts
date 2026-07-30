@@ -45,6 +45,12 @@ export type FixedPelletContext = {
   readonly zeroDamage: DamageVector;
 };
 
+export type ResolvedRadialFalloffContext = {
+  readonly currentDamage: DamageVector;
+  readonly multiplier: number;
+  readonly health: number;
+};
+
 export type SequentialHit = {
   readonly id: string;
   readonly index: number;
@@ -107,6 +113,8 @@ type ValidatedExpectedAggregateContext = {
 type ValidatedFixedMultishotContext = FixedMultishotContext;
 
 type ValidatedFixedPelletContext = FixedPelletContext;
+
+type ValidatedResolvedRadialFalloffContext = ResolvedRadialFalloffContext;
 
 type ValidatedSequentialHitAggregateContext = SequentialHitAggregateContext;
 
@@ -387,6 +395,31 @@ function snapshotFixedPelletContext(value: FixedPelletContext): ValidatedFixedPe
       "initialHealth",
     ),
     zeroDamage,
+  });
+}
+
+function snapshotResolvedRadialFalloffContext(
+  value: ResolvedRadialFalloffContext,
+): ValidatedResolvedRadialFalloffContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["currentDamage", "multiplier", "health"],
+    "context",
+  );
+  const multiplier = nonNegativeFinite(
+    dataProperty(context, "multiplier", "context"),
+    "multiplier",
+  );
+  if (multiplier > 1) {
+    invalidContext("multiplier must be at most 1", "multiplier");
+  }
+  return Object.freeze({
+    currentDamage: snapshotDamageVector(
+      dataProperty(context, "currentDamage", "context"),
+      "currentDamage",
+    ),
+    multiplier,
+    health: nonNegativeFinite(dataProperty(context, "health", "context"), "health"),
   });
 }
 
@@ -844,6 +877,30 @@ export function executeFixedPelletRule(
     }),
     projection,
     projection,
+  );
+}
+
+export function executeResolvedRadialFalloffRule(
+  rule: RuleDefinition,
+  context: ResolvedRadialFalloffContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "damage-vector.scale-resolved-radial-falloff") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved Radial falloff operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const input = snapshotResolvedRadialFalloffContext(context);
+  const before = stateProjection(input.currentDamage, input.health);
+  const afterDamage = scaleValidatedDamageVector(input.currentDamage, input.multiplier);
+  return applied(
+    rule,
+    input.multiplier,
+    parameters({ factor: input.multiplier, multiplier: input.multiplier }),
+    before,
+    stateProjection(afterDamage, input.health),
   );
 }
 

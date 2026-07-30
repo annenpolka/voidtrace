@@ -1,0 +1,30 @@
+{
+  "id": "golden.radial-critical-armor",
+  "scenarioId": "scenario.golden-radial-critical-armor",
+  "metrics": {
+    "damage.radial.base.total": 100,
+    "critical.tier": 1,
+    "critical.multiplier": 2,
+    "damage.post-critical.total": 200,
+    "radial.falloff.multiplier": 0.75,
+    "damage.radial.total": 150,
+    "armor.remaining-multiplier": 0.5,
+    "damage.health.total": 75,
+    "target.health.remaining": 925
+  },
+  "damageBySource": {
+    "action.radial-hit-1": 75
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 75
+  },
+  "appliedRuleIds": [
+    "rule.radial.construct-hit",
+    "rule.radial.scale-critical-tier",
+    "rule.radial.apply-resolved-falloff",
+    "rule.radial.standard-armor",
+    "rule.radial.commit-health"
+  ],
+  "rejectedRules": [],
+  "tolerance": 0.000001
+}

@@ -374,15 +374,111 @@ describe("parseScenarioDomain", () => {
     });
   });
 
-  it("rejects non-Direct-Hit actions", async () => {
+  it("rejects unsupported action kinds", async () => {
     const scenario = await changedScenario((mutable) => {
-      firstAction(mutable).kind = "action.radial-hit";
+      firstAction(mutable).kind = "action.projectile-hit";
     });
 
     await expectFailure(scenario, {
       code: "unsupported-action-kind",
       path: "/actionPlan/0/kind",
-      mechanicId: "action.radial-hit",
+      mechanicId: "action.projectile-hit",
+    });
+  });
+
+  it("accepts a standalone Radial Hit with explicit resolved falloff", async () => {
+    const scenario = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.id = "action.radial-hit-1";
+      action.kind = "action.radial-hit";
+      action.parameters.resolvedFalloffMultiplier = 0.75;
+      mutable.metrics = [
+        "damage.radial.base.total",
+        "critical.tier",
+        "critical.multiplier",
+        "damage.post-critical.total",
+        "radial.falloff.multiplier",
+        "damage.radial.total",
+        "armor.remaining-multiplier",
+        "damage.health.total",
+        "target.health.remaining",
+      ];
+    });
+
+    const result = await parseScenarioDomain(scenario);
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        action: {
+          id: "action.radial-hit-1",
+          kind: "radial-hit",
+          criticalResolution: "fixed",
+          criticalTier: 1,
+          criticalRoll: null,
+          hitCount: 1,
+          resolvedRadialFalloffMultiplier: 0.75,
+        },
+      },
+    });
+  });
+
+  it.each([-0.1, 1.1])(
+    "rejects invalid resolved Radial falloff %s",
+    async (resolvedFalloffMultiplier) => {
+      const scenario = await changedScenario((mutable) => {
+        const action = firstAction(mutable);
+        action.kind = "action.radial-hit";
+        action.parameters.resolvedFalloffMultiplier = resolvedFalloffMultiplier;
+      });
+
+      await expectFailure(scenario, {
+        code: "invalid-configuration-value",
+        path: "/actionPlan/0/parameters/resolvedFalloffMultiplier",
+        mechanicId: "mechanic.damage.radial-falloff",
+      });
+    },
+  );
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects non-finite resolved Radial falloff %s at the contract boundary",
+    async (resolvedFalloffMultiplier) => {
+      const invalid = structuredClone(scenarioFixture) as MutableScenarioFixture;
+      const action = firstAction(invalid);
+      action.kind = "action.radial-hit";
+      action.parameters.resolvedFalloffMultiplier = resolvedFalloffMultiplier;
+
+      await expectFailure(invalid, {
+        code: "contract-invalid",
+        path: "/",
+      });
+    },
+  );
+
+  it("rejects expected or explicit-roll Radial resolution", async () => {
+    const expected = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.kind = "action.radial-hit";
+      action.parameters.resolvedFalloffMultiplier = 0.75;
+      delete action.parameters.criticalTier;
+      mutable.simulation = { mode: "expected", timeLimitMs: 1 };
+    });
+    await expectFailure(expected, {
+      code: "unsupported-radial-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.damage.radial",
+    });
+
+    const rolled = await changedScenario((mutable) => {
+      const action = firstAction(mutable);
+      action.kind = "action.radial-hit";
+      action.parameters.resolvedFalloffMultiplier = 0.75;
+      delete action.parameters.criticalTier;
+      action.parameters.criticalRoll = 0.2;
+    });
+    await expectFailure(rolled, {
+      code: "unsupported-radial-resolution",
+      path: "/actionPlan/0/parameters",
+      mechanicId: "mechanic.damage.radial",
     });
   });
 

@@ -15,6 +15,7 @@ import "golden/expected-critical-armor.pkl"
 import "golden/multishot-critical-armor.pkl"
 import "golden/pellet-critical-armor.pkl"
 import "golden/probability-critical-armor.pkl"
+import "golden/radial-critical-armor.pkl"
 import "golden/tier-2-critical-armor.pkl"
 import "kernel/determinism.pkl"
 import "kernel/event-ordering.pkl"
@@ -26,6 +27,7 @@ import "mechanics/defense.pkl"
 import "mechanics/direct-hit.pkl"
 import "mechanics/multishot.pkl"
 import "mechanics/pellet.pkl"
+import "mechanics/radial.pkl"
 import "patterns/base.pkl"
 import "rules/model.pkl" as ruleModel
 
@@ -45,6 +47,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.criticalExpectedValueUsesTerminalBranches
   mechanicsClauses.fixedMultishotEmitsOrderedHits
   mechanicsClauses.fixedPelletActionEmitsOrderedHits
+  mechanicsClauses.resolvedRadialFalloffScalesDamage
   mechanicsClauses.armorDoesNotIncreaseDamage
   mechanicsClauses.armorThreeHundredHalvesDamage
   mechanicsClauses.traceReconstructsDamage
@@ -55,6 +58,7 @@ clauses: Listing<base.Clause> = new {
   `expected-critical-armor`.roundTrip
   `multishot-critical-armor`.roundTrip
   `pellet-critical-armor`.roundTrip
+  `radial-critical-armor`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
   cliSurface.streamExitDiscipline
@@ -76,7 +80,7 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.6.0"
+  version = "0.7.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
@@ -84,10 +88,15 @@ ruleset: ruleModel.Ruleset = new {
     pellet.emitFixedRule
     critical.resolveExpectedBranchesRule
     `direct-hit`.rule
+    radial.constructRule
     critical.resolveTierRollRule
     critical.scaleTierRule
+    radial.scaleCriticalTierRule
+    radial.applyResolvedFalloffRule
     defense.rule
+    radial.armorRule
     `direct-hit`.commitRule
+    radial.commitRule
     critical.aggregateExpectedBranchesRule
     multishot.aggregateFixedRule
     pellet.aggregateFixedRule

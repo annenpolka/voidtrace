@@ -7,6 +7,7 @@ typealias RulePhase =
     | "damage.construct"
     | "critical.roll"
     | "critical.resolve"
+    | "damage.radial-falloff"
     | "target.mitigate"
     | "damage.commit"
     | "result.aggregate"
@@ -37,6 +38,10 @@ class ScaleCriticalTier extends RuleOperation {
 class ScaleStandardArmor extends RuleOperation {
   kind = "damage-vector.scale-standard-armor"
   constant: Number(isPositive)
+}
+
+class ScaleResolvedRadialFalloff extends RuleOperation {
+  kind = "damage-vector.scale-resolved-radial-falloff"
 }
 
 class CommitHealthDamage extends RuleOperation {

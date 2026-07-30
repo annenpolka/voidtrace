@@ -183,6 +183,12 @@ describe("renderGeneratedFiles", () => {
           area: "mechanics",
           maturity: "active",
         },
+        {
+          ...clause,
+          id: "RAD-001",
+          area: "mechanics",
+          maturity: "active",
+        },
       ],
     });
     const capabilities = generated.find(
@@ -208,6 +214,11 @@ describe("renderGeneratedFiles", () => {
           id: "mechanics.fixed-pellets",
           status: "supported",
           activeClauseRefs: ["PLT-001"],
+        }),
+        expect.objectContaining({
+          id: "mechanics.resolved-radial",
+          status: "supported",
+          activeClauseRefs: ["RAD-001"],
         }),
       ]),
     );

@@ -8,10 +8,14 @@ import { describe, expect, it, vi } from "vitest";
 import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
   type: "json",
 };
+import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical-armor.scenario.json" with {
+  type: "json",
+};
 import packageJson from "../package.json" with { type: "json" };
 import { runCli, type CliIo } from "./cli.ts";
 
 const SCENARIO_PATH = "data/fixtures/golden/direct-critical-armor.scenario.json";
+const RADIAL_SCENARIO_PATH = "data/fixtures/golden/radial-critical-armor.scenario.json";
 const CATALOG_PATH = "data/fixtures/catalog-mini/catalog.json";
 
 type Invocation = {
@@ -117,6 +121,35 @@ describe("VoidTrace CLI success routing", () => {
     }
     await expect(
       verifyResultTraceIntegrity(result.value, causalTrace.value, scenarioFixture),
+    ).resolves.toBe(true);
+  });
+
+  it("round-trips the standalone resolved Radial golden through run and trace", async () => {
+    const run = await invoke(["run", RADIAL_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const trace = await invoke(["trace", RADIAL_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const resultValue = JSON.parse(run.stdout) as unknown;
+    const traceValue = JSON.parse(trace.stdout) as unknown;
+    const result = validateContract("result", resultValue);
+    const causalTrace = validateContract("trace", traceValue);
+
+    expect(run.exitCode).toBe(0);
+    expect(trace.exitCode).toBe(0);
+    expect(run.stderr).toBe("");
+    expect(trace.stderr).toBe("");
+    expect(result.ok).toBe(true);
+    expect(causalTrace.ok).toBe(true);
+    if (!result.ok || !causalTrace.ok) {
+      throw new Error("CLI emitted an invalid Radial Result or Trace");
+    }
+    expect(result.value.metrics).toMatchObject({
+      "damage.radial.base.total": 100,
+      "radial.falloff.multiplier": 0.75,
+      "damage.radial.total": 150,
+      "damage.health.total": 75,
+      "target.health.remaining": 925,
+    });
+    await expect(
+      verifyResultTraceIntegrity(result.value, causalTrace.value, radialScenarioFixture),
     ).resolves.toBe(true);
   });
 

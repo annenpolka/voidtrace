@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, probabilistic Multishot, variable pellet counts, custom Critical chance, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, standalone resolved Radial falloff, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, distance-derived Radial falloff, probabilistic Multishot, variable pellet counts, custom Critical chance, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -28,6 +28,8 @@ The adapter supports exactly one target and one hitscan Direct Hit, with:
   emitted hit uses the same explicit fixed Critical tier and commits to Health in order;
 - a repository-local resolved fixed-count pellet Scenario through the formal CLI, where four
   ordered pellets from one shot use the same explicit fixed Critical tier and commit in order;
+- a repository-local standalone Radial Scenario through the formal CLI, where an explicit
+  resolved falloff multiplier scales Damage after fixed Critical and before Armor;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
@@ -41,7 +43,9 @@ chance, probabilistic or custom-count Multishot, custom-count or probabilistic p
 Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, Multishot or pellet
 expected values, hit distribution, Spread, unsafe or unrepresentable tiers, Monte Carlo
 aggregation, mods, headshots, Shield, Overguard, projectiles, status, real-game imports, and build
-recommendations are unsupported. If a request needs any of them, state the unsupported mechanic
+recommendations are unsupported. Distance-derived Radial falloff, physical geometry, Direct and
+Radial sibling composition, Projectile parents, multiple Radial targets, and Radial expected
+values or generated rolls are also unsupported. If a request needs any of them, state the unsupported mechanic
 and stop. Do not approximate it as zero effect and do not silently adapt it to the supported slice.
 
 ## Commands
@@ -72,6 +76,10 @@ pnpm exec vt trace data/fixtures/golden/multishot-critical-armor.scenario.json \
 pnpm exec vt run data/fixtures/golden/pellet-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/pellet-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/radial-critical-armor.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/radial-critical-armor.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -145,6 +153,13 @@ for another agent or script. `--help` lists the finite adapter options.
   `damage.pellet.total`, final `damage.health.total`, and `target.health.remaining`. Pellet
   identity is carried by stable `hit.id` values such as `pellet.shot-0`; do not call the group
   Multishot or imply that pellet count was rolled.
+- Standalone resolved Radial uses `rule.radial.construct-hit`,
+  `rule.radial.scale-critical-tier`, `rule.radial.apply-resolved-falloff`,
+  `rule.radial.standard-armor`, and `rule.radial.commit-health` in that order. Report
+  `damage.radial.base.total`, `damage.post-critical.total`, `radial.falloff.multiplier`,
+  `damage.radial.total` (post-falloff, pre-Armor), `damage.health.total`, and
+  `target.health.remaining`. Do not infer distance, geometry, a Direct sibling, or a Projectile
+  parent from the resolved multiplier.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
 For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,

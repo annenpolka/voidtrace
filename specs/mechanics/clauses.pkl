@@ -50,6 +50,13 @@ fixedPelletActionEmitsOrderedHits: base.FixedPelletExpansion = new {
   maturity = "active"
 }
 
+resolvedRadialFalloffScalesDamage: base.ResolvedRadialFalloff = new {
+  id = "RAD-001"
+  desc =
+    "action.radial-hitは明示された有限な0以上1以下のresolvedFalloffMultiplierと固定Critical tierを受理する。Radial Damage VectorはCritical解決後かつArmor適用前にこの倍率でscaleされる。距離式、物理配置、Direct sibling、Projectile親、Multishot、Pellet、複数target、暗黙rollは生成しない"
+  maturity = "active"
+}
+
 armorDoesNotIncreaseDamage: base.ArmorMonotonic = new {
   id = "DEF-001"
   desc = "標準Armor式300/(Armor+300)では、他条件が同一ならArmor増加によってHealth Damageは増加しない"

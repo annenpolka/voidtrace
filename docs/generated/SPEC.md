@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:f7c00ca852fd351db7855054c9c7a434be9abdb8f171ec5fc731e3a51d57415c`
+- Source fingerprint: `sha256:fc5d836677ff349da1ddc6367fbaac23fc71c1f79563583bc140a5426c820aa6`
 - Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -39,8 +39,10 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `GOL-004` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/expected-critical-armor.scenario.jsonはCritical chance 1.25のtier 1 branchを確率0.75、tier 2 branchを確率0.25でCritical倍率、Armor 300、Health commitまで別々に評価する。初期Health 125に対してraw expected Health Damage 112.5、branch clamp後のexpected残Health 18.75を独立literal expected vectorとしてResultおよびTraceと照合する |
 | `GOL-005` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/multishot-critical-armor.scenario.jsonは3個の順序付きDirect Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する |
 | `GOL-006` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/pellet-critical-armor.scenario.jsonは4個の順序付きpellet Direct Hitを逐次Healthへcommitし、独立literal expected vectorと一致するResultおよびTraceを生成する |
+| `GOL-007` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/radial-critical-armor.scenario.jsonはbase Damage 100、fixed Critical tier 1、resolved falloff 0.75、Armor 300からHealth Damage 75と残Health 925を独立literal expected vectorとしてResultおよびTraceと照合する |
 | `MSH-001` | `mechanics` | `fixed_multishot_expansion` | `property-tested` | `active` | action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない |
 | `PLT-001` | `mechanics` | `fixed_pellet_expansion` | `property-tested` | `active` | action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない |
+| `RAD-001` | `mechanics` | `resolved_radial_falloff` | `property-tested` | `active` | action.radial-hitは明示された有限な0以上1以下のresolvedFalloffMultiplierと固定Critical tierを受理する。Radial Damage VectorはCritical解決後かつArmor適用前にこの倍率でscaleされる。距離式、物理配置、Direct sibling、Projectile親、Multishot、Pellet、複数target、暗黙rollは生成しない |
 | `RNG-001` | `kernel` | `same_logical_random` | `property-tested` | `active` | 同一seed、論理Event ID、roll purposeは同一乱数を返す |
 | `SCP-001` | `scope` | `scope_boundary` | `manual` | `active` | 物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない |
 | `SCP-002` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | 非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す |

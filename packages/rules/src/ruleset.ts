@@ -14,6 +14,8 @@ import {
   executeFixedMultishotRule,
   type FixedPelletContext,
   executeFixedPelletRule,
+  type ResolvedRadialFalloffContext,
+  executeResolvedRadialFalloffRule,
   executeRule,
   type RuleContext,
   type RuleDefinition,
@@ -32,6 +34,10 @@ export type LoadedRuleset = {
   executeExpectedAggregateRule(id: string, context: ExpectedAggregateContext): RuleExecution;
   executeFixedMultishotRule(id: string, context: FixedMultishotContext): RuleExecution;
   executeFixedPelletRule(id: string, context: FixedPelletContext): RuleExecution;
+  executeResolvedRadialFalloffRule(
+    id: string,
+    context: ResolvedRadialFalloffContext,
+  ): RuleExecution;
   executeSequentialHitAggregateRule(
     id: string,
     context: SequentialHitAggregateContext,
@@ -56,7 +62,7 @@ export const EMPTY_RULESET: EmptyRuleset = Object.freeze({
 
 type OperationDeclaration = {
   readonly phase: RulePhase;
-  readonly eventKind: string;
+  readonly eventKind: string | ReadonlyArray<string>;
   readonly reads: ReadonlyArray<string>;
   readonly writes: ReadonlyArray<string>;
 };
@@ -67,6 +73,7 @@ const PHASES = [
   "damage.construct",
   "critical.roll",
   "critical.resolve",
+  "damage.radial-falloff",
   "target.mitigate",
   "damage.commit",
   "result.aggregate",
@@ -89,7 +96,7 @@ const OPERATION_DECLARATIONS = {
   },
   "damage-vector.copy": {
     phase: "damage.construct",
-    eventKind: "damage.direct",
+    eventKind: ["damage.direct", "damage.radial"],
     reads: ["attack.base-damage"],
     writes: ["event.damage"],
   },
@@ -120,19 +127,19 @@ const OPERATION_DECLARATIONS = {
   },
   "damage-vector.scale-critical-tier": {
     phase: "critical.resolve",
-    eventKind: "damage.direct",
+    eventKind: ["damage.direct", "damage.radial"],
     reads: ["event.damage", "event.critical-tier", "attack.critical-multiplier"],
     writes: ["event.damage"],
   },
   "damage-vector.scale-standard-armor": {
     phase: "target.mitigate",
-    eventKind: "damage.direct",
+    eventKind: ["damage.direct", "damage.radial"],
     reads: ["event.damage", "target.armor"],
     writes: ["event.damage"],
   },
   "damage.commit-health": {
     phase: "damage.commit",
-    eventKind: "damage.direct",
+    eventKind: ["damage.direct", "damage.radial"],
     reads: ["event.damage", "target.health"],
     writes: ["target.health"],
   },
@@ -153,6 +160,12 @@ const OPERATION_DECLARATIONS = {
     eventKind: "action.pellet-direct-hit",
     reads: ["hit.damage", "hit.health-before", "hit.health-after"],
     writes: ["event.damage", "target.health"],
+  },
+  "damage-vector.scale-resolved-radial-falloff": {
+    phase: "damage.radial-falloff",
+    eventKind: "damage.radial",
+    reads: ["event.damage", "event.radial-falloff-multiplier"],
+    writes: ["event.damage"],
   },
 } as const satisfies Record<RuleOperationKind, OperationDeclaration>;
 
@@ -224,6 +237,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     case "damage-vector.aggregate-weighted-branches":
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
+    case "damage-vector.scale-resolved-radial-falloff":
       return;
     case "damage-vector.scale-standard-armor":
       if (
@@ -245,9 +259,12 @@ function assertFiniteOperation(rule: RuleDefinition): void {
 function assertExactOperationDeclaration(rule: RuleDefinition): void {
   assertFiniteOperation(rule);
   const expected = OPERATION_DECLARATIONS[rule.operation.kind];
+  const eventKindMatches = Array.isArray(expected.eventKind)
+    ? expected.eventKind.includes(rule.eventKind)
+    : rule.eventKind === expected.eventKind;
   if (
     rule.phase !== expected.phase ||
-    rule.eventKind !== expected.eventKind ||
+    !eventKindMatches ||
     !sameValues(rule.reads, expected.reads) ||
     !sameValues(rule.writes, expected.writes)
   ) {
@@ -326,6 +343,10 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       executeFixedMultishotRule(resolveRule(id), context),
     executeFixedPelletRule: (id: string, context: FixedPelletContext): RuleExecution =>
       executeFixedPelletRule(resolveRule(id), context),
+    executeResolvedRadialFalloffRule: (
+      id: string,
+      context: ResolvedRadialFalloffContext,
+    ): RuleExecution => executeResolvedRadialFalloffRule(resolveRule(id), context),
     executeSequentialHitAggregateRule: (
       id: string,
       context: SequentialHitAggregateContext,

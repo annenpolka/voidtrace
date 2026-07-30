@@ -42,6 +42,12 @@ import probabilityExpectedFixture from "../../../data/fixtures/golden/probabilit
 import probabilityScenarioFixture from "../../../data/fixtures/golden/probability-critical-armor.scenario.json" with {
   type: "json",
 };
+import radialExpectedFixture from "../../../data/fixtures/golden/radial-critical-armor.expected.json" with {
+  type: "json",
+};
+import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical-armor.scenario.json" with {
+  type: "json",
+};
 import tier2ExpectedFixture from "../../../data/fixtures/golden/tier-2-critical-armor.expected.json" with {
   type: "json",
 };
@@ -95,6 +101,14 @@ async function evaluateMultishotGolden() {
 async function evaluatePelletGolden() {
   return evaluateScenario({
     scenario: structuredClone(pelletScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateRadialGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(radialScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -728,6 +742,113 @@ describe("evaluateScenario", () => {
     );
   });
 
+  it("matches the independently authored resolved Radial golden and ordered Trace", async () => {
+    const outcome = await evaluateRadialGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(radialExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(radialExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(radialExpectedFixture.damageByType);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(radialExpectedFixture.appliedRuleIds);
+    expect(outcome.trace.decisions).toHaveLength(5);
+    expect(outcome.trace.decisions.map((decision) => decision.phase)).toEqual([
+      "damage.construct",
+      "critical.resolve",
+      "damage.radial-falloff",
+      "target.mitigate",
+      "damage.commit",
+    ]);
+    expect(outcome.trace.decisions[2]).toMatchObject({
+      ruleId: "rule.radial.apply-resolved-falloff",
+      reads: {
+        "event.damage": 200,
+        "event.radial-falloff-multiplier": 0.75,
+      },
+      operations: [
+        {
+          kind: "damage-vector.scale-resolved-radial-falloff",
+          parameters: {
+            factor: 0.75,
+            multiplier: 0.75,
+          },
+        },
+      ],
+      after: {
+        "damage.total": 150,
+        "target.health": 1000,
+      },
+    });
+    expect(await replayTraceState(outcome.trace, 1000)).toEqual({
+      damage: radialExpectedFixture.damageByType,
+      health: 925,
+    });
+    expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
+    expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, radialScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("property-tests resolved Radial falloff after Critical and before Armor", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 0, max: 1_000_000 }),
+        fc.integer({ min: 0, max: 8 }),
+        fc.integer({ min: 0, max: 2_000 }),
+        fc.integer({ min: 0, max: 10_000 }),
+        async (falloffNumerator, criticalTier, armor, health) => {
+          const multiplier = falloffNumerator / 1_000_000;
+          const changed = structuredClone(radialScenarioFixture);
+          const action = changed.actionPlan[0];
+          const target = changed.targets[0];
+          if (action === undefined || target === undefined) {
+            throw new Error("Radial golden must contain one action and target");
+          }
+          action.parameters.resolvedFalloffMultiplier = multiplier;
+          action.parameters.criticalTier = criticalTier;
+          target.configuration.resolvedArmor = armor;
+          target.configuration.resolvedHealth = health;
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+
+          const postCritical = 100 * (1 + criticalTier);
+          const postFalloff = postCritical * multiplier;
+          const finalDamage = postFalloff * (300 / (armor + 300));
+          const remainingHealth = finalDamage >= health ? 0 : health - finalDamage;
+          expect(first.result.metrics["damage.post-critical.total"]).toBeCloseTo(postCritical, 6);
+          expect(first.result.metrics["radial.falloff.multiplier"]).toBe(multiplier);
+          expect(first.result.metrics["damage.radial.total"]).toBeCloseTo(postFalloff, 6);
+          expect(first.result.metrics["damage.health.total"]).toBeCloseTo(finalDamage, 6);
+          expect(first.result.metrics["target.health.remaining"]).toBeCloseTo(remainingHealth, 6);
+          expect(await replayTraceState(first.trace, health)).toEqual({
+            damage: first.result.damageByType,
+            health: first.result.metrics["target.health.remaining"],
+          });
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
   it("is canonically deterministic for identical Scenario, Catalog, Ruleset, and seed", async () => {
     const first = await evaluateGolden();
     const second = await evaluateGolden();
@@ -926,7 +1047,10 @@ describe("evaluateScenario", () => {
         metric !== "multishot.hit-count" &&
         metric !== "damage.multishot.total" &&
         metric !== "pellet.count" &&
-        metric !== "damage.pellet.total",
+        metric !== "damage.pellet.total" &&
+        metric !== "radial.falloff.multiplier" &&
+        metric !== "damage.radial.base.total" &&
+        metric !== "damage.radial.total",
     );
     const metricSubset = fc.uniqueArray(fc.constantFrom(...fixedMetricIds), {
       minLength: 1,

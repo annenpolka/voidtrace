@@ -4,8 +4,8 @@ module voidtrace.contracts.ruleset
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.6.0"
-local contractVersion = "0.6.0"
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.7.0"
+local contractVersion = "0.7.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -144,6 +144,19 @@ function scaleStandardArmor(): model.ObjectNode = new model.ObjectNode {
   }
 }
 
+function scaleResolvedRadialFalloff(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description = "Scale Radial Hit damage by an explicit resolved multiplier in [0, 1]."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.scale-resolved-radial-falloff"
+      }
+    }
+  }
+}
+
 function commitHealthDamage(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
@@ -224,6 +237,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           "critical.roll"
           "critical.expected"
           "critical.resolve"
+          "damage.radial-falloff"
           "target.mitigate"
           "damage.commit"
           "result.aggregate"
@@ -260,6 +274,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           resolveCriticalTierRoll()
           resolveExpectedCriticalBranches()
           scaleCriticalTier()
+          scaleResolvedRadialFalloff()
           scaleStandardArmor()
           commitHealthDamage()
           aggregateWeightedBranches()

@@ -39,6 +39,9 @@ const multishotScenarioPath = fileURLToPath(
 const pelletScenarioPath = fileURLToPath(
   new URL("../../../data/fixtures/golden/pellet-critical-armor.scenario.json", import.meta.url),
 );
+const radialScenarioPath = fileURLToPath(
+  new URL("../../../data/fixtures/golden/radial-critical-armor.scenario.json", import.meta.url),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -217,6 +220,31 @@ describe("createNodeApplication", () => {
     });
     expect(outcome.trace.decisions.at(-1)).toMatchObject({
       ruleId: "rule.pellet.aggregate-fixed-hits",
+    });
+  });
+
+  it("evaluates resolved Radial falloff through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: radialScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toMatchObject({
+      "damage.radial.base.total": 100,
+      "critical.tier": 1,
+      "damage.post-critical.total": 200,
+      "radial.falloff.multiplier": 0.75,
+      "damage.radial.total": 150,
+      "damage.health.total": 75,
+      "target.health.remaining": 925,
+    });
+    expect(outcome.trace.decisions[2]).toMatchObject({
+      phase: "damage.radial-falloff",
+      ruleId: "rule.radial.apply-resolved-falloff",
     });
   });
 

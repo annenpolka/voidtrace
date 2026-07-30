@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.6.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.7.0",
   "kind": "ruleset",
-  "schemaVersion": "0.6.0",
+  "schemaVersion": "0.7.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:e66d73f7b47f365bebc7f4bf888fb1e3c804cc7094d179b53788a9ae697b7fb3",
+  "contentHash": "sha256:4cfce29bce7ff17900e4e06d7e2694adecc468094ab46f5056db7b63eeb67bf2",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -82,6 +82,23 @@
       "evidenceIds": []
     },
     {
+      "id": "rule.radial.construct-hit",
+      "description": "Copy the Catalog attack mode base Damage Vector into one resolved Radial Hit.",
+      "phase": "damage.construct",
+      "eventKind": "damage.radial",
+      "reads": [
+        "attack.base-damage"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.copy"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
       "id": "rule.critical.resolve-tier-roll",
       "description": "For non-negative Critical chance c, let baseTier = floor(c) and fraction = c - baseTier. baseTier must be a safe integer; nextTier is baseTier when fraction is 0, otherwise baseTier + 1 and must also be safe. Resolve p(baseTier) = 1 - fraction and p(nextTier) = fraction from an explicit roll in [0, 1): nextTier exactly when roll is less than fraction, otherwise baseTier.",
       "phase": "critical.roll",
@@ -124,6 +141,43 @@
       "evidenceIds": []
     },
     {
+      "id": "rule.radial.scale-critical-tier",
+      "description": "Scale one resolved Radial Hit by the same explicit fixed Critical tier operation as the synthetic Direct Hit slice.",
+      "phase": "critical.resolve",
+      "eventKind": "damage.radial",
+      "reads": [
+        "event.damage",
+        "event.critical-tier",
+        "attack.critical-multiplier"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.scale-critical-tier"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.radial.apply-resolved-falloff",
+      "description": "Scale one Radial Hit after Critical and before Armor by an explicit finite resolved multiplier in the closed interval [0, 1].",
+      "phase": "damage.radial-falloff",
+      "eventKind": "damage.radial",
+      "reads": [
+        "event.damage",
+        "event.radial-falloff-multiplier"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.scale-resolved-radial-falloff"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
       "id": "rule.defense.standard-armor",
       "description": "For non-negative resolved Armor on the Health layer, multiply event damage by constant / (Armor + constant), where constant is 300.",
       "phase": "target.mitigate",
@@ -143,10 +197,47 @@
       "evidenceIds": []
     },
     {
+      "id": "rule.radial.standard-armor",
+      "description": "Apply the synthetic standard Armor operation to one Radial Hit after resolved falloff.",
+      "phase": "target.mitigate",
+      "eventKind": "damage.radial",
+      "reads": [
+        "event.damage",
+        "target.armor"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.scale-standard-armor",
+        "constant": 300
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
       "id": "rule.damage.commit-health",
       "description": "Commit the final Direct Hit Damage Vector to the resolved Health layer and record the remaining Health.",
       "phase": "damage.commit",
       "eventKind": "damage.direct",
+      "reads": [
+        "event.damage",
+        "target.health"
+      ],
+      "writes": [
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage.commit-health"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.radial.commit-health",
+      "description": "Commit final Radial Hit damage to the resolved Health layer.",
+      "phase": "damage.commit",
+      "eventKind": "damage.radial",
       "reads": [
         "event.damage",
         "target.health"

@@ -4,6 +4,7 @@ import {
   executeExpectedAggregateRule,
   executeFixedMultishotRule,
   executeFixedPelletRule,
+  executeResolvedRadialFalloffRule,
   executeSequentialHitAggregateRule,
   executeSequentialPelletAggregateRule,
   executeRule,
@@ -99,6 +100,7 @@ describe("generated core Rule execution", async () => {
   const aggregateExpected = loaded.resolveRule("rule.critical.aggregate-expected-branches");
   const aggregateMultishot = loaded.resolveRule("rule.multishot.aggregate-fixed-hits");
   const aggregatePellets = loaded.resolveRule("rule.pellet.aggregate-fixed-hits");
+  const radialFalloff = loaded.resolveRule("rule.radial.apply-resolved-falloff");
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -170,6 +172,36 @@ describe("generated core Rule execution", async () => {
         zeroDamage: { "damage.synthetic": 0 },
       }),
     ).toThrowError(expect.objectContaining({ code: "execution-limit-exceeded" }));
+  });
+
+  it("scales Radial damage only by a finite resolved multiplier in [0, 1]", () => {
+    fc.assert(
+      fc.property(
+        fc.double({ min: 0, max: 1, noNaN: true }),
+        fc.double({ min: 0, max: 1_000_000, noNaN: true }),
+        (multiplier, damage) => {
+          const result = executeResolvedRadialFalloffRule(radialFalloff, {
+            currentDamage: { "damage.synthetic": damage },
+            multiplier,
+            health: 1000,
+          });
+
+          expect(result.after.damage["damage.synthetic"]).toBe(damage * multiplier);
+          expect(result.after.health).toBe(1000);
+          expect(result.factor).toBe(multiplier);
+        },
+      ),
+    );
+
+    for (const multiplier of [-1, 1.01, Number.POSITIVE_INFINITY, Number.NaN]) {
+      expect(() =>
+        executeResolvedRadialFalloffRule(radialFalloff, {
+          currentDamage: { "damage.synthetic": 100 },
+          multiplier,
+          health: 1000,
+        }),
+      ).toThrowError(expect.objectContaining({ code: "invalid-context" }));
+    }
   });
 
   it("aggregates ordered terminal Multishot hits and preserves sequential Health", () => {

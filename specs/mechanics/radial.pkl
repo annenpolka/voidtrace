@@ -1,0 +1,94 @@
+/// Experimental standalone Radial Hit with resolved falloff input.
+module voidtrace.mechanics.radial
+
+import "../rules/model.pkl"
+
+constructRule: model.Rule = new {
+  id = "rule.radial.construct-hit"
+  description = "Copy the Catalog attack mode base Damage Vector into one resolved Radial Hit."
+  phase = "damage.construct"
+  eventKind = "damage.radial"
+  reads {
+    "attack.base-damage"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.CopyDamageVector {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+scaleCriticalTierRule: model.Rule = new {
+  id = "rule.radial.scale-critical-tier"
+  description =
+    "Scale one resolved Radial Hit by the same explicit fixed Critical tier operation as the synthetic Direct Hit slice."
+  phase = "critical.resolve"
+  eventKind = "damage.radial"
+  reads {
+    "event.damage"
+    "event.critical-tier"
+    "attack.critical-multiplier"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.ScaleCriticalTier {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+applyResolvedFalloffRule: model.Rule = new {
+  id = "rule.radial.apply-resolved-falloff"
+  description =
+    "Scale one Radial Hit after Critical and before Armor by an explicit finite resolved multiplier in the closed interval [0, 1]."
+  phase = "damage.radial-falloff"
+  eventKind = "damage.radial"
+  reads {
+    "event.damage"
+    "event.radial-falloff-multiplier"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.ScaleResolvedRadialFalloff {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+armorRule: model.Rule = new {
+  id = "rule.radial.standard-armor"
+  description =
+    "Apply the synthetic standard Armor operation to one Radial Hit after resolved falloff."
+  phase = "target.mitigate"
+  eventKind = "damage.radial"
+  reads {
+    "event.damage"
+    "target.armor"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.ScaleStandardArmor {
+    constant = 300
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+commitRule: model.Rule = new {
+  id = "rule.radial.commit-health"
+  description = "Commit final Radial Hit damage to the resolved Health layer."
+  phase = "damage.commit"
+  eventKind = "damage.radial"
+  reads {
+    "event.damage"
+    "target.health"
+  }
+  writes {
+    "target.health"
+  }
+  operation = new model.CommitHealthDamage {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

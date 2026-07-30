@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:f7c00ca852fd351db7855054c9c7a434be9abdb8f171ec5fc731e3a51d57415c",
+  "sourceFingerprint": "sha256:fc5d836677ff349da1ddc6367fbaac23fc71c1f79563583bc140a5426c820aa6",
   "clauses": [
     {
       "id": "CLI-001",
@@ -173,6 +173,14 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-007",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/radial-critical-armor.scenario.jsonはbase Damage 100、fixed Critical tier 1、resolved falloff 0.75、Armor 300からHealth Damage 75と残Health 925を独立literal expected vectorとしてResultおよびTraceと照合する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "MSH-001",
       "pattern": "fixed_multishot_expansion",
       "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
@@ -184,6 +192,14 @@
       "id": "PLT-001",
       "pattern": "fixed_pellet_expansion",
       "desc": "action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "RAD-001",
+      "pattern": "resolved_radial_falloff",
+      "desc": "action.radial-hitは明示された有限な0以上1以下のresolvedFalloffMultiplierと固定Critical tierを受理する。Radial Damage VectorはCritical解決後かつArmor適用前にこの倍率でscaleされる。距離式、物理配置、Direct sibling、Projectile親、Multishot、Pellet、複数target、暗黙rollは生成しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"
@@ -263,8 +279,8 @@
     {
       "id": "ruleset",
       "typeName": "Ruleset",
-      "schemaId": "urn:voidtrace:schema:ruleset:0.6.0",
-      "version": "0.6.0"
+      "schemaId": "urn:voidtrace:schema:ruleset:0.7.0",
+      "version": "0.7.0"
     },
     {
       "id": "scenario",
@@ -281,19 +297,24 @@
   ],
   "ruleset": {
     "id": "ruleset.synthetic-core",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "revision": 1,
-    "contentHash": "sha256:e66d73f7b47f365bebc7f4bf888fb1e3c804cc7094d179b53788a9ae697b7fb3",
+    "contentHash": "sha256:4cfce29bce7ff17900e4e06d7e2694adecc468094ab46f5056db7b63eeb67bf2",
     "gameBuild": "synthetic-fixture-0",
     "ruleIds": [
       "rule.multishot.emit-fixed-hits",
       "rule.pellet.emit-fixed-hits",
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
+      "rule.radial.construct-hit",
       "rule.critical.resolve-tier-roll",
       "rule.critical.scale-tier",
+      "rule.radial.scale-critical-tier",
+      "rule.radial.apply-resolved-falloff",
       "rule.defense.standard-armor",
+      "rule.radial.standard-armor",
       "rule.damage.commit-health",
+      "rule.radial.commit-health",
       "rule.critical.aggregate-expected-branches",
       "rule.multishot.aggregate-fixed-hits",
       "rule.pellet.aggregate-fixed-hits"

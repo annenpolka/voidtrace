@@ -27,7 +27,8 @@
 
 The current implemented boundary ends at the synthetic Direct Hit / generalized fixed, explicit
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
-and pellets, backed by generated Ruleset `0.6.0` revision `1` and their formal `describe` / `run`
+and pellets plus standalone resolved Radial falloff, backed by generated Ruleset `0.7.0` revision
+`1` and their formal `describe` / `run`
 / `trace` JSON CLI. Fixed Critical input is a non-negative safe-integer tier. Explicit-roll and expected
 resolution accept non-negative Critical chance only while adjacent tiers are safely representable.
 Expected mode evaluates reachable tiers through terminal Health commit before weighting Damage and
@@ -37,12 +38,17 @@ hits against sequential Health, and does not generate a Multishot or per-hit Cri
 Rules remain `experimental` evidence, not verified current-Warframe claims. Resolved pellets accept
 an explicit positive safe-integer pellet count up to 64 in a separate action, use a common fixed
 Critical tier, and do not compose with Multishot, distribute hits, model Spread, or generate rolls.
+Standalone Radial accepts an explicit finite falloff multiplier in `[0, 1]` and a fixed Critical
+tier, applies falloff after Critical and before Armor, and does not derive distance, model geometry,
+compose a Direct sibling or Projectile parent, or distribute across multiple targets.
 
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
 repository-local analytic expected preset; it is not the formal CLI boundary and does not
 synthesize Critical chance, rolls, Multishot counts, or pellet counts. The formal CLI can run the
-repository-local resolved fixed-count Multishot and pellet fixtures. Probabilistic Multishot or
+repository-local resolved fixed-count Multishot, pellet, and standalone Radial fixtures.
+Probabilistic Multishot or
 pellets, Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, hit distribution,
-Spread, generated random rolls, grouped-hit expected values, and Monte Carlo remain unsupported.
+Spread, distance-derived Radial falloff, Direct-plus-Radial or Projectile composition, generated
+random rolls, grouped-hit expected values, and Monte Carlo remain unsupported.
 Do not add further CLI commands, Lab, API, or MCP implementations until their planned vertical
 slice begins.
