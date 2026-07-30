@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:0c31b659ee3dfdbb169862e3ef1c82b810cea167388bddb98118b84281505fa0",
+  "sourceFingerprint": "sha256:6a260124a4455c781cd695bae2299e4a8ddee850552dd0344f193c95fa14625a",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -99,6 +99,15 @@
       "activeClauseRefs": [
         "GOL-012",
         "RAD-002"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.resolved-direct-radial-impact",
+      "status": "supported",
+      "activeClauseRefs": [
+        "GOL-014",
+        "IMP-001"
       ],
       "plannedClauseRefs": []
     },

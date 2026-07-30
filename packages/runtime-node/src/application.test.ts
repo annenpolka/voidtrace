@@ -57,6 +57,12 @@ const chainScenarioPath = fileURLToPath(
 const radialTargetsScenarioPath = fileURLToPath(
   new URL("../../../data/fixtures/golden/resolved-radial-targets.scenario.json", import.meta.url),
 );
+const directRadialImpactScenarioPath = fileURLToPath(
+  new URL(
+    "../../../data/fixtures/golden/resolved-direct-radial-impact.scenario.json",
+    import.meta.url,
+  ),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -394,6 +400,33 @@ describe("createNodeApplication", () => {
     });
     expect(outcome.trace.decisions.at(-1)).toMatchObject({
       ruleId: "rule.radial.aggregate-resolved-targets",
+    });
+  });
+
+  it("evaluates resolved Direct plus Radial impact through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: directRadialImpactScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toEqual({
+      "impact.direct.damage-total": 50,
+      "impact.radial.damage-total": 67.5,
+      "impact.damage-total": 117.5,
+      "impact.radial-target-count": 2,
+      "damage.health.total": 117.5,
+      "targets.health.remaining-total": 212.5,
+      "targets.defeated-count": 0,
+    });
+    expect(outcome.trace.decisions[0]).toMatchObject({
+      ruleId: "rule.impact.expand-resolved-direct-radial",
+    });
+    expect(outcome.trace.decisions.at(-1)).toMatchObject({
+      ruleId: "rule.impact.aggregate-resolved-direct-radial",
     });
   });
 

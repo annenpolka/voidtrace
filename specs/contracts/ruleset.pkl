@@ -4,8 +4,8 @@ module voidtrace.contracts.ruleset
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.13.0"
-local contractVersion = "0.13.0"
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.14.0"
+local contractVersion = "0.14.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -206,6 +206,28 @@ function expandResolvedRadialTargets(): model.ObjectNode = new model.ObjectNode 
     new model.Field {
       name = "maximumTargets"
       description = "Positive safe execution bound for one resolved Radial impact."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 1
+      }
+    }
+  }
+}
+
+function expandResolvedDirectRadialImpact(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Expand one resolved impact into one Direct child and a bounded resolved Radial target set."
+      required = true
+      schema = new model.LiteralNode {
+        value = "event.expand-resolved-direct-radial-impact"
+      }
+    }
+    new model.Field {
+      name = "maximumTargets"
+      description = "Positive safe execution bound for one resolved Direct plus Radial impact."
       required = true
       schema = new model.IntegerNode {
         minimum = 1
@@ -442,6 +464,20 @@ function aggregateResolvedRadialTargets(): model.ObjectNode = new model.ObjectNo
   }
 }
 
+function aggregateResolvedDirectRadialImpact(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Aggregate Direct and Radial Damage with terminal target-specific Health for one resolved impact."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.aggregate-resolved-direct-radial-impact"
+      }
+    }
+  }
+}
+
 function rule(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
@@ -507,6 +543,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           expandResolvedRicochetTargets()
           expandResolvedChainTargets()
           expandResolvedRadialTargets()
+          expandResolvedDirectRadialImpact()
           copyDamageVector()
           copyResolvedStatusTickDamage()
           resolveCriticalTierRoll()
@@ -524,6 +561,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           aggregateResolvedRicochetTargets()
           aggregateResolvedChainTargets()
           aggregateResolvedRadialTargets()
+          aggregateResolvedDirectRadialImpact()
         }
       }
     }

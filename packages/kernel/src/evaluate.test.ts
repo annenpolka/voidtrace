@@ -78,6 +78,12 @@ import pelletAllocationExpectedFixture from "../../../data/fixtures/golden/resol
 import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
   type: "json",
 };
+import directRadialImpactExpectedFixture from "../../../data/fixtures/golden/resolved-direct-radial-impact.expected.json" with {
+  type: "json",
+};
+import directRadialImpactScenarioFixture from "../../../data/fixtures/golden/resolved-direct-radial-impact.scenario.json" with {
+  type: "json",
+};
 import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
   type: "json",
 };
@@ -198,6 +204,14 @@ async function evaluateRadialTargetsGolden() {
 async function evaluatePelletAllocationGolden() {
   return evaluateScenario({
     scenario: structuredClone(pelletAllocationScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateDirectRadialImpactGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(directRadialImpactScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -1407,6 +1421,138 @@ describe("evaluateScenario", () => {
     ).toBe(true);
   });
 
+  it("matches the independently authored resolved Direct plus Radial impact golden", async () => {
+    const outcome = await evaluateDirectRadialImpactGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(directRadialImpactExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(directRadialImpactExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(directRadialImpactExpectedFixture.damageByType);
+    expect(outcome.result.targetStates).toEqual(directRadialImpactExpectedFixture.targetStates);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(directRadialImpactExpectedFixture.appliedRuleIds);
+    const directConstruct = outcome.trace.decisions.find(
+      (decision) => decision.ruleId === "rule.damage.direct-hit",
+    );
+    const radialConstructs = outcome.trace.decisions.filter(
+      (decision) => decision.ruleId === "rule.radial.construct-hit",
+    );
+    expect(directConstruct?.parentEventId).toBe(
+      "event.action.resolved-direct-radial-impact-1.attack.emit",
+    );
+    expect(radialConstructs.map((decision) => decision.parentEventId)).toEqual([
+      "event.action.resolved-direct-radial-impact-1.attack.emit",
+      "event.action.resolved-direct-radial-impact-1.attack.emit",
+    ]);
+    expect(
+      radialConstructs.flatMap((decision) =>
+        decision.outcome === "applied" ? [decision.operations[0]?.parameters["target.id"]] : [],
+      ),
+    ).toEqual(directRadialImpactExpectedFixture.radialTargetOrder);
+    expect(outcome.trace.decisions).toHaveLength(16);
+    expect(outcome.result.coverage.experimental).toContain(
+      "mechanic.impact.resolved-direct-radial",
+    );
+    expect(
+      await replayTraceTargetStates(outcome.trace, {
+        "actor.target-a": 180,
+        "actor.target-b": 60,
+        "actor.target-c": 90,
+      }),
+    ).toEqual({
+      damage: directRadialImpactExpectedFixture.damageByType,
+      health: 212.5,
+      healthByTarget: {
+        "actor.target-a": 80,
+        "actor.target-c": 72.5,
+        "actor.target-b": 60,
+      },
+    });
+    expect(
+      await verifyResultTraceIntegrity(
+        outcome.result,
+        outcome.trace,
+        directRadialImpactScenarioFixture,
+      ),
+    ).toBe(true);
+  });
+
+  it("property-tests Direct-before-Radial shared World State and deterministic replay", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 130, max: 260 }),
+        fc.integer({ min: 2, max: 8 }),
+        async (directTargetHealth, distanceMeters) => {
+          const changed = structuredClone(directRadialImpactScenarioFixture);
+          const directTarget = changed.targets.find((target) => target.id === "actor.target-a");
+          const radialRelation = changed.targetGraph.relations[1];
+          if (
+            directTarget === undefined ||
+            radialRelation === undefined ||
+            radialRelation.kind !== "target-relation.impact-distance"
+          ) {
+            throw new Error("Resolved impact golden has an invalid target graph");
+          }
+          directTarget.configuration.resolvedHealth = directTargetHealth;
+          radialRelation.resolvedDistanceMeters = distanceMeters;
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+          const falloff = 0.4 + 0.6 * ((8 - distanceMeters) / 6);
+          const radialDamage = 50 + 25 * falloff;
+          expect(first.result.metrics["impact.direct.damage-total"]).toBe(50);
+          expect(first.result.metrics["impact.radial.damage-total"]).toBeCloseTo(radialDamage, 6);
+          expect(first.result.targetStates["actor.target-a"]?.health).toBe(
+            directTargetHealth - 100,
+          );
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
+  it("rejects an unknown Direct target without producing partial Artifacts", async () => {
+    const changed = structuredClone(directRadialImpactScenarioFixture);
+    const action = changed.actionPlan[0];
+    if (action === undefined) {
+      throw new Error("Resolved impact golden omitted its action");
+    }
+    action.parameters.directTargetId = "actor.target-z";
+    const scenario = await rehash(changed);
+    const outcome = await evaluateScenario({
+      scenario,
+      catalog: structuredClone(catalogFixture),
+    });
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: {
+        code: "scenario-invalid",
+        causeCode: "invalid-target-reference",
+        mechanicId: "mechanic.impact.resolved-direct-radial",
+        message: "Unknown Direct target",
+        path: "/actionPlan/0/parameters/directTargetId",
+      },
+    });
+  });
+
   it("property-tests resolved Pellet allocation counts, misses, and target Health", async () => {
     const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
     const ruleset = await loadCoreRuleset();
@@ -1900,6 +2046,10 @@ describe("evaluateScenario", () => {
         metric !== "damage.chain.total" &&
         metric !== "radial.target-count" &&
         metric !== "damage.radial.targets-total" &&
+        metric !== "impact.direct.damage-total" &&
+        metric !== "impact.radial.damage-total" &&
+        metric !== "impact.damage-total" &&
+        metric !== "impact.radial-target-count" &&
         metric !== "targets.health.remaining-total" &&
         metric !== "targets.defeated-count",
     );

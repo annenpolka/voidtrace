@@ -46,6 +46,10 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "damage.chain.total",
   "radial.target-count",
   "damage.radial.targets-total",
+  "impact.direct.damage-total",
+  "impact.radial.damage-total",
+  "impact.damage-total",
+  "impact.radial-target-count",
   "targets.health.remaining-total",
   "targets.defeated-count",
 ] as const);
@@ -104,6 +108,7 @@ export type ScenarioDomain = {
       | "resolved-ricochet"
       | "resolved-chain"
       | "resolved-radial-targets"
+      | "resolved-direct-radial-impact"
       | "resolved-pellet-allocation";
     readonly targetId: string;
     readonly targetPathRelationId: string | null;
@@ -239,6 +244,10 @@ const RESOLVED_RADIAL_TARGET_PARAMETER_KEYS = Object.freeze([
   "falloffEndMeters",
   "minimumFalloffMultiplier",
 ] as const);
+const RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS = Object.freeze([
+  ...RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
+  "directTargetId",
+] as const);
 const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "multishot.hit-count",
   "damage.multishot.total",
@@ -309,6 +318,15 @@ const CHAIN_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
 const RADIAL_TARGET_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "radial.target-count",
   "damage.radial.targets-total",
+  "damage.health.total",
+  "targets.health.remaining-total",
+  "targets.defeated-count",
+]);
+const DIRECT_RADIAL_IMPACT_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "impact.direct.damage-total",
+  "impact.radial.damage-total",
+  "impact.damage-total",
+  "impact.radial-target-count",
   "damage.health.total",
   "targets.health.remaining-total",
   "targets.defeated-count",
@@ -435,7 +453,11 @@ function deepFreeze<T>(value: T): T {
 }
 
 function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainParseResult {
-  const mechanicId = "mechanic.radial.resolved-targets";
+  const candidateAction = scenario.actionPlan[0];
+  const isDirectRadialImpact = candidateAction?.kind === "action.resolved-direct-radial-impact";
+  const mechanicId = isDirectRadialImpact
+    ? "mechanic.impact.resolved-direct-radial"
+    : "mechanic.radial.resolved-targets";
   if (scenario.simulation.mode !== "deterministic") {
     return failure(
       "unsupported-simulation-mode",
@@ -508,18 +530,24 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
     return attackModeId;
   }
 
-  const action = scenario.actionPlan[0];
-  if (action === undefined || action.kind !== "action.resolved-radial-targets") {
+  const action = candidateAction;
+  if (
+    action === undefined ||
+    (action.kind !== "action.resolved-radial-targets" &&
+      action.kind !== "action.resolved-direct-radial-impact")
+  ) {
     return failure(
       "unsupported-action-kind",
       "/actionPlan/0/kind",
-      "Impact-distance relations require action.resolved-radial-targets",
+      "Impact-distance relations require a supported resolved Radial action",
       action?.kind ?? "action.missing",
     );
   }
   const actionKeyError = exactKeys(
     action.parameters,
-    RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
+    isDirectRadialImpact
+      ? RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS
+      : RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
     "/actionPlan/0/parameters",
   );
   if (actionKeyError !== undefined) {
@@ -528,6 +556,12 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
   const impactId = readStableString(action.parameters, "impactId", "/actionPlan/0/parameters");
   if (!impactId.ok) {
     return impactId;
+  }
+  const directTargetId = isDirectRadialImpact
+    ? readStableString(action.parameters, "directTargetId", "/actionPlan/0/parameters")
+    : null;
+  if (directTargetId !== null && !directTargetId.ok) {
+    return directTargetId;
   }
   if (action.parameters.hitLocation !== "hit-location.neutral-body") {
     return failure(
@@ -765,7 +799,10 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       );
     }
     const supportedMetric = metric as SupportedMetricId;
-    if (!RADIAL_TARGET_AVAILABLE_METRIC_IDS.has(supportedMetric)) {
+    const availableMetrics = isDirectRadialImpact
+      ? DIRECT_RADIAL_IMPACT_AVAILABLE_METRIC_IDS
+      : RADIAL_TARGET_AVAILABLE_METRIC_IDS;
+    if (!availableMetrics.has(supportedMetric)) {
       return failure(
         "unsupported-metric",
         `/metrics/${index}`,
@@ -795,9 +832,17 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
 
   const frozenScenario = deepFreeze(scenario);
   const frozenTargets = Object.freeze(targets);
-  const primaryTarget = frozenTargets[0];
+  const primaryTarget =
+    directTargetId === null
+      ? frozenTargets[0]
+      : frozenTargets.find((target) => target.id === directTargetId.value);
   if (primaryTarget === undefined) {
-    return failure("unsupported-scenario-shape", "/targets", "At least one target is required");
+    return failure(
+      directTargetId === null ? "unsupported-scenario-shape" : "invalid-target-reference",
+      directTargetId === null ? "/targets" : "/actionPlan/0/parameters/directTargetId",
+      directTargetId === null ? "At least one target is required" : "Unknown Direct target",
+      mechanicId,
+    );
   }
   const value: ScenarioDomain = Object.freeze({
     scenario: frozenScenario,
@@ -810,7 +855,7 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
     targets: frozenTargets,
     action: Object.freeze({
       id: action.id,
-      kind: "resolved-radial-targets",
+      kind: isDirectRadialImpact ? "resolved-direct-radial-impact" : "resolved-radial-targets",
       targetId: primaryTarget.id,
       targetPathRelationId: null,
       pathTargetIds: Object.freeze(radialTargetRelations.map((relation) => relation.targetId)),

@@ -21,6 +21,8 @@ const chainScenarioPath = "data/fixtures/golden/resolved-chain.scenario.json";
 const radialTargetsScenarioPath = "data/fixtures/golden/resolved-radial-targets.scenario.json";
 const pelletAllocationScenarioPath =
   "data/fixtures/golden/resolved-pellet-allocation.scenario.json";
+const directRadialImpactScenarioPath =
+  "data/fixtures/golden/resolved-direct-radial-impact.scenario.json";
 const catalogPath = "data/fixtures/catalog-mini/catalog.json";
 const tier2CatalogPath = "data/fixtures/catalog-mini/catalog-tier-2.json";
 
@@ -87,6 +89,8 @@ describe("installed VoidTrace CLI aliases", () => {
     ["trace", radialTargetsScenarioPath, "--catalog", catalogPath],
     ["run", pelletAllocationScenarioPath, "--catalog", catalogPath],
     ["trace", pelletAllocationScenarioPath, "--catalog", catalogPath],
+    ["run", directRadialImpactScenarioPath, "--catalog", catalogPath],
+    ["trace", directRadialImpactScenarioPath, "--catalog", catalogPath],
     ["run", "--help"],
     ["unknown"],
   ])("are byte-equivalent for %j", async (...argv) => {

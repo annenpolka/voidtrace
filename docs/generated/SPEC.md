@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:0c31b659ee3dfdbb169862e3ef1c82b810cea167388bddb98118b84281505fa0`
+- Source fingerprint: `sha256:6a260124a4455c781cd695bae2299e4a8ddee850552dd0344f193c95fa14625a`
 - Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -47,6 +47,8 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `GOL-011` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-chain.scenario.jsonはtargets配列B→A→Cと異なるA→C→Bのchain ordered pathを固定Critical tier 0で評価し、target別ArmorによりHealthを120→70、90→65、60→0へ独立commitして、Damage合計175と残Health合計135をliteral expected vectorとしてResultおよびTraceと照合する |
 | `GOL-012` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-radial-targets.scenario.jsonはtargets配列B→D→A→Cと異なるrelation順A→C→B→Dを固定Critical tier 0で検査し、Aは距離0でfalloff 1、Cは距離5でfalloff 0.7、Bは終了距離超、Dはresolved LoS falseとして、Healthを120→70、90→72.5、60→60、40→40へ更新し、命中Damage合計67.5と全target残Health合計242.5をliteral expected vectorとしてResultおよびTraceと照合する |
 | `GOL-013` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-pellet-allocation.scenario.jsonはtargets配列B→A→Cと異なるrelation順A→C→Bへ総pellet 4をA=2、C=0、B=1として配分し、残る1 pelletをmissとする。固定Critical tier 0とtarget別ArmorによりHealthをA 150→50、C 90→90、B 80→0へ更新し、命中Damage合計200、全target残Health合計140、撃破1をliteral expected vectorとしてResultおよびTraceと照合する |
+| `GOL-014` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/resolved-direct-radial-impact.scenario.jsonはtargets配列B→A→Cと異なるrelation順A→C→B、一つのDirect target A、固定Critical tier 0を使う。DirectはAを180→130へ更新し、続くRadialはAを130→80、Cを90→72.5へ更新し、Bは範囲外で60を保つ。Direct Damage 50、Radial Damage 67.5、合計117.5、残Health合計212.5をliteral expected vectorとしてResultおよびTraceと照合する |
+| `IMP-001` | `mechanics` | `resolved_direct_radial_impact` | `property-tested` | `active` | action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。Projectile軌道、衝突、爆心、複数attack mode、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない |
 | `MSH-001` | `mechanics` | `fixed_multishot_expansion` | `property-tested` | `active` | action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない |
 | `PLT-001` | `mechanics` | `fixed_pellet_expansion` | `property-tested` | `active` | action.pellet-direct-hitは明示された正のsafe-integer pelletCountを上限64まで受理し、同じ一回の射撃に属する安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。Multishotとの合成、確率的pellet数、pellet別Critical roll、命中分配、Spread、部分Resultは生成しない |
 | `PLT-002` | `mechanics` | `resolved_pellet_allocation` | `property-tested` | `active` | action.resolved-pellet-allocationは一つのallocation ID、1以上64以下の総pellet数、固定Critical tierと、同じallocation IDを持つ全target分の非負safe-integer resolved hit countを受理する。hit count合計は総pellet数以下でなければならず、差分はmissとする。relation順、次にtarget内pellet index順でDirect Hitを評価し、0-hit targetもHealth不変で終端状態へ残す。Spread、命中判定、確率分布、pellet別Critical roll、Multishot合成、暗黙rollは生成しない |

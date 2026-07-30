@@ -15,6 +15,8 @@ import {
   executeResolvedChainExpansionRule,
   executeResolvedRadialTargetAggregateRule,
   executeResolvedRadialTargetExpansionRule,
+  executeResolvedDirectRadialImpactAggregateRule,
+  executeResolvedDirectRadialImpactExpansionRule,
   executeResolvedStatusTickDamageRule,
   executeResolvedStatusTickScheduleRule,
   executeSequentialHitAggregateRule,
@@ -127,6 +129,12 @@ describe("generated core Rule execution", async () => {
   const radialTargetsAggregate = loaded.resolveRule("rule.radial.aggregate-resolved-targets");
   const pelletAllocationExpansion = loaded.resolveRule("rule.pellet.expand-resolved-allocation");
   const pelletAllocationAggregate = loaded.resolveRule("rule.pellet.aggregate-resolved-allocation");
+  const directRadialImpactExpansion = loaded.resolveRule(
+    "rule.impact.expand-resolved-direct-radial",
+  );
+  const directRadialImpactAggregate = loaded.resolveRule(
+    "rule.impact.aggregate-resolved-direct-radial",
+  );
 
   it("expands only bounded positive safe-integer fixed Multishot counts", () => {
     fc.assert(
@@ -486,6 +494,47 @@ describe("generated core Rule execution", async () => {
       damage: { "damage.synthetic": 50 },
       damageTotal: 50,
       health: 100,
+    });
+  });
+
+  it("expands and aggregates one resolved Direct plus Radial impact", () => {
+    const expansion = executeResolvedDirectRadialImpactExpansionRule(directRadialImpactExpansion, {
+      targetCount: 2,
+      initialHealthTotal: 250,
+      zeroDamage: { "damage.synthetic": 0 },
+    });
+    expect(expansion.operationKind).toBe("event.expand-resolved-direct-radial-impact");
+    const aggregate = executeResolvedDirectRadialImpactAggregateRule(directRadialImpactAggregate, {
+      initialHealthTotal: 250,
+      directDamage: { "damage.synthetic": 50 },
+      targets: [
+        {
+          id: "radial-target.0",
+          targetId: "actor.target-a",
+          index: 0,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 180,
+          healthAfter: 80,
+        },
+        {
+          id: "radial-target.1",
+          targetId: "actor.target-b",
+          index: 1,
+          damage: { "damage.synthetic": 0 },
+          healthBefore: 70,
+          healthAfter: 70,
+        },
+      ],
+    });
+    expect(aggregate.operationKind).toBe("damage-vector.aggregate-resolved-direct-radial-impact");
+    expect(aggregate.parameters).toMatchObject({
+      directDamageTotal: 50,
+      targetCount: 2,
+    });
+    expect(aggregate.after).toEqual({
+      damage: { "damage.synthetic": 100 },
+      damageTotal: 100,
+      health: 150,
     });
   });
 

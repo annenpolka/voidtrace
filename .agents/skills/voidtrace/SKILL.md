@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, resolved target-specific Pellet allocation, standalone resolved Radial falloff, resolved multi-target Radial distance/LoS, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, Catalog- or current-game-derived Radial falloff, probabilistic Multishot, unresolved pellet allocation, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, resolved target-specific Pellet allocation, standalone or multi-target resolved Radial, one resolved Direct-plus-Radial impact DAG, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, projectile physics, multiple attack modes per impact, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, Catalog- or current-game-derived Radial falloff, probabilistic Multishot, unresolved pellet allocation, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -50,16 +50,25 @@ contains three explicit targets, and the checked-in four-target resolved Radial 
 - the repository-local resolved Pellet allocation Scenario through the formal CLI, where four
   declared pellets are resolved as A×2, C×0, B×1, and one miss, with all target Health preserved
   or updated through the fixed-tier Direct Hit pipeline;
+- the repository-local resolved Direct plus Radial impact Scenario through the formal CLI, where
+  one parent impact emits Direct first and two Radial target hits after it on the same target-local
+  World State; Direct and Radial share one synthetic attack mode and one explicit fixed tier;
 - analytic expected mode for the repository-local Critical chance, evaluating each reachable
   adjacent tier through Armor and terminal Health commit before weighting the branches;
 - non-negative resolved Armor and Health;
 - neutral body hit against Health;
 - full Result and causal Trace JSON.
 
+Before running a Direct-plus-Radial request, require all three conditions: the checked-in resolved
+impact relations, one shared synthetic attack mode, and one shared explicit fixed Critical tier.
+If the request asks for trajectory or collision, separate modes, or separate/custom/generated
+Direct and Radial tiers or rolls, stop without asking for missing values and without running a
+nearby fixture as a substitute.
+
 The helper does not synthesize or vary Critical chance or rolls. The formal CLI can evaluate the
 repository-local explicit-roll, expected, resolved fixed-count Multishot, resolved
-punch-through, resolved ricochet, resolved chain, resolved multi-target Radial, and resolved
-Pellet allocation Scenarios. The
+punch-through, resolved ricochet, resolved chain, resolved multi-target Radial, resolved Pellet
+allocation, and resolved Direct plus Radial impact Scenarios. The
 helper does not accept a Multishot count, pellet count, target path, impact relation, or per-target
 override. Generated random rolls, custom Critical
 chance, probabilistic or custom-count Multishot, custom-count or probabilistic pellets,
@@ -67,8 +76,10 @@ Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, Multish
 expected values, unresolved or probabilistic hit distribution, Spread, unsafe or unrepresentable tiers, Monte Carlo
 aggregation, mods, headshots, Shield, Overguard, projectiles, real-game imports, and build
 recommendations are unsupported. Catalog- or current-game-derived Radial falloff, physical
-geometry, Direct and Radial sibling composition, Projectile parents, custom multi-target Radial
-inputs through the helper, and Radial expected values or generated rolls are also unsupported.
+geometry, Projectile trajectory or collision, multiple attack modes or separate Direct/Radial
+tiers within one impact, custom Direct-plus-Radial inputs through the helper, custom multi-target
+Radial inputs through the helper, and Radial expected values or generated rolls are also
+unsupported.
 Status chance, Proc count or type resolution,
 Status application from Direct or Radial Damage, Critical or Armor derivation of Status Damage,
 stacking, refresh, snapshot rules, defense changes between ticks, expected Status values, and
@@ -81,7 +92,12 @@ either `relations: []` or exactly one checked-in-style `target-relation.ordered-
 resolved action. It also accepts the checked-in-style set of 1 to 64
 `target-relation.impact-distance` relations sharing one impact ID when referenced by
 `action.resolved-radial-targets`. The relations supply resolved distance and LoS; the action
-supplies explicit synthetic linear falloff bounds. It also accepts one
+supplies explicit synthetic linear falloff bounds. The same relation set is accepted by
+`action.resolved-direct-radial-impact` only when it also names one configured `directTargetId`;
+the checked-in action commits that Direct child before Radial children and does not derive a
+physical Projectile. If a proposed mutation names an unknown target or keeps a stale
+`contentHash`, report the invalid reference or Artifact-integrity failure and stop; do not
+silently redirect the target, add one, or rehash solely to manufacture acceptance. It also accepts one
 `target-relation.pellet-allocation` per configured target when all relations share the action's
 allocation ID and their hit counts sum to no more than the declared 1 to 64 pellets; the remainder
 is an explicit miss count. Geometry or collision derivation, wall
@@ -146,6 +162,10 @@ pnpm exec vt trace data/fixtures/golden/resolved-radial-targets.scenario.json \
 pnpm exec vt run data/fixtures/golden/resolved-pellet-allocation.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-pellet-allocation.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-direct-radial-impact.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt trace data/fixtures/golden/resolved-direct-radial-impact.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 ```
 
@@ -278,6 +298,18 @@ for another agent or script. `--help` lists the finite adapter options.
   targets array is B→A→C, relations are A→C→B, emitted hits are A→A→B, and the result is
   4 / 3 / 1 / 200 / 200 / 140 / 1 with Health A=50, C=90, B=0 and 14 Trace decisions. Do not
   infer Spread, hit tests, a probability distribution, per-pellet Critical rolls, or Multishot
+  composition.
+- Resolved Direct plus Radial impact starts with
+  `rule.impact.expand-resolved-direct-radial`, commits the four-rule Direct pipeline to A, then
+  applies the five-rule Radial pipeline in relation order to A and C, and ends with
+  `rule.impact.aggregate-resolved-direct-radial`. Report `impact.direct.damage-total`,
+  `impact.radial.damage-total`, `impact.damage-total`, `impact.radial-target-count`,
+  `damage.health.total`, `targets.health.remaining-total`, `targets.defeated-count`, and every
+  target Health. The Golden Direct changes A 180→130; its Radial sibling then changes A 130→80,
+  while C changes 90→72.5 and out-of-range B remains 60. The totals are Direct 50, Radial 67.5,
+  aggregate 117.5, remaining Health 212.5, with 16 Trace decisions. Preserve the common parent
+  event and Direct-before-Radial order. Do not infer a trajectory, collision, physical Projectile,
+  separate attack modes, separate Critical tiers or rolls, Status, Multishot, or Pellet
   composition.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 

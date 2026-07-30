@@ -71,6 +71,13 @@ resolvedRadialTargetsUseDistanceAndLos: base.ResolvedRadialTargets = new {
   maturity = "active"
 }
 
+resolvedDirectRadialImpactSharesParentAndWorldState: base.ResolvedDirectRadialImpact = new {
+  id = "IMP-001"
+  desc =
+    "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。Projectile軌道、衝突、爆心、複数attack mode、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない"
+  maturity = "active"
+}
+
 resolvedStatusTicksCommitInTimeOrder: base.ResolvedStatusTicks = new {
   id = "STS-001"
   desc =

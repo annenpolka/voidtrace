@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:0c31b659ee3dfdbb169862e3ef1c82b810cea167388bddb98118b84281505fa0",
+  "sourceFingerprint": "sha256:6a260124a4455c781cd695bae2299e4a8ddee850552dd0344f193c95fa14625a",
   "activeClauses": [
     {
       "id": "CHN-001",
@@ -232,6 +232,22 @@
       "pattern": "golden_scenario",
       "desc": "data/fixtures/golden/resolved-pellet-allocation.scenario.jsonはtargets配列B→A→Cと異なるrelation順A→C→Bへ総pellet 4をA=2、C=0、B=1として配分し、残る1 pelletをmissとする。固定Critical tier 0とtarget別ArmorによりHealthをA 150→50、C 90→90、B 80→0へ更新し、命中Damage合計200、全target残Health合計140、撃破1をliteral expected vectorとしてResultおよびTraceと照合する",
       "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "GOL-014",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-direct-radial-impact.scenario.jsonはtargets配列B→A→Cと異なるrelation順A→C→B、一つのDirect target A、固定Critical tier 0を使う。DirectはAを180→130へ更新し、続くRadialはAを130→80、Cを90→72.5へ更新し、Bは範囲外で60を保つ。Direct Damage 50、Radial Damage 67.5、合計117.5、残Health合計212.5をliteral expected vectorとしてResultおよびTraceと照合する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "IMP-001",
+      "pattern": "resolved_direct_radial_impact",
+      "desc": "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。Projectile軌道、衝突、爆心、複数attack mode、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない",
+      "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"
     },

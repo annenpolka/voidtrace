@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.13.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.14.0",
   "kind": "ruleset",
-  "schemaVersion": "0.13.0",
+  "schemaVersion": "0.14.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
+  "contentHash": "sha256:5eaa05071b2b64f5b2703f96737db111b7821fe570422b33a67551327bab274a",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -149,6 +149,25 @@
       ],
       "operation": {
         "kind": "event.expand-resolved-radial-targets",
+        "maximumTargets": 64
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.impact.expand-resolved-direct-radial",
+      "description": "Expand one resolved impact into one ordered Direct child followed by bounded Radial target children.",
+      "phase": "attack.emit",
+      "eventKind": "action.resolved-direct-radial-impact",
+      "reads": [
+        "action.impact-target-count"
+      ],
+      "writes": [
+        "event.direct-hit-count",
+        "event.radial-target-count"
+      ],
+      "operation": {
+        "kind": "event.expand-resolved-direct-radial-impact",
         "maximumTargets": 64
       },
       "evidenceStatus": "experimental",
@@ -573,6 +592,27 @@
       ],
       "operation": {
         "kind": "damage-vector.aggregate-resolved-radial-targets"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.impact.aggregate-resolved-direct-radial",
+      "description": "Aggregate one terminal Direct Damage Vector, all terminal Radial Damage Vectors, and target-specific Health for one resolved impact.",
+      "phase": "result.aggregate",
+      "eventKind": "action.resolved-direct-radial-impact",
+      "reads": [
+        "impact.direct-damage",
+        "impact.target-damage",
+        "impact.target-health-before",
+        "impact.target-health-after"
+      ],
+      "writes": [
+        "event.damage",
+        "targets.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-resolved-direct-radial-impact"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

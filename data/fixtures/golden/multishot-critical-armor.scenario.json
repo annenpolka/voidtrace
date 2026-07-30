@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.13.0",
+    "schemaVersion": "0.14.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
+    "contentHash": "sha256:5eaa05071b2b64f5b2703f96737db111b7821fe570422b33a67551327bab274a",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -82,5 +82,5 @@
       "description": "Every emitted hit uses the same explicit fixed Critical tier; no Critical or Multishot roll is generated."
     }
   ],
-  "contentHash": "sha256:b2e76388091873242a8811cb71dec364f3338a4ce5dd518d83fa1bd7e8edcc8f"
+  "contentHash": "sha256:b6bf4c4f1d144c3cf0ecd126b5ab7c36e432ccd47e5a6190fd8370cb845c3516"
 }

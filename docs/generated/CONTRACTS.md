@@ -118,8 +118,8 @@ Versioned evaluation output with explicit provenance, coverage, and limitations.
 ## Ruleset
 
 - Contract ID: `ruleset`
-- Schema ID: `urn:voidtrace:schema:ruleset:0.13.0`
-- Schema version: `0.13.0`
+- Schema ID: `urn:voidtrace:schema:ruleset:0.14.0`
+- Schema version: `0.14.0`
 
 Generated finite Rule IR interpreted by the Kernel-facing Rules package.
 

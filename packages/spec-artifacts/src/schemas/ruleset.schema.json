@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.13.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.14.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.13.0"
+      "const": "urn:voidtrace:schema:ruleset:0.14.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.13.0"
+      "const": "0.14.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -285,6 +285,26 @@
                 "type": "object",
                 "properties": {
                   "kind": {
+                    "description": "Expand one resolved impact into one Direct child and a bounded resolved Radial target set.",
+                    "type": "string",
+                    "const": "event.expand-resolved-direct-radial-impact"
+                  },
+                  "maximumTargets": {
+                    "description": "Positive safe execution bound for one resolved Direct plus Radial impact.",
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "maximumTargets"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
                     "description": "Copy the input base Damage Vector into event damage.",
                     "type": "string",
                     "const": "damage-vector.copy"
@@ -518,6 +538,20 @@
                     "description": "Aggregate terminal Damage and target-specific Health for one resolved Radial impact.",
                     "type": "string",
                     "const": "damage-vector.aggregate-resolved-radial-targets"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Aggregate Direct and Radial Damage with terminal target-specific Health for one resolved impact.",
+                    "type": "string",
+                    "const": "damage-vector.aggregate-resolved-direct-radial-impact"
                   }
                 },
                 "required": [

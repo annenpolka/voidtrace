@@ -96,6 +96,13 @@ export type ResolvedRadialTargetAggregateContext = {
   readonly hitCount: number;
   readonly targets: ReadonlyArray<ResolvedRadialTargetHit>;
 };
+export type ResolvedDirectRadialImpactExpansionContext = ResolvedPunchThroughExpansionContext;
+export type ResolvedDirectRadialImpactTarget = ResolvedPunchThroughTargetHit;
+export type ResolvedDirectRadialImpactAggregateContext = {
+  readonly initialHealthTotal: number;
+  readonly directDamage: DamageVector;
+  readonly targets: ReadonlyArray<ResolvedDirectRadialImpactTarget>;
+};
 export type ResolvedPelletAllocationExpansionContext = {
   readonly pelletCount: number;
   readonly hitCount: number;
@@ -184,6 +191,8 @@ type ValidatedResolvedPunchThroughExpansionContext = ResolvedPunchThroughExpansi
 type ValidatedResolvedPunchThroughAggregateContext = ResolvedPunchThroughAggregateContext;
 
 type ValidatedResolvedRadialTargetAggregateContext = ResolvedRadialTargetAggregateContext;
+type ValidatedResolvedDirectRadialImpactAggregateContext =
+  ResolvedDirectRadialImpactAggregateContext;
 
 type ValidatedSequentialHitAggregateContext = SequentialHitAggregateContext;
 
@@ -670,6 +679,30 @@ function snapshotResolvedRadialTargetAggregateContext(
     invalidContext("initialHealthTotal must equal the target Health sum", "initialHealthTotal");
   }
   return Object.freeze({ initialHealthTotal, hitCount, targets });
+}
+
+function snapshotResolvedDirectRadialImpactAggregateContext(
+  value: ResolvedDirectRadialImpactAggregateContext,
+): ValidatedResolvedDirectRadialImpactAggregateContext {
+  const context = snapshotPlainExactObject(
+    value,
+    ["initialHealthTotal", "directDamage", "targets"],
+    "context",
+  );
+  const initialHealthTotal = nonNegativeFinite(
+    dataProperty(context, "initialHealthTotal", "context"),
+    "initialHealthTotal",
+  );
+  const directDamage = snapshotDamageVector(
+    dataProperty(context, "directDamage", "context"),
+    "directDamage",
+  );
+  const targets = snapshotResolvedPunchThroughTargets(dataProperty(context, "targets", "context"));
+  const summedInitialHealth = targets.reduce((total, target) => total + target.healthBefore, 0);
+  if (!Number.isFinite(summedInitialHealth) || summedInitialHealth !== initialHealthTotal) {
+    invalidContext("initialHealthTotal must equal the target Health sum", "initialHealthTotal");
+  }
+  return Object.freeze({ initialHealthTotal, directDamage, targets });
 }
 
 function snapshotResolvedPelletAllocationExpansionContext(
@@ -1479,6 +1512,53 @@ export function executeResolvedRadialTargetExpansionRule(
   );
 }
 
+export function executeResolvedDirectRadialImpactExpansionRule(
+  rule: RuleDefinition,
+  context: ResolvedDirectRadialImpactExpansionContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "event.expand-resolved-direct-radial-impact") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved Direct plus Radial impact expansion operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const operation = rule.operation as {
+    readonly kind: "event.expand-resolved-direct-radial-impact";
+    readonly maximumTargets: unknown;
+  };
+  if (
+    typeof operation.maximumTargets !== "number" ||
+    !Number.isSafeInteger(operation.maximumTargets) ||
+    operation.maximumTargets < 1
+  ) {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid target limit`, {
+      ruleId: rule.id,
+    });
+  }
+  const input = snapshotResolvedPunchThroughExpansionContext(context);
+  if (input.targetCount > operation.maximumTargets) {
+    throw new RulesError(
+      "execution-limit-exceeded",
+      `Resolved impact targetCount ${input.targetCount} exceeds limit ${operation.maximumTargets}`,
+      { maximumTargets: operation.maximumTargets, targetCount: input.targetCount },
+    );
+  }
+  const projection = stateProjection(input.zeroDamage, input.initialHealthTotal);
+  return applied(
+    rule,
+    1,
+    parameters({
+      factor: 1,
+      maximumTargets: operation.maximumTargets,
+      targetCount: input.targetCount,
+    }),
+    projection,
+    projection,
+  );
+}
+
 export function executeResolvedPelletAllocationExpansionRule(
   rule: RuleDefinition,
   context: ResolvedPelletAllocationExpansionContext,
@@ -1951,6 +2031,78 @@ export function executeResolvedRadialTargetAggregateRule(
         throw new RulesError(
           "arithmetic-invalid",
           `Resolved Radial aggregate overflowed damage component ${id}`,
+          { id, targetId: target.targetId },
+        );
+      }
+      aggregateDamage[id] = component;
+      values[`target.${index}.damage.${id}`] = target.damage[id] ?? 0;
+    }
+  }
+  const damage = Object.freeze(aggregateDamage);
+  return applied(
+    rule,
+    1,
+    parameters(values),
+    stateProjection(damage, input.initialHealthTotal),
+    stateProjection(damage, remainingHealthTotal),
+  );
+}
+
+export function executeResolvedDirectRadialImpactAggregateRule(
+  rule: RuleDefinition,
+  context: ResolvedDirectRadialImpactAggregateContext,
+): RuleExecution {
+  assertExecutableRule(rule);
+  if (rule.operation.kind !== "damage-vector.aggregate-resolved-direct-radial-impact") {
+    throw new RulesError(
+      "invalid-rule",
+      `Rule ${rule.id} is not a resolved Direct plus Radial impact aggregate operation`,
+      { operationKind: rule.operation.kind, ruleId: rule.id },
+    );
+  }
+  const input = snapshotResolvedDirectRadialImpactAggregateContext(context);
+  const expectedDamageKeys = Object.keys(input.targets[0]?.damage ?? {});
+  if (
+    Object.keys(input.directDamage).length !== expectedDamageKeys.length ||
+    Object.keys(input.directDamage).some((id, index) => id !== expectedDamageKeys[index])
+  ) {
+    invalidContext("Direct and target Damage Vectors must contain the same keys", "directDamage");
+  }
+  const aggregateDamage: Record<string, number> = Object.fromEntries(
+    expectedDamageKeys.map((id) => [id, 0]),
+  );
+  const values: Record<string, RuleParameterValue> = {
+    directDamageTotal: sumValidatedDamageVector(input.directDamage),
+    targetCount: input.targets.length,
+  };
+  let remainingHealthTotal = 0;
+  for (const [index, target] of input.targets.entries()) {
+    const damageKeys = Object.keys(target.damage);
+    if (
+      damageKeys.length !== expectedDamageKeys.length ||
+      damageKeys.some((id, keyIndex) => id !== expectedDamageKeys[keyIndex])
+    ) {
+      invalidContext(
+        "All resolved impact targets must contain the same Damage Vector keys",
+        "targets",
+      );
+    }
+    values[`target.${index}.id`] = target.targetId;
+    values[`target.${index}.event-id`] = target.id;
+    values[`target.${index}.index`] = target.index;
+    values[`target.${index}.damageTotal`] = sumValidatedDamageVector(target.damage);
+    values[`target.${index}.healthBefore`] = target.healthBefore;
+    values[`target.${index}.healthAfter`] = target.healthAfter;
+    remainingHealthTotal += target.healthAfter;
+    if (!Number.isFinite(remainingHealthTotal)) {
+      throw new RulesError("arithmetic-invalid", "Target Health sum overflowed finite arithmetic");
+    }
+    for (const id of expectedDamageKeys) {
+      const component = (aggregateDamage[id] ?? 0) + (target.damage[id] ?? 0);
+      if (!Number.isFinite(component) || component < 0) {
+        throw new RulesError(
+          "arithmetic-invalid",
+          `Resolved impact aggregate overflowed damage component ${id}`,
           { id, targetId: target.targetId },
         );
       }

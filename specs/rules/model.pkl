@@ -70,6 +70,11 @@ class ExpandResolvedRadialTargets extends RuleOperation {
   maximumTargets: UInt(isPositive)
 }
 
+class ExpandResolvedDirectRadialImpact extends RuleOperation {
+  kind = "event.expand-resolved-direct-radial-impact"
+  maximumTargets: UInt(isPositive)
+}
+
 class CopyResolvedStatusTickDamage extends RuleOperation {
   kind = "damage-vector.copy-resolved-status-tick"
 }
@@ -92,6 +97,10 @@ class AggregateResolvedChainTargets extends RuleOperation {
 
 class AggregateResolvedRadialTargets extends RuleOperation {
   kind = "damage-vector.aggregate-resolved-radial-targets"
+}
+
+class AggregateResolvedDirectRadialImpact extends RuleOperation {
+  kind = "damage-vector.aggregate-resolved-direct-radial-impact"
 }
 
 class CommitHealthDamage extends RuleOperation {

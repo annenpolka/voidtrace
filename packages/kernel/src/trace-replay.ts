@@ -779,8 +779,13 @@ async function replayTrace(
       case "event.expand-resolved-punch-through-targets":
       case "event.expand-resolved-ricochet-targets":
       case "event.expand-resolved-chain-targets":
-      case "event.expand-resolved-radial-targets": {
-        const isRadialTargets = operation.kind === "event.expand-resolved-radial-targets";
+      case "event.expand-resolved-radial-targets":
+      case "event.expand-resolved-direct-radial-impact": {
+        const isRadialTargets =
+          operation.kind === "event.expand-resolved-radial-targets" ||
+          operation.kind === "event.expand-resolved-direct-radial-impact";
+        const isDirectRadialImpact =
+          operation.kind === "event.expand-resolved-direct-radial-impact";
         const targetCount = operation.parameters.targetCount;
         const maximumTargets = operation.parameters.maximumTargets;
         if (
@@ -822,7 +827,7 @@ async function replayTrace(
           initialHealthTotal,
           `Trace decision ${decision.sequence} after`,
         );
-        expectedPathTargetCount = targetCount;
+        expectedPathTargetCount = isDirectRadialImpact ? targetCount + 1 : targetCount;
         damage = beforeDamage;
         health = initialHealthTotal;
         break;
@@ -1852,6 +1857,152 @@ async function replayTrace(
         );
         damage = aggregate;
         health = remainingHealthTotal;
+        committed = true;
+        break;
+      }
+      case "damage-vector.aggregate-resolved-direct-radial-impact": {
+        const targetCount = operation.parameters.targetCount;
+        const directDamageTotal = operation.parameters.directDamageTotal;
+        if (
+          anchoredInitialHealthByTarget === undefined ||
+          expectedPathTargetCount === undefined ||
+          typeof targetCount !== "number" ||
+          !Number.isSafeInteger(targetCount) ||
+          targetCount < 1 ||
+          expectedPathTargetCount !== targetCount + 1 ||
+          typeof directDamageTotal !== "number" ||
+          !Number.isFinite(directDamageTotal) ||
+          directDamageTotal < 0
+        ) {
+          invalidParameters("Trace resolved impact aggregate has invalid bounds");
+        }
+        const directDamageRead = decision.reads["impact.direct-damage"];
+        if (typeof directDamageRead !== "string") {
+          invalidParameters("Trace resolved impact aggregate omits Direct Damage");
+        }
+        let parsedDirectDamage: unknown;
+        try {
+          parsedDirectDamage = JSON.parse(directDamageRead);
+        } catch {
+          invalidParameters("Trace resolved impact Direct Damage is not canonical JSON");
+        }
+        if (
+          typeof parsedDirectDamage !== "object" ||
+          parsedDirectDamage === null ||
+          Array.isArray(parsedDirectDamage) ||
+          canonicalizeJson(parsedDirectDamage) !== directDamageRead ||
+          sumDamageVector(parsedDirectDamage as Record<string, number>) !== directDamageTotal
+        ) {
+          invalidParameters("Trace resolved impact Direct Damage is inconsistent");
+        }
+        const aggregateDamage: Record<string, number> = {};
+        const damageReads: Array<Record<string, unknown>> = [];
+        const beforeReads: Array<Record<string, unknown>> = [];
+        const afterReads: Array<Record<string, unknown>> = [];
+        const healthByTarget: Record<string, number> = {};
+        let initialHealthTotal = 0;
+        let remainingHealthTotal = 0;
+        for (let index = 0; index < targetCount; index += 1) {
+          const targetId = operation.parameters[`target.${index}.id`];
+          const eventId = operation.parameters[`target.${index}.event-id`];
+          const targetIndex = operation.parameters[`target.${index}.index`];
+          const damageTotal = operation.parameters[`target.${index}.damageTotal`];
+          const healthBefore = operation.parameters[`target.${index}.healthBefore`];
+          const healthAfter = operation.parameters[`target.${index}.healthAfter`];
+          if (
+            typeof targetId !== "string" ||
+            !isStableId(targetId) ||
+            eventId !== `radial-target.${index}` ||
+            targetIndex !== index ||
+            typeof damageTotal !== "number" ||
+            !Number.isFinite(damageTotal) ||
+            damageTotal < 0 ||
+            typeof healthBefore !== "number" ||
+            typeof healthAfter !== "number" ||
+            anchoredInitialHealthByTarget[targetId] !== healthBefore
+          ) {
+            invalidParameters(`Trace resolved impact target ${index} is invalid`);
+          }
+          const targetDamage: Record<string, number> = {};
+          const damagePrefix = `target.${index}.damage.`;
+          for (const [key, value] of Object.entries(operation.parameters)) {
+            if (key.startsWith(damagePrefix)) {
+              const damageTypeId = key.slice(damagePrefix.length);
+              if (
+                damageTypeId.length === 0 ||
+                typeof value !== "number" ||
+                !Number.isFinite(value) ||
+                value < 0
+              ) {
+                invalidParameters(`Trace resolved impact target ${index} has invalid Damage`);
+              }
+              targetDamage[damageTypeId] = value;
+            }
+          }
+          const targetEvents = [...pathTargets.values()]
+            .filter((candidate) => candidate.targetId === targetId)
+            .toSorted((left, right) => left.index - right.index);
+          const replayedDamage = targetEvents.reduce<Record<string, number>>(
+            (total, candidate) => {
+              for (const [id, component] of Object.entries(candidate.damage)) {
+                total[id] = (total[id] ?? 0) + component;
+              }
+              return total;
+            },
+            Object.fromEntries(Object.keys(targetDamage).map((id) => [id, 0])),
+          );
+          const replayedHealth = targetEvents.at(-1)?.health ?? healthBefore;
+          if (
+            sumDamageVector(targetDamage) !== damageTotal ||
+            healthAfter !== Math.max(0, healthBefore - damageTotal) ||
+            canonicalizeJson(replayedDamage) !== canonicalizeJson(targetDamage) ||
+            replayedHealth !== healthAfter
+          ) {
+            invalidParameters(`Trace resolved impact target ${targetId} is inconsistent`);
+          }
+          for (const [id, component] of Object.entries(targetDamage)) {
+            aggregateDamage[id] = (aggregateDamage[id] ?? 0) + component;
+          }
+          initialHealthTotal += healthBefore;
+          remainingHealthTotal += healthAfter;
+          healthByTarget[targetId] = healthAfter;
+          damageReads.push({ id: `radial-target.${index}`, targetId, index, damage: targetDamage });
+          beforeReads.push({
+            id: `radial-target.${index}`,
+            targetId,
+            index,
+            healthBefore,
+          });
+          afterReads.push({
+            id: `radial-target.${index}`,
+            targetId,
+            index,
+            healthAfter,
+          });
+        }
+        if (
+          decision.reads["impact.target-damage"] !== canonicalizeJson(damageReads) ||
+          decision.reads["impact.target-health-before"] !== canonicalizeJson(beforeReads) ||
+          decision.reads["impact.target-health-after"] !== canonicalizeJson(afterReads)
+        ) {
+          invalidParameters("Trace resolved impact aggregate reads are inconsistent");
+        }
+        const aggregate = Object.freeze(aggregateDamage);
+        assertProjection(
+          decision.before,
+          aggregate,
+          initialHealthTotal,
+          `Trace decision ${decision.sequence} before`,
+        );
+        assertProjection(
+          decision.after,
+          aggregate,
+          remainingHealthTotal,
+          `Trace decision ${decision.sequence} after`,
+        );
+        damage = aggregate;
+        health = remainingHealthTotal;
+        terminalHealthByTarget = Object.freeze(healthByTarget);
         committed = true;
         break;
       }

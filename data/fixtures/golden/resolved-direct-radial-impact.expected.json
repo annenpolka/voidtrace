@@ -1,0 +1,52 @@
+{
+  "id": "golden.resolved-direct-radial-impact",
+  "scenarioId": "scenario.golden-resolved-direct-radial-impact",
+  "metrics": {
+    "impact.direct.damage-total": 50,
+    "impact.radial.damage-total": 67.5,
+    "impact.damage-total": 117.5,
+    "impact.radial-target-count": 2,
+    "damage.health.total": 117.5,
+    "targets.health.remaining-total": 212.5,
+    "targets.defeated-count": 0
+  },
+  "damageBySource": {
+    "action.resolved-direct-radial-impact-1": 117.5
+  },
+  "damageByType": {
+    "damage.synthetic-kinetic": 117.5
+  },
+  "targetStates": {
+    "actor.target-a": {
+      "health": 80
+    },
+    "actor.target-b": {
+      "health": 60
+    },
+    "actor.target-c": {
+      "health": 72.5
+    }
+  },
+  "appliedRuleIds": [
+    "rule.impact.expand-resolved-direct-radial",
+    "rule.damage.direct-hit",
+    "rule.critical.scale-tier",
+    "rule.defense.standard-armor",
+    "rule.damage.commit-health",
+    "rule.radial.construct-hit",
+    "rule.radial.scale-critical-tier",
+    "rule.radial.apply-resolved-falloff",
+    "rule.radial.standard-armor",
+    "rule.radial.commit-health",
+    "rule.radial.construct-hit",
+    "rule.radial.scale-critical-tier",
+    "rule.radial.apply-resolved-falloff",
+    "rule.radial.standard-armor",
+    "rule.radial.commit-health",
+    "rule.impact.aggregate-resolved-direct-radial"
+  ],
+  "rejectedRules": [],
+  "directTargetId": "actor.target-a",
+  "radialTargetOrder": ["actor.target-a", "actor.target-c"],
+  "tolerance": 0.000001
+}

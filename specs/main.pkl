@@ -17,6 +17,7 @@ import "golden/pellet-critical-armor.pkl"
 import "golden/probability-critical-armor.pkl"
 import "golden/radial-critical-armor.pkl"
 import "golden/resolved-chain.pkl"
+import "golden/resolved-direct-radial-impact.pkl"
 import "golden/resolved-pellet-allocation.pkl"
 import "golden/resolved-punch-through.pkl"
 import "golden/resolved-radial-targets.pkl"
@@ -32,6 +33,7 @@ import "mechanics/clauses.pkl" as mechanicsClauses
 import "mechanics/critical.pkl"
 import "mechanics/defense.pkl"
 import "mechanics/direct-hit.pkl"
+import "mechanics/impact.pkl"
 import "mechanics/multishot.pkl"
 import "mechanics/pellet.pkl"
 import "mechanics/punch-through.pkl"
@@ -61,6 +63,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.resolvedPelletAllocationUsesExplicitCounts
   mechanicsClauses.resolvedRadialFalloffScalesDamage
   mechanicsClauses.resolvedRadialTargetsUseDistanceAndLos
+  mechanicsClauses.resolvedDirectRadialImpactSharesParentAndWorldState
   mechanicsClauses.resolvedStatusTicksCommitInTimeOrder
   mechanicsClauses.resolvedPunchThroughVisitsTargetsInPathOrder
   mechanicsClauses.resolvedRicochetVisitsTargetsInPathOrder
@@ -81,6 +84,7 @@ clauses: Listing<base.Clause> = new {
   `resolved-punch-through`.roundTrip
   `resolved-ricochet`.roundTrip
   `resolved-chain`.roundTrip
+  `resolved-direct-radial-impact`.roundTrip
   `resolved-pellet-allocation`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
@@ -103,7 +107,7 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.13.0"
+  version = "0.14.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
@@ -115,6 +119,7 @@ ruleset: ruleModel.Ruleset = new {
     ricochet.expandResolvedTargetsRule
     chain.expandResolvedTargetsRule
     radial.expandResolvedTargetsRule
+    impact.expandResolvedDirectRadialRule
     critical.resolveExpectedBranchesRule
     `direct-hit`.rule
     radial.constructRule
@@ -137,5 +142,6 @@ ruleset: ruleModel.Ruleset = new {
     ricochet.aggregateResolvedTargetsRule
     chain.aggregateResolvedTargetsRule
     radial.aggregateResolvedTargetsRule
+    impact.aggregateResolvedDirectRadialRule
   }
 }

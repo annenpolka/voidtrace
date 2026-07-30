@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.13.0",
+    "schemaVersion": "0.14.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
+    "contentHash": "sha256:5eaa05071b2b64f5b2703f96737db111b7821fe570422b33a67551327bab274a",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -122,5 +122,5 @@
       "description": "The fixture does not derive Spread, hit tests, probabilistic distributions, pellet-specific Critical rolls, or Multishot composition."
     }
   ],
-  "contentHash": "sha256:b5d84977ddbe3cac5d44d4cc60a72b855c1c3fa984a96881009316528498c79c"
+  "contentHash": "sha256:3e34f43fa7b34a3cd26c6d5e97fa013523ca33247801e1325ae357def9092c08"
 }

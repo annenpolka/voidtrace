@@ -1,0 +1,11 @@
+/// Literal end-to-end obligation for one resolved Direct plus Radial impact DAG.
+module voidtrace.golden.resolvedDirectRadialImpact
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-014"
+  desc =
+    "data/fixtures/golden/resolved-direct-radial-impact.scenario.jsonはtargets配列B→A→Cと異なるrelation順A→C→B、一つのDirect target A、固定Critical tier 0を使う。DirectはAを180→130へ更新し、続くRadialはAを130→80、Cを90→72.5へ更新し、Bは範囲外で60を保つ。Direct Damage 50、Radial Damage 67.5、合計117.5、残Health合計212.5をliteral expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

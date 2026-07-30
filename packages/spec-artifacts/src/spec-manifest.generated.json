@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:0c31b659ee3dfdbb169862e3ef1c82b810cea167388bddb98118b84281505fa0",
+  "sourceFingerprint": "sha256:6a260124a4455c781cd695bae2299e4a8ddee850552dd0344f193c95fa14625a",
   "clauses": [
     {
       "id": "CHN-001",
@@ -237,6 +237,22 @@
       "area": "mechanics"
     },
     {
+      "id": "GOL-014",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-direct-radial-impact.scenario.jsonはtargets配列B→A→Cと異なるrelation順A→C→B、一つのDirect target A、固定Critical tier 0を使う。DirectはAを180→130へ更新し、続くRadialはAを130→80、Cを90→72.5へ更新し、Bは範囲外で60を保つ。Direct Damage 50、Radial Damage 67.5、合計117.5、残Health合計212.5をliteral expected vectorとしてResultおよびTraceと照合する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "IMP-001",
+      "pattern": "resolved_direct_radial_impact",
+      "desc": "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。Projectile軌道、衝突、爆心、複数attack mode、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
       "id": "MSH-001",
       "pattern": "fixed_multishot_expansion",
       "desc": "action.multishot-direct-hitは明示された正のsafe-integer hitCountを上限64まで受理し、安定したindexと親action参照を持つ同数のDirect Hit子イベントへ展開する。確率的Multishot、暗黙roll、部分Resultは生成しない",
@@ -383,8 +399,8 @@
     {
       "id": "ruleset",
       "typeName": "Ruleset",
-      "schemaId": "urn:voidtrace:schema:ruleset:0.13.0",
-      "version": "0.13.0"
+      "schemaId": "urn:voidtrace:schema:ruleset:0.14.0",
+      "version": "0.14.0"
     },
     {
       "id": "scenario",
@@ -401,9 +417,9 @@
   ],
   "ruleset": {
     "id": "ruleset.synthetic-core",
-    "version": "0.13.0",
+    "version": "0.14.0",
     "revision": 1,
-    "contentHash": "sha256:e6bf43369020a7409aaa68857347e5c2e056bc0e2c90b5f510e766bd16d25446",
+    "contentHash": "sha256:5eaa05071b2b64f5b2703f96737db111b7821fe570422b33a67551327bab274a",
     "gameBuild": "synthetic-fixture-0",
     "ruleIds": [
       "rule.multishot.emit-fixed-hits",
@@ -414,6 +430,7 @@
       "rule.ricochet.expand-resolved-targets",
       "rule.chain.expand-resolved-targets",
       "rule.radial.expand-resolved-targets",
+      "rule.impact.expand-resolved-direct-radial",
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
       "rule.radial.construct-hit",
@@ -435,7 +452,8 @@
       "rule.punch-through.aggregate-resolved-targets",
       "rule.ricochet.aggregate-resolved-targets",
       "rule.chain.aggregate-resolved-targets",
-      "rule.radial.aggregate-resolved-targets"
+      "rule.radial.aggregate-resolved-targets",
+      "rule.impact.aggregate-resolved-direct-radial"
     ]
   }
 }

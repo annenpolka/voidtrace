@@ -1,0 +1,45 @@
+/// Experimental composition of one resolved Direct child and resolved Radial target children.
+module voidtrace.mechanics.impact
+
+import "../rules/model.pkl"
+
+expandResolvedDirectRadialRule: model.Rule = new {
+  id = "rule.impact.expand-resolved-direct-radial"
+  description =
+    "Expand one resolved impact into one ordered Direct child followed by bounded Radial target children."
+  phase = "attack.emit"
+  eventKind = "action.resolved-direct-radial-impact"
+  reads {
+    "action.impact-target-count"
+  }
+  writes {
+    "event.direct-hit-count"
+    "event.radial-target-count"
+  }
+  operation = new model.ExpandResolvedDirectRadialImpact {
+    maximumTargets = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateResolvedDirectRadialRule: model.Rule = new {
+  id = "rule.impact.aggregate-resolved-direct-radial"
+  description =
+    "Aggregate one terminal Direct Damage Vector, all terminal Radial Damage Vectors, and target-specific Health for one resolved impact."
+  phase = "result.aggregate"
+  eventKind = "action.resolved-direct-radial-impact"
+  reads {
+    "impact.direct-damage"
+    "impact.target-damage"
+    "impact.target-health-before"
+    "impact.target-health-after"
+  }
+  writes {
+    "event.damage"
+    "targets.health"
+  }
+  operation = new model.AggregateResolvedDirectRadialImpact {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}

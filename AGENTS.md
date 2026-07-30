@@ -29,7 +29,7 @@ The current implemented boundary ends at the synthetic Direct Hit / generalized 
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
 and pellets plus resolved target-specific Pellet allocation, standalone resolved Radial falloff,
 resolved multi-target Radial, and resolved synthetic Status ticks, backed by generated Ruleset
-`0.13.0` revision `1` and their formal
+`0.14.0` revision `1` and their formal
 `describe` / `run` / `trace` JSON CLI.
 Fixed Critical input is a non-negative safe-integer tier. Explicit-roll and expected resolution
 accept non-negative Critical chance only while adjacent tiers are safely representable.
@@ -46,6 +46,12 @@ or compose a Direct sibling or Projectile parent. Resolved multi-target Radial a
 same-impact distance/LoS relations plus explicit synthetic linear falloff bounds, applies the
 existing Radial pipeline only to in-range clear-LoS targets, and preserves non-hit target Health.
 It does not derive impact coordinates, terrain, LoS, distance, or current-game falloff parameters.
+Resolved Direct-plus-Radial impact accepts one configured Direct target and the same resolved
+impact-distance/LoS relation set, emits both children under one parent, commits Direct before
+Radial on the same target-local World State, and aggregates their Damage separately and together.
+It uses one synthetic attack mode and one shared fixed Critical tier; it does not derive a physical
+Projectile, collision, multiple attack modes, separate tiers or rolls, Status, Multishot, or
+Pellet composition.
 Resolved Status ticks accept only `status.synthetic-resolved-dot`, explicit final Health damage per
 tick, a positive count up to 64, and a positive interval whose last tick fits within
 `timeLimitMs`. They do not derive Status application, type, damage, Critical, Armor, stack,
@@ -56,7 +62,8 @@ allocation. The current runtime
 accepts an empty relation list, one `punch-through`, `ricochet`, or `chain` ordered path referenced
 by the matching resolved action, 1 to 64 same-impact distance/LoS relations referenced by a
 resolved multi-target Radial action, or all-target allocation relations referenced by a resolved
-Pellet allocation action. Target-specific terminal Health is recorded in Result
+Pellet allocation action. The impact-distance relation set can instead be referenced by a resolved
+Direct-plus-Radial impact that names one configured Direct target. Target-specific terminal Health is recorded in Result
 `targetStates`, with aggregate Damage, remaining Health, and defeated count. It does not derive
 geometry, collision, wall penetration, attenuation, reflection angles, chain candidate search,
 branching, distance, revisit behavior, target selection, or rolls. Every other non-empty Target
@@ -66,11 +73,12 @@ The repository-local fixture-variation skill accepts non-negative safe-integer f
 repository-local analytic expected preset; it is not the formal CLI boundary and does not
 synthesize Critical chance, rolls, Multishot counts, or pellet counts. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
-resolved Pellet allocation, and resolved Status tick fixtures.
+resolved Pellet allocation, resolved Direct-plus-Radial impact, and resolved Status tick fixtures.
 Probabilistic Multishot or
 pellets, Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, probabilistic hit distribution,
-Spread, Catalog- or current-game-derived Radial falloff, Direct-plus-Radial or Projectile
-composition, generated random rolls, grouped-hit expected values, and Monte Carlo remain
+Spread, Catalog- or current-game-derived Radial falloff, physical Projectile composition,
+multiple attack modes or separate Critical resolutions within one Direct-plus-Radial impact,
+generated random rolls, grouped-hit expected values, and Monte Carlo remain
 unsupported.
 Real Status formulas, chance/type resolution, Direct/Radial application, stacking, refresh,
 snapshot behavior, and Status expected values remain unsupported.

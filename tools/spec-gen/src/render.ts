@@ -230,6 +230,9 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
   const radialTargetClauses = spec.clauses.filter(
     (clause) => clause.id === "RAD-002" || clause.id === "GOL-012",
   );
+  const directRadialImpactClauses = spec.clauses.filter(
+    (clause) => clause.id === "IMP-001" || clause.id === "GOL-014",
+  );
   const statusClauses = spec.clauses.filter(
     (clause) => clause.id.startsWith("STS-") || clause.id === "GOL-008",
   );
@@ -250,6 +253,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       !pelletAllocationClauses.includes(clause) &&
       !radialClauses.includes(clause) &&
       !radialTargetClauses.includes(clause) &&
+      !directRadialImpactClauses.includes(clause) &&
       !statusClauses.includes(clause) &&
       !punchThroughClauses.includes(clause) &&
       !ricochetClauses.includes(clause) &&
@@ -323,6 +327,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       capability("mechanics.resolved-pellet-allocation", pelletAllocationClauses),
       capability("mechanics.resolved-radial", radialClauses),
       capability("mechanics.resolved-radial-targets", radialTargetClauses),
+      capability("mechanics.resolved-direct-radial-impact", directRadialImpactClauses),
       capability("mechanics.resolved-status-ticks", statusClauses),
       capability("mechanics.resolved-punch-through", punchThroughClauses),
       capability("mechanics.resolved-ricochet", ricochetClauses),
