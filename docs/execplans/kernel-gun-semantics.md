@@ -70,8 +70,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 13:31:53Z) 一つの親impactからDirect siblingを先に、Radial target childrenを後に同じWorld Stateへcommitし、Result／Trace replayを実装した。
 - [x] (2026-07-30 13:31:53Z) property、Runtime／CLI E2E、repository-local skill評価、Node 26／24の全ゲートを通し、実装を `6857390` としてコミットした。
 - [x] (2026-07-30 13:43:18Z) 次の縦切りを、既存impact actionの互換性を保ったままDirectとRadialが別の明示Catalog attack modeを参照できる拡張に固定した。
-- [ ] Pkl ClauseとGoldenで、Direct用attack mode、Radial用attack mode、共有固定Critical tier、共通World Stateの境界を規定し、Ruleset `0.15.0`を生成する。
-- [ ] 合成Catalogへ別base DamageのRadial attack modeを追加し、Domain／Kernel／Trace replay／CLI／skillを実装してNode 26／24の全ゲートとempirical評価を通す。
+- [x] (2026-07-30 13:54:34Z) `IMP-002`と`GOL-015`でDirect用attack mode、Radial用attack mode、共有固定Critical tier、共通World Stateの境界を規定し、Ruleset `0.15.0`を生成した。
+- [x] (2026-07-30 13:54:34Z) 合成Catalogへbase Damage 80のRadial modeを追加し、Domain／Kernel／Trace／CLI／skillを実装した。Node 26／24で47 Clauses、8 Contracts、生成24ファイル、21ファイル359テストを通した。
+- [x] (2026-07-30 13:54:34Z) empirical-prompt-tuningはfeature commit後のIteration 2／3で対応・非対応・hold-outがすべて5/5、不明点0となった。対応fixtureはtracked／HEAD一致、未知modeはstale hashとCatalog参照失敗を区別した。
+- [x] (2026-07-30 13:54:34Z) 別mode実装を `26e5712`、新Clauseのcapability誤分類修正を `bca8414` としてコミットした。
 
 ## Surprises & Discoveries
 
@@ -131,6 +133,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: target IDだけをTrace replay状態のkeyにすると、同じtargetへ複数Pelletが命中する二発目を「metadata変更」と誤判定する。
   Evidence: resolved Pellet GoldenはAへ2回連続commitする。replay内部はallocationのglobal path indexで各hitを識別し、同一targetの直前commit Healthを次hitの入力として検査した後、終端だけをtarget IDごとに再集約する。
+
+- Observation: capability generatorがimpact Clauseを `IMP-001`、Goldenを `GOL-014` に固定列挙していたため、新しい `IMP-002/GOL-015` が汎用Direct capabilityへ誤分類された。
+  Evidence: 初回の `vt describe` は新Clauseだけを `mechanics.direct-critical-armor` に含めた。generatorを `IMP-*` と二つのimpact Goldenへ拡張し、回帰テスト後は `mechanics.resolved-direct-radial-impact` が `GOL-014`、`GOL-015`、`IMP-001`、`IMP-002`を列挙する。
+
+- Observation: skillのempirical評価は、未追跡fixtureでもexecutorが名前だけから「checked-in」と報告しうる。
+  Evidence: feature commit前のIteration 1は数値を正しく再現したが、criticalなtracked状態を確認しなかった。`git ls-files --error-unmatch` とHEAD byte一致を実行前条件へ追加し、commit後のIteration 2／3では明示的に確認した。
 
 ## Decision Log
 
@@ -287,6 +295,8 @@ Resolved multi-target Radialマイルストーンでは、一つの `impactId` �
 Resolved Pellet allocationマイルストーンでは、総pellet 4をrelation順A=2、C=0、B=1へ解決済み配分し、残る1をmissとして扱う。子Direct HitはA→A→Bの順に固定Critical tier 0とtarget別Armor／Healthを読み、Aを150→100→50、Cを90のまま、Bを80→0へ更新する。Resultは総数4、命中3、miss 1、Damage合計200、全target残Health合計140、撃破1を持つ。Spread、命中判定、確率分布、pellet別Critical roll、Multishot合成は引き続き非対応である。
 
 Resolved Direct＋Radial impactマイルストーンでは、一つの親impactからDirect childとrelation順のRadial target childrenを生成し、同じtarget別World Stateへ順番にcommitできるようになった。Goldenはtargets配列B→A→C、relation順A→C→Bで、DirectがAを180→130、RadialがAを130→80とCを90→72.5へ更新し、範囲外Bを60に保つ。ResultはDirect 50、Radial 67.5、合計117.5、残Health合計212.5、撃破0を分離し、16 decisionsが共通親と順序を保って再生される。Projectile軌道・衝突、複数attack mode、別Critical tier／roll、Status、Multishot、Pellet合成は引き続き非対応である。
+
+別attack mode Direct＋Radialマイルストーンでは、同じactionとEvent DAGを保ったまま、attackerのprimary modeをDirectへ、明示 `radialAttackModeId` をRadialへ別々にCatalog解決できるようになった。GoldenはDirect base Damage 100、Radial base Damage 80をTraceで読み、Direct 50、Radial 54、合計104、終端Health A=90、C=76、B=60、残Health合計226を16 decisionsで再生する。`radialAttackModeId`を省略した旧Goldenは共有modeとして残る。任意mode合成、別Critical tier／roll、Projectile物理、実ゲーム値は引き続き非対応である。
 
 ## Context and Orientation
 
@@ -556,6 +566,8 @@ Ruleset `0.12.0` revision `1` とresolved multi-target Radialを含むローカ�
 Scenario Contract `0.3.0`、Ruleset `0.13.0` revision `1` とresolved Pellet allocationを含むローカル基準線は `274d33f feat: add resolved pellet allocation` としてコミット済みである。
 
 Scenario Contract `0.3.0`、Ruleset `0.14.0` revision `1` とresolved Direct＋Radial impactを含むローカル基準線は `6857390 feat: add resolved direct radial impact` としてコミット済みである。
+
+Scenario Contract `0.3.0`、Ruleset `0.15.0` revision `1` と別Catalog attack modeのresolved Direct＋Radial impactを含むローカル基準線は `26e5712 feat: resolve distinct direct radial modes`、capability分類修正は `bca8414 fix: classify distinct impact capability` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
