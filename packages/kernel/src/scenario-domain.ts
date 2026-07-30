@@ -114,6 +114,7 @@ export type ScenarioDomain = {
     readonly targetPathRelationId: string | null;
     readonly pathTargetIds: readonly string[];
     readonly impactId: string | null;
+    readonly radialAttackModeId: string | null;
     readonly radialTargetRelations: readonly ScenarioDomainRadialTargetRelation[];
     readonly allocationId: string | null;
     readonly pelletCount: number;
@@ -247,6 +248,10 @@ const RESOLVED_RADIAL_TARGET_PARAMETER_KEYS = Object.freeze([
 const RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS = Object.freeze([
   ...RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
   "directTargetId",
+] as const);
+const RESOLVED_DISTINCT_MODE_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS = Object.freeze([
+  ...RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS,
+  "radialAttackModeId",
 ] as const);
 const MULTISHOT_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   "multishot.hit-count",
@@ -455,6 +460,10 @@ function deepFreeze<T>(value: T): T {
 function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainParseResult {
   const candidateAction = scenario.actionPlan[0];
   const isDirectRadialImpact = candidateAction?.kind === "action.resolved-direct-radial-impact";
+  const hasDistinctRadialAttackMode =
+    isDirectRadialImpact &&
+    candidateAction !== undefined &&
+    Object.hasOwn(candidateAction.parameters, "radialAttackModeId");
   const mechanicId = isDirectRadialImpact
     ? "mechanic.impact.resolved-direct-radial"
     : "mechanic.radial.resolved-targets";
@@ -546,7 +555,9 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
   const actionKeyError = exactKeys(
     action.parameters,
     isDirectRadialImpact
-      ? RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS
+      ? hasDistinctRadialAttackMode
+        ? RESOLVED_DISTINCT_MODE_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS
+        : RESOLVED_DIRECT_RADIAL_IMPACT_PARAMETER_KEYS
       : RESOLVED_RADIAL_TARGET_PARAMETER_KEYS,
     "/actionPlan/0/parameters",
   );
@@ -562,6 +573,12 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
     : null;
   if (directTargetId !== null && !directTargetId.ok) {
     return directTargetId;
+  }
+  const radialAttackModeId = hasDistinctRadialAttackMode
+    ? readStableString(action.parameters, "radialAttackModeId", "/actionPlan/0/parameters")
+    : null;
+  if (radialAttackModeId !== null && !radialAttackModeId.ok) {
+    return radialAttackModeId;
   }
   if (action.parameters.hitLocation !== "hit-location.neutral-body") {
     return failure(
@@ -860,6 +877,7 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       targetPathRelationId: null,
       pathTargetIds: Object.freeze(radialTargetRelations.map((relation) => relation.targetId)),
       impactId: impactId.value,
+      radialAttackModeId: radialAttackModeId?.value ?? null,
       radialTargetRelations: Object.freeze(radialTargetRelations),
       allocationId: null,
       pelletCount: 0,
@@ -1229,6 +1247,7 @@ function parseResolvedPelletAllocationDomain(scenario: Scenario): ScenarioDomain
           pelletAllocationRelations.map((relation) => relation.targetId),
         ),
         impactId: null,
+        radialAttackModeId: null,
         radialTargetRelations: Object.freeze([]),
         allocationId: allocationId.value,
         pelletCount,
@@ -1588,6 +1607,7 @@ function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseR
       targetPathRelationId: relation.id,
       pathTargetIds: Object.freeze([...relation.targetIds]),
       impactId: null,
+      radialAttackModeId: null,
       radialTargetRelations: Object.freeze([]),
       allocationId: null,
       pelletCount: 0,
@@ -1958,6 +1978,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
         targetPathRelationId: null,
         pathTargetIds: Object.freeze([]),
         impactId: null,
+        radialAttackModeId: null,
         radialTargetRelations: Object.freeze([]),
         allocationId: null,
         pelletCount: 0,
@@ -2250,6 +2271,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       targetPathRelationId: null,
       pathTargetIds: Object.freeze([]),
       impactId: null,
+      radialAttackModeId: null,
       radialTargetRelations: Object.freeze([]),
       allocationId: null,
       pelletCount: actionKind === "fixed-pellets" ? hitCount : 0,

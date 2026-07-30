@@ -63,6 +63,12 @@ const directRadialImpactScenarioPath = fileURLToPath(
     import.meta.url,
   ),
 );
+const distinctModeImpactScenarioPath = fileURLToPath(
+  new URL(
+    "../../../data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.scenario.json",
+    import.meta.url,
+  ),
+);
 
 const defaultSdk: SdkFacade = {
   describeCapabilities,
@@ -427,6 +433,27 @@ describe("createNodeApplication", () => {
     });
     expect(outcome.trace.decisions.at(-1)).toMatchObject({
       ruleId: "rule.impact.aggregate-resolved-direct-radial",
+    });
+  });
+
+  it("evaluates distinct Direct and Radial attack modes through the Runtime boundary", async () => {
+    const outcome = await createNodeApplication().evaluate({
+      scenarioSource: distinctModeImpactScenarioPath,
+      catalogSource: catalogPath,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.problem.message);
+    }
+    expect(outcome.result.metrics).toEqual({
+      "impact.direct.damage-total": 50,
+      "impact.radial.damage-total": 54,
+      "impact.damage-total": 104,
+      "impact.radial-target-count": 2,
+      "damage.health.total": 104,
+      "targets.health.remaining-total": 226,
+      "targets.defeated-count": 0,
     });
   });
 

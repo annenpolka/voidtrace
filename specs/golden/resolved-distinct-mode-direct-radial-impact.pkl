@@ -1,0 +1,11 @@
+/// Literal obligation for one impact whose Direct and Radial children bind distinct Catalog attack modes.
+module voidtrace.golden.resolvedDistinctModeDirectRadialImpact
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-015"
+  desc =
+    "data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.scenario.jsonはDirectにbase Damage 100のprimary mode、Radialにbase Damage 80のradial mode、固定Critical tier 0を使う。DirectはAを180→130へ更新し、続くRadialはAを130→90、Cを90→76へ更新し、Bは範囲外で60を保つ。Direct Damage 50、Radial Damage 54、合計104、残Health合計226をliteral expected vectorとしてResultおよびTraceと照合し、各child decisionが対応するattack.base-damageを読む"
+  maturity = "active"
+}

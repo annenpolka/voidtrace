@@ -21,6 +21,9 @@ import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.s
 import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
   type: "json",
 };
+import distinctModeImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.scenario.json" with {
+  type: "json",
+};
 import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
   type: "json",
 };
@@ -407,6 +410,24 @@ describe("parseScenarioDomain", () => {
           { id: "actor.target-b", resolvedArmor: 0, resolvedHealth: 60 },
           { id: "actor.target-d", resolvedArmor: 0, resolvedHealth: 40 },
         ],
+      },
+    });
+  });
+
+  it("binds an explicitly distinct Radial attack mode on a resolved impact", async () => {
+    const result = await parseScenarioDomain(structuredClone(distinctModeImpactScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        attacker: {
+          attackModeId: "attack-mode.synthetic-aperture.primary",
+        },
+        action: {
+          kind: "resolved-direct-radial-impact",
+          radialAttackModeId: "attack-mode.synthetic-aperture.radial",
+          criticalTier: 0,
+        },
       },
     });
   });

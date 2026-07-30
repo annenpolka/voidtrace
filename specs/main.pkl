@@ -18,6 +18,7 @@ import "golden/probability-critical-armor.pkl"
 import "golden/radial-critical-armor.pkl"
 import "golden/resolved-chain.pkl"
 import "golden/resolved-direct-radial-impact.pkl"
+import "golden/resolved-distinct-mode-direct-radial-impact.pkl"
 import "golden/resolved-pellet-allocation.pkl"
 import "golden/resolved-punch-through.pkl"
 import "golden/resolved-radial-targets.pkl"
@@ -64,6 +65,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.resolvedRadialFalloffScalesDamage
   mechanicsClauses.resolvedRadialTargetsUseDistanceAndLos
   mechanicsClauses.resolvedDirectRadialImpactSharesParentAndWorldState
+  mechanicsClauses.resolvedDirectRadialImpactCanBindDistinctAttackModes
   mechanicsClauses.resolvedStatusTicksCommitInTimeOrder
   mechanicsClauses.resolvedPunchThroughVisitsTargetsInPathOrder
   mechanicsClauses.resolvedRicochetVisitsTargetsInPathOrder
@@ -85,6 +87,7 @@ clauses: Listing<base.Clause> = new {
   `resolved-ricochet`.roundTrip
   `resolved-chain`.roundTrip
   `resolved-direct-radial-impact`.roundTrip
+  `resolved-distinct-mode-direct-radial-impact`.roundTrip
   `resolved-pellet-allocation`.roundTrip
   cliSurface.commandOutputSelection
   cliSurface.deterministicJson
@@ -107,7 +110,7 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.14.0"
+  version = "0.15.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {

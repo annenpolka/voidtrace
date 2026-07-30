@@ -74,7 +74,14 @@ resolvedRadialTargetsUseDistanceAndLos: base.ResolvedRadialTargets = new {
 resolvedDirectRadialImpactSharesParentAndWorldState: base.ResolvedDirectRadialImpact = new {
   id = "IMP-001"
   desc =
-    "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。Projectile軌道、衝突、爆心、複数attack mode、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない"
+    "action.resolved-direct-radial-impactは一つのimpactId、一つのdirectTargetId、有限な合成falloff境界、固定Critical tierと、同じimpactIdを持つ全target分のimpact-distance relationを受理する。一つの親impact eventからDirect HitとRadial target eventsを生成し、Directを先に同一World Stateへcommitした後、relation順のRadialを評価する。Direct targetがRadialにも命中する場合は更新済みHealthを読む。radialAttackModeIdを省略した場合はattackerのattackModeIdをDirectとRadialで共有する。Projectile軌道、衝突、爆心、別Critical tier、roll共有、Status、Multishot、Pelletは導出しない"
+  maturity = "active"
+}
+
+resolvedDirectRadialImpactCanBindDistinctAttackModes: base.ResolvedDirectRadialImpact = new {
+  id = "IMP-002"
+  desc =
+    "action.resolved-direct-radial-impactが明示的なradialAttackModeIdを持つ場合、DirectはattackerのattackModeId、Radialは同じweapon内のradialAttackModeIdからbase DamageとCritical multiplierを別々に読み、共有された固定Critical tierを適用する。Directを先にcommitし、続くRadialは同じWorld Stateの更新済みHealthを読む。未知または別weaponのattack mode、非hitscan delivery、DirectとRadialで別のCritical tierまたはrollは受理せず、実ゲーム値やroll共有規則は導出しない"
   maturity = "active"
 }
 

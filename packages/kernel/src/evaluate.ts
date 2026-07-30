@@ -36,7 +36,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.14.0";
+export const KERNEL_ENGINE_VERSION = "0.15.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -1575,6 +1575,7 @@ function evaluateResolvedRadialTargetsRuntime(
   domain: ScenarioDomain,
   references: ResolvedCatalogReferences,
   ruleset: LoadedRuleset,
+  radialReferences: ResolvedCatalogReferences = references,
 ): RuntimeEvaluation {
   if (
     (domain.action.kind !== "resolved-radial-targets" &&
@@ -1723,7 +1724,7 @@ function evaluateResolvedRadialTargetsRuntime(
       throw new TypeError("Resolved Radial target relation order does not match targets");
     }
     const healthBefore = target.resolvedHealth;
-    let targetDamage = zeroVector(references.attackMode.baseDamage);
+    let targetDamage = zeroVector(radialReferences.attackMode.baseDamage);
     if (relation.hit) {
       if (relation.falloffMultiplier === null) {
         throw new TypeError("Resolved Radial hit omitted its falloff multiplier");
@@ -1756,7 +1757,7 @@ function evaluateResolvedRadialTargetsRuntime(
               : ruleset.executeRule(
                   rule.id,
                   ruleContext(
-                    references,
+                    radialReferences,
                     targetDamage,
                     domain.action.criticalTier,
                     null,
@@ -1770,7 +1771,7 @@ function evaluateResolvedRadialTargetsRuntime(
               event,
               rule,
               execution,
-              references,
+              radialReferences,
               domain.action.criticalTier,
               null,
               target.resolvedArmor,
@@ -2618,6 +2619,29 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     );
   }
 
+  let radialReferences = references;
+  if (
+    domain.action.kind === "resolved-direct-radial-impact" &&
+    domain.action.radialAttackModeId !== null
+  ) {
+    try {
+      radialReferences = catalog.resolveReferences({
+        weaponId: domain.attacker.weaponId,
+        attackModeId: domain.action.radialAttackModeId,
+        targetId: domain.target.catalogTargetId,
+        modIds: [],
+      });
+    } catch (error) {
+      return failure(
+        "catalog-resolution-failed",
+        error instanceof Error ? error.message : "Radial Catalog reference resolution failed",
+        {
+          causeCode: error instanceof CatalogError ? error.code : "unknown",
+        },
+      );
+    }
+  }
+
   if (
     domain.action.kind !== "resolved-status-ticks" &&
     references.attackMode.delivery !== "hitscan"
@@ -2627,6 +2651,18 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
       `Unsupported attack delivery in the first combat slice: ${references.attackMode.delivery}`,
       {
         mechanicId: `mechanic.delivery.${references.attackMode.delivery}`,
+      },
+    );
+  }
+  if (
+    domain.action.kind === "resolved-direct-radial-impact" &&
+    radialReferences.attackMode.delivery !== "hitscan"
+  ) {
+    return failure(
+      "unsupported-delivery",
+      `Unsupported Radial attack delivery in the resolved impact slice: ${radialReferences.attackMode.delivery}`,
+      {
+        mechanicId: `mechanic.delivery.${radialReferences.attackMode.delivery}`,
       },
     );
   }
@@ -2656,7 +2692,7 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
           : domain.action.kind === "resolved-radial-targets"
             ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset)
             : domain.action.kind === "resolved-direct-radial-impact"
-              ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset)
+              ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset, radialReferences)
               : domain.action.kind === "resolved-punch-through" ||
                   domain.action.kind === "resolved-ricochet" ||
                   domain.action.kind === "resolved-chain"

@@ -84,6 +84,12 @@ import directRadialImpactExpectedFixture from "../../../data/fixtures/golden/res
 import directRadialImpactScenarioFixture from "../../../data/fixtures/golden/resolved-direct-radial-impact.scenario.json" with {
   type: "json",
 };
+import distinctModeImpactExpectedFixture from "../../../data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.expected.json" with {
+  type: "json",
+};
+import distinctModeImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.scenario.json" with {
+  type: "json",
+};
 import statusExpectedFixture from "../../../data/fixtures/golden/resolved-status-ticks.expected.json" with {
   type: "json",
 };
@@ -212,6 +218,14 @@ async function evaluatePelletAllocationGolden() {
 async function evaluateDirectRadialImpactGolden() {
   return evaluateScenario({
     scenario: structuredClone(directRadialImpactScenarioFixture),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateDistinctModeImpactGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(distinctModeImpactScenarioFixture),
     catalog: structuredClone(catalogFixture),
     productVersion: "0.0.0",
   });
@@ -1483,6 +1497,75 @@ describe("evaluateScenario", () => {
         directRadialImpactScenarioFixture,
       ),
     ).toBe(true);
+  });
+
+  it("uses distinct Catalog attack modes for Direct and Radial children", async () => {
+    const outcome = await evaluateDistinctModeImpactGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    expect(outcome.result.metrics).toEqual(distinctModeImpactExpectedFixture.metrics);
+    expect(outcome.result.damageBySource).toEqual(distinctModeImpactExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(distinctModeImpactExpectedFixture.damageByType);
+    expect(outcome.result.targetStates).toEqual(distinctModeImpactExpectedFixture.targetStates);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(distinctModeImpactExpectedFixture.appliedRuleIds);
+    const directConstruct = outcome.trace.decisions.find(
+      (decision) => decision.ruleId === "rule.damage.direct-hit",
+    );
+    const radialConstructs = outcome.trace.decisions.filter(
+      (decision) => decision.ruleId === "rule.radial.construct-hit",
+    );
+    expect(directConstruct?.reads["attack.base-damage"]).toBe(
+      distinctModeImpactExpectedFixture.directBaseDamage,
+    );
+    expect(radialConstructs.map((decision) => decision.reads["attack.base-damage"])).toEqual([
+      distinctModeImpactExpectedFixture.radialBaseDamage,
+      distinctModeImpactExpectedFixture.radialBaseDamage,
+    ]);
+    expect(outcome.trace.decisions).toHaveLength(16);
+    expect(
+      await replayTraceTargetStates(outcome.trace, {
+        "actor.target-a": 180,
+        "actor.target-b": 60,
+        "actor.target-c": 90,
+      }),
+    ).toEqual({
+      damage: distinctModeImpactExpectedFixture.damageByType,
+      health: 226,
+      healthByTarget: {
+        "actor.target-a": 90,
+        "actor.target-c": 76,
+        "actor.target-b": 60,
+      },
+    });
+  });
+
+  it("rejects an unknown explicit Radial attack mode without partial Artifacts", async () => {
+    const changed = structuredClone(distinctModeImpactScenarioFixture);
+    const action = changed.actionPlan[0];
+    if (action === undefined) {
+      throw new Error("Distinct-mode impact golden omitted its action");
+    }
+    action.parameters.radialAttackModeId = "attack-mode.synthetic-aperture.missing";
+    const scenario = await rehash(changed);
+    const outcome = await evaluateScenario({
+      scenario,
+      catalog: structuredClone(catalogFixture),
+    });
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: "catalog-resolution-failed",
+        causeCode: "invalid-reference",
+      },
+    });
   });
 
   it("property-tests Direct-before-Radial shared World State and deterministic replay", async () => {

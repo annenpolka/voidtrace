@@ -4,7 +4,6 @@
   "schemaVersion": "0.1.0",
   "id": "catalog.synthetic-mini",
   "revision": 0,
-  "contentHash": "sha256:d8136a7f9a2f20899fb89001409dc3f71a1010dd1a7002b67f9917f2d3d61224",
   "gameBuild": "synthetic-fixture-0",
   "source": {
     "kind": "fixture",
@@ -21,6 +20,16 @@
           "delivery": "hitscan",
           "baseDamage": {
             "damage.synthetic-kinetic": 100
+          },
+          "criticalChance": 0.25,
+          "criticalMultiplier": 2
+        },
+        {
+          "id": "attack-mode.synthetic-aperture.radial",
+          "label": "Synthetic Radial Hitscan Fixture",
+          "delivery": "hitscan",
+          "baseDamage": {
+            "damage.synthetic-kinetic": 80
           },
           "criticalChance": 0.25,
           "criticalMultiplier": 2
@@ -72,5 +81,6 @@
         }
       ]
     }
-  ]
+  ],
+  "contentHash": "sha256:006b3b5671b11df87c1b1a905ba99c0c925c468bf090197f9c2de6a1c4130437"
 }

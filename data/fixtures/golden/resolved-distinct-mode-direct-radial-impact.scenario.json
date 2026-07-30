@@ -2,7 +2,7 @@
   "$schema": "urn:voidtrace:schema:scenario:0.3.0",
   "kind": "voidtrace.scenario",
   "schemaVersion": "0.3.0",
-  "id": "scenario.golden-resolved-pellet-allocation",
+  "id": "scenario.golden-resolved-distinct-mode-direct-radial-impact",
   "revision": 0,
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
@@ -33,7 +33,7 @@
       "id": "actor.target-b",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 80,
+        "resolvedHealth": 60,
         "resolvedShield": 0,
         "resolvedArmor": 0,
         "resolvedOverguard": 0
@@ -43,7 +43,7 @@
       "id": "actor.target-a",
       "configuration": {
         "catalogTargetId": "target.synthetic-calibration",
-        "resolvedHealth": 150,
+        "resolvedHealth": 180,
         "resolvedShield": 0,
         "resolvedArmor": 300,
         "resolvedOverguard": 0
@@ -63,39 +63,46 @@
   "targetGraph": {
     "relations": [
       {
-        "id": "target-relation.pellet-a",
-        "kind": "target-relation.pellet-allocation",
-        "allocationId": "pellet-allocation.shot-1",
+        "id": "target-relation.impact-a-distinct",
+        "kind": "target-relation.impact-distance",
+        "impactId": "impact.direct-radial-distinct-1",
         "targetId": "actor.target-a",
-        "resolvedHitCount": 2
+        "resolvedDistanceMeters": 0,
+        "lineOfSightClear": true
       },
       {
-        "id": "target-relation.pellet-c",
-        "kind": "target-relation.pellet-allocation",
-        "allocationId": "pellet-allocation.shot-1",
+        "id": "target-relation.impact-c-distinct",
+        "kind": "target-relation.impact-distance",
+        "impactId": "impact.direct-radial-distinct-1",
         "targetId": "actor.target-c",
-        "resolvedHitCount": 0
+        "resolvedDistanceMeters": 5,
+        "lineOfSightClear": true
       },
       {
-        "id": "target-relation.pellet-b",
-        "kind": "target-relation.pellet-allocation",
-        "allocationId": "pellet-allocation.shot-1",
+        "id": "target-relation.impact-b-distinct",
+        "kind": "target-relation.impact-distance",
+        "impactId": "impact.direct-radial-distinct-1",
         "targetId": "actor.target-b",
-        "resolvedHitCount": 1
+        "resolvedDistanceMeters": 12,
+        "lineOfSightClear": true
       }
     ]
   },
   "initialState": {},
   "actionPlan": [
     {
-      "id": "action.resolved-pellet-allocation-1",
-      "kind": "action.resolved-pellet-allocation",
+      "id": "action.resolved-distinct-mode-direct-radial-impact-1",
+      "kind": "action.resolved-direct-radial-impact",
       "parameters": {
-        "allocationId": "pellet-allocation.shot-1",
+        "impactId": "impact.direct-radial-distinct-1",
+        "directTargetId": "actor.target-a",
+        "radialAttackModeId": "attack-mode.synthetic-aperture.radial",
         "hitLocation": "hit-location.neutral-body",
         "damageLayer": "health",
         "criticalTier": 0,
-        "pelletCount": 4
+        "falloffStartMeters": 2,
+        "falloffEndMeters": 8,
+        "minimumFalloffMultiplier": 0.4
       }
     }
   ],
@@ -104,23 +111,23 @@
     "timeLimitMs": 1
   },
   "metrics": [
-    "pellet.count",
-    "pellet.hit-count",
-    "pellet.miss-count",
-    "damage.pellet.total",
+    "impact.direct.damage-total",
+    "impact.radial.damage-total",
+    "impact.damage-total",
+    "impact.radial-target-count",
     "damage.health.total",
     "targets.health.remaining-total",
     "targets.defeated-count"
   ],
   "assumptions": [
     {
-      "id": "assumption.synthetic-resolved-pellet-allocation",
-      "description": "Synthetic resolved target-specific Pellet hit counts; not a verified current-game Warframe rule."
+      "id": "assumption.synthetic-distinct-direct-radial-modes",
+      "description": "Synthetic Direct and Radial Catalog attack modes share one fixed Critical tier; not a verified current-game Warframe rule."
     },
     {
-      "id": "assumption.no-pellet-spread",
-      "description": "The fixture does not derive Spread, hit tests, probabilistic distributions, pellet-specific Critical rolls, or Multishot composition."
+      "id": "assumption.no-projectile-physics",
+      "description": "The fixture resolves impact, Direct target, distances, LoS, and falloff boundaries without trajectory, collision, terrain, or current-game falloff derivation."
     }
   ],
-  "contentHash": "sha256:274b4c9acfd26d72a59860e9284be358ef8fb7a98c0801707793e90d1095be4b"
+  "contentHash": "sha256:6df34db555e4e8ac5b8799e05036da03552f644c2336e1c4c7d61151154aee92"
 }

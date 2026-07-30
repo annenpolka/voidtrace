@@ -29,7 +29,7 @@ The current implemented boundary ends at the synthetic Direct Hit / generalized 
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
 and pellets plus resolved target-specific Pellet allocation, standalone resolved Radial falloff,
 resolved multi-target Radial, and resolved synthetic Status ticks, backed by generated Ruleset
-`0.14.0` revision `1` and their formal
+`0.15.0` revision `1` and their formal
 `describe` / `run` / `trace` JSON CLI.
 Fixed Critical input is a non-negative safe-integer tier. Explicit-roll and expected resolution
 accept non-negative Critical chance only while adjacent tiers are safely representable.
@@ -49,9 +49,10 @@ It does not derive impact coordinates, terrain, LoS, distance, or current-game f
 Resolved Direct-plus-Radial impact accepts one configured Direct target and the same resolved
 impact-distance/LoS relation set, emits both children under one parent, commits Direct before
 Radial on the same target-local World State, and aggregates their Damage separately and together.
-It uses one synthetic attack mode and one shared fixed Critical tier; it does not derive a physical
-Projectile, collision, multiple attack modes, separate tiers or rolls, Status, Multishot, or
-Pellet composition.
+It uses one shared fixed Critical tier. When `radialAttackModeId` is omitted, Direct and Radial
+share the attacker attack mode; when it is explicit, Direct and Radial can resolve two attack modes
+from the same synthetic weapon. It does not derive a physical Projectile, collision, arbitrary
+mode composition, separate tiers or rolls, Status, Multishot, or Pellet composition.
 Resolved Status ticks accept only `status.synthetic-resolved-dot`, explicit final Health damage per
 tick, a positive count up to 64, and a positive interval whose last tick fits within
 `timeLimitMs`. They do not derive Status application, type, damage, Critical, Armor, stack,
@@ -74,10 +75,11 @@ repository-local analytic expected preset; it is not the formal CLI boundary and
 synthesize Critical chance, rolls, Multishot counts, or pellet counts. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
 resolved Pellet allocation, resolved Direct-plus-Radial impact, and resolved Status tick fixtures.
+The formal CLI also runs the checked-in distinct-mode Direct-plus-Radial impact fixture.
 Probabilistic Multishot or
 pellets, Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, probabilistic hit distribution,
 Spread, Catalog- or current-game-derived Radial falloff, physical Projectile composition,
-multiple attack modes or separate Critical resolutions within one Direct-plus-Radial impact,
+arbitrary attack-mode composition or separate Critical resolutions within one Direct-plus-Radial impact,
 generated random rolls, grouped-hit expected values, and Monte Carlo remain
 unsupported.
 Real Status formulas, chance/type resolution, Direct/Radial application, stacking, refresh,

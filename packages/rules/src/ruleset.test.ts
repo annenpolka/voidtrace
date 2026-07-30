@@ -22,7 +22,7 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.schemaVersion).toBe("0.14.0");
+    expect(loaded.snapshot.schemaVersion).toBe("0.15.0");
     expect(loaded.snapshot.revision).toBe(1);
     expect(loaded.snapshot.rules).toHaveLength(32);
     expect(loaded.snapshot.rules.map((rule) => rule.id)).toEqual([
