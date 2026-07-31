@@ -81,8 +81,11 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-30 16:42:45Z) Node 26.0.0とNode 24.18.0で49 Clauses、8 Contracts、生成24ファイル、21テストファイル368テストを含む全ゲートを通した。
 - [x] (2026-07-30 16:44:52Z) Ruleset `0.16.0`マイルストーンをpublic mainへpushし、`db357ae`に対するGitHub Actions `Check` run `30562770873`の成功を確認した。
 - [x] (2026-07-30 23:48:00Z) 元計画の乱数単位とEvent DAG要件を照合し、次の縦切りを一つの明示Critical rollをDirect／Radial childrenで共有するresolved impactへ固定した。
-- [ ] `IMP-004`と`GOL-017`で親impactの共有explicit roll、一回のtier解決、全childへの継承を規定し、Ruleset `0.17.0`を生成する。
-- [ ] Domain／Kernel／Trace／CLI／skillを実装し、Node 26／24の全ゲート、empirical評価、public push、CIを完了する。
+- [x] (2026-07-31 00:04:17Z) `IMP-004`と`GOL-017`で親impactの共有explicit roll、一回のtier解決、全childへの継承を規定し、Ruleset `0.17.0`を生成した。
+- [x] (2026-07-31 00:04:17Z) Domain／Kernel／Trace／CLI／skillを実装し、機能を `d85fb9b` としてコミットした。
+- [x] (2026-07-31 00:04:17Z) Node 26.0.0とNode 24.18.0で51 Clauses、8 Contracts、生成24ファイル、21テストファイル382テストを含む全ゲートを通した。
+- [x] (2026-07-31 00:04:17Z) empirical-prompt-tuningは対応・非対応を2回ずつ、改変Trace hold-outを1回評価し、全critical checklistを連続達成した。対応側のtool-useは9回で一致したが、非対応側は4回と7回、hold-outは10回だったため、全体の定量的な速度収束は主張しない。
+- [ ] Ruleset `0.17.0`マイルストーンをpublic mainへpushし、GitHub Actions `Check`の成功を確認する。
 
 ## Surprises & Discoveries
 
@@ -154,6 +157,15 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: skillのempirical評価は、未追跡fixtureでもexecutorが名前だけから「checked-in」と報告しうる。
   Evidence: feature commit前のIteration 1は数値を正しく再現したが、criticalなtracked状態を確認しなかった。`git ls-files --error-unmatch` とHEAD byte一致を実行前条件へ追加し、commit後のIteration 2／3では明示的に確認した。
+
+- Observation: 親impactでDamageを発生させずrollだけを解決するdecisionは、従来のDamage child向けTrace replay状態とは別に検証する必要がある。
+  Evidence: replayは親decisionのchance、roll、resolved tier、zero Damage、Health不変を再計算し、そのeventをDirectと全Radial constructの共通親として検査する。`resolvedTier`だけを1から0へ変えてTraceを正しく再hashしたhold-outも `invalid-operation-parameters` で拒否した。
+
+- Observation: 同じCritical roll operationを単独Direct eventと親impact eventへ使うには、Rule宣言の許可event kindを広げても各生成Ruleのevent kind束縛を維持する必要がある。
+  Evidence: operation declarationは `damage.direct` と `impact.direct-radial` の有限集合だけを許可し、Ruleset validatorは生成Ruleごとのphase、event kind、reads、writesの完全一致を引き続き検査する。
+
+- Observation: explicit scalar parameterは値が `null` の場合、keyの存在だけではresolution modeを安全に決定できない。
+  Evidence: Domain parserは `criticalTier` または `criticalRoll` のちょうど一方が有効な数値であることを検査し、null、範囲外roll、tierとrollの併記、rollとRadial固有parameterの併記を部分Artifactなしで拒否する。
 
 ## Decision Log
 
@@ -346,6 +358,8 @@ Resolved Direct＋Radial impactマイルストーンでは、一つの親impact�
 別attack mode Direct＋Radialマイルストーンでは、同じactionとEvent DAGを保ったまま、attackerのprimary modeをDirectへ、明示 `radialAttackModeId` をRadialへ別々にCatalog解決できるようになった。GoldenはDirect base Damage 100、Radial base Damage 80をTraceで読み、Direct 50、Radial 54、合計104、終端Health A=90、C=76、B=60、残Health合計226を16 decisionsで再生する。`radialAttackModeId`を省略した旧Goldenは共有modeとして残る。任意mode合成、別Critical tier／roll、Projectile物理、実ゲーム値は引き続き非対応である。
 
 別固定tier Direct＋Radialマイルストーンでは、既存actionとEvent DAGを保ったまま、Directへ `criticalTier: 1`、Radialへ `radialCriticalTier: 2` をbindできるようになった。GoldenはDirect 100、Radial 162、合計262、終端Health A=80、C=48、B=60、残Health合計188を16 decisionsで再生する。`radialCriticalTier`省略時は既存Goldenの共有tier挙動を保つ。負数、非整数、安全でないtierは構造化拒否となり、roll、Critical chance、roll共有、expected分岐、Projectile物理、現行Warframe値は引き続き非対応である。
+
+共有explicit-roll Direct＋Radialマイルストーンでは、親impactがprimary modeのCritical chance `0.25` と明示roll `0.2`からtier 1を一度だけ解決し、Directと全Radial childrenへ継承できるようになった。GoldenはDirect 100、Radial 135、合計235、終端Health A=100、C=55、B=60、残Health合計215を17 decisionsで再生する。DirectとRadialのconstructは共通の親roll eventを持ち、改変Traceはhash一致後もchance／roll／tierの因果整合性を再検査される。別attack mode chance、child-specific roll、生成乱数、expected分岐、Projectile物理、現行Warframe値は引き続き非対応である。
 
 ## Context and Orientation
 
@@ -639,6 +653,25 @@ Scenario Contract `0.3.0`、Ruleset `0.15.0` revision `1` と別Catalog attack m
     empirical tool-use: supported 3 then 8; quantitative convergence not claimed
 
 Scenario Contract `0.3.0`、Ruleset `0.16.0` revision `1` と別固定Critical tierのresolved Direct＋Radial impactを含むローカル基準線は `9c0ed5c feat: resolve distinct direct radial tiers` としてコミット済みである。
+
+共有explicit-roll Direct＋Radial impactマイルストーンの検証記録は次のとおりである。
+
+    Scenario / Ruleset / Result Contract: 0.3.0 / 0.17.0 / 0.2.0
+    Clauses / Contracts / generated files: 51 / 8 / 24
+    Node.js 26.0.0: 21 files, 382 tests passed
+    Node.js 24.18.0: 21 files, 382 tests passed
+    event order: parent expand-parent shared roll-Direct A-Radial A-Radial C-aggregate
+    Critical chance / explicit roll / resolved tier: 0.25 / 0.2 / 1
+    Direct / Radial / total Damage: 100 / 135 / 235
+    target Health: A=100 / C=55 / B=60
+    remaining Health / defeated: 215 / 0
+    Trace decisions: 17
+    invalid combinations: tier plus roll, roll plus radial mode or tier, null, roll outside [0, 1)
+    empirical skill evaluation: supported and unsupported critical checklists cleared twice; rehashed semantic-tamper hold-out rejected
+    empirical tool-use: supported 9 then 9; unsupported 4 then 7; hold-out 10; overall quantitative convergence not claimed
+    empirical note: unsupported iteration 2 recorded one non-blocking interpretation of decimal roll wording, then correctly stopped without a question or substitution
+
+Scenario Contract `0.3.0`、Ruleset `0.17.0` revision `1` と共有explicit Critical rollのresolved Direct＋Radial impactを含むローカル基準線は `d85fb9b feat: share direct radial critical roll` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
