@@ -130,6 +130,8 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 14:20:36Z) 独立runtime／security reviewはactionable findingなしで完了した。trackedかつHEAD同一のfixtureだけを使うfinite Sweep goldenと全operator smokeがexit 0になり、機能を`70f6c0e`としてコミットした。
 - [x] (2026-08-01 14:20:36Z) Node 24.18.0でもformat、lint、typecheck、architecture boundary、freshness、30テストファイル528件を含む全`check`を通した。
 - [x] (2026-08-01 14:23:41Z) 調査`70d409e`、機能`70f6c0e`、検証記録`c6438ae`をpublic mainへpushし、GitHub Actions `Check` run `30703615879`がhead `c6438ae`に対して1分25秒で成功した。
+- [x] (2026-08-01 14:52:38Z) 次のBreakpointについてcodebase-investigatorの6段階静的調査と合成in-memory probeを完了し、`docs/investigations/finite-breakpoint-slice.md`へ現行flow、provenance gap、有限点の反証、採用境界、受け入れ条件を記録した。
+- [x] (2026-08-01 14:52:38Z) 最初のBreakpointを、同じ数値軸・metric・Catalog・Rulesetを持つ左右2本の有限Sweepを一呼び出し内で完全preflight／評価し、`exact-equality`、`sampled-sign-reversal`、`no-observed-candidate`だけを返す有限観測analysisへ固定した。連続root、補間、winner、二分探索は主張しない。
 
 ## Surprises & Discoveries
 
@@ -276,6 +278,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: 元計画のSweep例は明示値とrange、単軸と複数軸、単数` sweep.parameters`と複数`sweeps`が併存し、順序、重複、base、失敗、上限を確定していない。
   Evidence: `VoidTrace計画.md`のP0-Bは一条件だけの変更を要求する一方、別例は21×3×2の126 Scenario直積を示す。現行Experiment上限は15 variantsであり、Breakpointの等値／単調性／未交差意味も未定義である。
+
+- Observation: 完成済み`Experiment + Comparison`を後段へ渡すだけでは、そのComparisonが既存runnerのResult／Trace完全性検査から生成されたことを独立に再証明できない。
+  Evidence: Comparisonはmetric値とResultRefをcontent-addressedに保持するがResult／Trace本体を含まない。自己整合するhashを再計算したcaller選択値もContractには通るため、最初のBreakpointは同一呼び出し内の検証済みExperiment成功行からだけ生成する必要がある。
+
+- Observation: 有限点の符号反転は、離散または不連続なmetricに対する連続root bracketではない。
+  Evidence: `[-1,+1]`は点間の等値を保証せず、`[+1,+1]`も点間の偶数回交差を否定しない。Health clamp、defeated count、Critical tier等は段差やplateauを持ちうるため、Artifact上のclaimを`sampled-sign-reversal`へ限定した。
 
 ## Decision Log
 
@@ -490,6 +498,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: Sweepのbaseは既存Comparison base行として一度評価し、point列は宣言順に評価する。Comparison `0.1.0`を再利用し、独立Sweep result、range／step、sort、dedup、複数軸、直積、Breakpoint、winner／rankingを追加しない。
   Rationale: ScenarioPatchはbaseと同値のno-opを拒否するためbase pointをPatch化しない。既存Comparisonはexact Experiment／Scenario／Result参照、metric、signed delta、atomic failureをすでに表現でき、別resultは同じintegrity意味論を重複させる。
   Date/Author: 2026-08-01 13:51:46Z / Codex
+
+- Decision: 最初のBreakpointは左右2本の有限Sweep requestを同じ`packages/experiments`呼び出し内で全件preflight・materialize・評価した後、同一のstrictly increasing numeric座標上で絶対metric値の差`left - right`を有限scanする`FiniteBreakpointAnalysis 0.1.0`とする。
+  Rationale: `deltaFromBase = 0`は既知base座標の再発見になりやすく、4個のExperiment／Comparison ArtifactだけではPatch、Scenario、Result、Traceの完全検査を再証明できない。両Sweepを同じ境界で実行すれば既存integrityを再利用できる。
+  Date/Author: 2026-08-01 14:52:38Z / Codex
+
+- Decision: findingは`exact-equality`、隣接する非零差の`sampled-sign-reversal`、有限点内の`no-observed-candidate`だけとし、複数候補はArtifactなしのambiguous failureとする。
+  Rationale: 離散・不連続metricでは符号反転が区間内の等値点を保証せず、同符号も隠れた交差を否定しない。観測レベルへclaimを弱めることで、連続性、単調性、tolerance、winner、interpolationを暗黙導入しない。
+  Date/Author: 2026-08-01 14:52:38Z / Codex
 
 ## Outcomes & Retrospective
 
