@@ -106,6 +106,8 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 08:38:11Z) skill validation／smoke、Node 26.0.0とNode 24.18.0の双方で26生成ファイル、55 Clauses、10 Contracts、24テストファイル453件を含む全 `check` を通した。
 - [x] (2026-08-01 08:48:00Z) 最終独立reviewで指摘されたfingerprint再利用を防ぐためKernel Engineを`0.19.0`へ上げ、Ruleset IR `0.18.0`とは分離した。修正後reviewにactionable findingは残らず、機能を `80571a0` としてコミットした。
 - [x] (2026-08-01 08:50:34Z) 最終文書を `d8ae3cc` としてpublic mainへpushし、GitHub Actions `Check` run `30692501313` がhead `d8ae3cc` に対して1分10秒で成功した。
+- [x] (2026-08-01 09:06:47Z) 次のScenario Patchについてcodebase-investigatorの6段階静的調査を完了し、`docs/investigations/scenario-patch-slice.md`へ現行surface、矛盾、security、採用境界、独立oracle条件を記録した。
+- [x] (2026-08-01 09:06:47Z) 最初のPatchを、完全参照したbase Scenarioの既存scalar leafへ1〜64件の一意なsame-type `replace`を宣言順に適用し、通常のcontent-addressed Scenarioを事前materializeする有限sliceへ固定した。現行Experiment、Kernel、formal CLIは変更しない。
 
 ## Surprises & Discoveries
 
@@ -234,6 +236,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: skillの変更前baselineは共有rollを17 decisionsと書いたままでも、fresh executorがformal Traceから18へ自己修正して100%になった。
   Evidence: empirical baseline 2件はcritical checklistを通したが、この成功はinstruction/runtime driftを隠す。本文へ二候補、非失敗のrejection意味、Direct 6件／共有impact 18件を近接して明記し、変更後fresh 2件も100%／retry 0だった。
+
+- Observation: 計画メモのScenario Patchは三つのwire shapeと現行Scenarioに存在しないpath例を含み、操作上限、output identity、envelope差分、失敗原子性を確定していなかった。
+  Evidence: Pkl／生成物にはPatch定義がなく、現行有限Contract IRにも再帰JSON値nodeはない。一方、Scenario `0.3.0`のconfiguration／parametersはflat scalar recordなので、allowlist付きscalar replaceならIR拡張なしで検証できる。
+
+- Observation: `SCN-001`の「指定Path外は不変」を派生Scenarioへそのまま適用すると、必須の`id`、`revision`、`createdFrom`、`contentHash`変更と矛盾する。
+  Evidence: Artifact envelopeは派生identityとhashをContract化している。Patch isolation oracleではこの四fieldだけをmaterialization差分として除外し、それ以外のcanonical差分を宣言pathへ厳密に束縛する必要がある。
 
 ## Decision Log
 
@@ -424,6 +432,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: Experiment後の次の縦切りはScenario Patchより先に `TRC-002`をactive化し、候補列挙を `critical.roll` phaseの既存二Ruleだけへ限定する。
   Rationale: `TRC-002`は現在唯一のplanned Clauseであり、`kernel.foundation`のpartial状態を残している。全phaseの全候補を記録すると最大64 hit／tickでTraceが不必要に急増する一方、既存二RuleならDirectと共有impactの両方向で宣言順、predicate不一致、状態非変更、安定reasonを独立に検証できる。guard／operation rejection、全phase候補監査、Scenario Patch、Sweep、Breakpointはこのsliceへ含めない。
   Date/Author: 2026-08-01 08:20:01Z / Codex
+
+- Decision: `TRC-002`後の次の縦切りは `ScenarioPatch 0.1.0` と `SCN-001`による事前materializationとし、現行Experiment `0.1.0`へPatch variantを埋め込まない。
+  Rationale: 完全Scenarioへ解決してから既存Experiment／Kernelへ渡せば、比較順序、戦闘意味論、Result／Trace integrityを変更せず、差分生成の安全性を独立に検証できる。Patch-aware Experiment、Sweep、Breakpointは別のplanning sliceを要する。
+  Date/Author: 2026-08-01 09:06:47Z / Codex
+
+- Decision: 最初のPatchは1〜64件の`replace`だけを受理し、既存allowlist pathのsame-type scalar leafだけを変更する。完全なbase ArtifactRefをstale-base preconditionとし、出力id／revisionはPatchが宣言、`createdFrom`はbase完全参照、`contentHash`は再計算する。
+  Rationale: 現行有限Contract IRで表現でき、Critical tier、Armor、Health、resolved falloff／relation値、時間上限など実用的な合成variationを扱える。`add/remove/test/move/copy`、object／array値、構造変更を同時に入れると再帰JSON値、index shift、conflict、provenanceの意味論が必要になる。
+  Date/Author: 2026-08-01 09:06:47Z / Codex
 
 ## Outcomes & Retrospective
 

@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:c7d5a44e32430cf80cc4425343c9d2f6e7f0d2239250efd081965a3593cc67d6",
+  "sourceFingerprint": "sha256:9c64de136d953b833c35d6112d2c5dd9be61685dcae4b0841686f6626d82fc28",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -21,6 +21,7 @@
         "result",
         "ruleset",
         "scenario",
+        "scenario-patch",
         "trace"
       ],
       "clauseRefs": []
@@ -169,6 +170,14 @@
       "activeClauseRefs": [
         "EXP-001",
         "EXP-002"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "experiments.scenario-patch",
+      "status": "supported",
+      "activeClauseRefs": [
+        "SCN-001"
       ],
       "plannedClauseRefs": []
     },

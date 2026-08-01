@@ -153,6 +153,21 @@ describe("validateSpecDocument", () => {
         ],
       }).clauses[0]?.maturity,
     ).toBe("active");
+
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            id: "SCN-001",
+            pattern: "patch_isolation",
+            maturity: "active",
+            area: "experiments",
+          },
+        ],
+      }).clauses[0]?.maturity,
+    ).toBe("active");
   });
 
   it("accepts the generalized Critical tier roll and scale operations", () => {

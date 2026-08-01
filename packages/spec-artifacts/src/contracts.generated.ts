@@ -560,6 +560,44 @@ export type Scenario = {
   }>;
 };
 
+/** Immutable bounded scalar replacements that materialize one Scenario revision from an exact base Scenario reference. */
+export type ScenarioPatch = {
+  /** Schema identifier used to validate this Artifact. */
+  readonly "$schema": "urn:voidtrace:schema:scenario-patch:0.1.0";
+  /** Stable discriminator for this Artifact kind. */
+  readonly "kind": "voidtrace.scenario-patch";
+  /** Version of this Artifact contract. */
+  readonly "schemaVersion": "0.1.0";
+  /** Stable identity of this Artifact. */
+  readonly "id": string;
+  /** Non-negative immutable revision of this Artifact. */
+  readonly "revision": number;
+  /** Optional Artifact revision from which this Artifact was derived. */
+  readonly "createdFrom"?: ArtifactRef & { readonly "kind": "voidtrace.scenario-patch" };
+  /** SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. */
+  readonly "contentHash": string;
+  /** Game build against which this Artifact is defined. */
+  readonly "gameBuild": string;
+  /** Exact immutable Scenario revision to which every replacement applies. */
+  readonly "baseScenarioRef": ArtifactRef & { readonly "kind": "voidtrace.scenario" };
+  /** Explicit identity assigned to the materialized Scenario. */
+  readonly "resultScenario": {
+    /** Stable identity declared for the materialized Scenario. */
+    readonly "id": string;
+    /** Non-negative immutable revision declared for the materialized Scenario. */
+    readonly "revision": number;
+  };
+  /** One to 64 ordered, unique scalar replacement operations. */
+  readonly "operations": ReadonlyArray<{
+    /** Finite Patch operation; ScenarioPatch 0.1.0 accepts replace only. */
+    readonly "op": "replace";
+    /** Allowed JSON Pointer to one existing scalar Scenario leaf; keys use ~0 and ~1 escaping and array indices are canonical decimals. */
+    readonly "path": string;
+    /** Finite replacement scalar; object, array, and non-JSON values are unsupported. */
+    readonly "value": string | number | boolean | null;
+  }>;
+};
+
 /** Ordered causal record that distinguishes applied rules from rejected candidates. */
 export type Trace = {
   /** Schema identifier used to validate this Artifact. */
@@ -719,7 +757,7 @@ export type Trace = {
     readonly "matched": true;
   }>;
 };
-export type ContractId = "artifact-ref" | "catalog-snapshot" | "comparison" | "experiment" | "fingerprint" | "problem" | "result" | "ruleset" | "scenario" | "trace";
+export type ContractId = "artifact-ref" | "catalog-snapshot" | "comparison" | "experiment" | "fingerprint" | "problem" | "result" | "ruleset" | "scenario" | "scenario-patch" | "trace";
 
 export type ContractById = {
   readonly "artifact-ref": ArtifactRef;
@@ -731,5 +769,6 @@ export type ContractById = {
   readonly "result": Result;
   readonly "ruleset": Ruleset;
   readonly "scenario": Scenario;
+  readonly "scenario-patch": ScenarioPatch;
   readonly "trace": Trace;
 };

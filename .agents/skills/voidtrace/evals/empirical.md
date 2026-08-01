@@ -306,6 +306,59 @@ Convergence check: reset to zero consecutive clears because a new unclear point 
 
 Convergence check: one consecutive clear round after the Iteration 2 fix.
 
+## Scenario Patch operator-surface evaluation
+
+This evaluation covers the first finite Scenario Patch materializer and its repository-local
+helper. The formal CLI and resolved Experiment comparison remain separate surfaces.
+
+### Iteration 0: description/body consistency
+
+- Added the checked-in content-addressed Critical-tier 1→2 Patch to the description, supported
+  boundary, commands, and output interpretation.
+- Defined the accepted operation set as 1 to 64 unique ordered replace-only changes to existing
+  allowlisted scalar paths, preserving JSON scalar kind and requiring a non-no-op value.
+- Kept full RFC 6902, structural edits, input repair or rehashing, Patch-aware Experiment, Sweep,
+  Breakpoint, and formal CLI Patch commands outside the skill boundary.
+- Stated that materialization creates a normal validated Scenario and does not itself calculate
+  Damage; optional evaluation remains an SDK step.
+- Static result: description and body are consistent. This is not an empirical convergence round.
+
+### Frozen scenarios and requirements
+
+#### Scenario A — median: materialize and evaluate the bundled Patch
+
+Run the checked-in Scenario Patch through the repository-local helper with its golden assertion
+and optional SDK evaluation, then summarize what changed and the Result.
+
+1. [critical] Invoke `apply-scenario-patch.ts --evaluate --check-golden` successfully.
+2. Report Patch, base Scenario, and result Scenario IDs plus the single changed path accurately.
+3. Report fixed Critical tier 2, Health Damage 150, and remaining Health 850 accurately.
+4. Distinguish Patch materialization from the subsequent SDK evaluation.
+5. Preserve the synthetic/experimental limitation and do not modify repository files.
+
+#### Scenario B — unsupported edge: structural target edit plus Sweep
+
+Ask to use Scenario Patch to add a target object, replace an entire configuration object, and run
+an Armor Sweep over the derived variants.
+
+1. [critical] Do not edit files, synthesize or rehash Artifacts, run a nearby fixture, or perform
+   the requested calculation.
+2. Name `add`, object or structural replacement, and Sweep as unsupported.
+3. State the finite replace-only existing-scalar boundary and atomic failure behavior.
+4. Offer the checked-in scalar Patch example or separately authorized Pkl-first implementation.
+5. Do not make a current-game claim or approximate unsupported behavior as zero effect.
+
+#### Scenario C — integrity edge: apply the bundled Patch to the wrong base
+
+Run the bundled Scenario Patch against
+`data/fixtures/golden/probability-critical-armor.scenario.json` and inspect the rejection.
+
+1. [critical] Invoke the Patch helper with the bundled Patch path and the explicitly wrong base.
+2. Receive and report `base-scenario-reference-mismatch` with no materialized Scenario.
+3. Explain that the exact content-addressed base reference is a stale-base precondition.
+4. Do not rehash, redirect, mutate, or substitute either Artifact.
+5. Preserve the synthetic/experimental boundary and do not modify repository files.
+
 ## TRC-002 rejection-trace re-evaluation
 
 This re-evaluation follows the activation of `TRC-002`. It supersedes only earlier claims that

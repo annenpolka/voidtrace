@@ -1,5 +1,10 @@
 import { snapshotJsonObject } from "@voidtrace/contracts";
-import { type ExperimentOutcome, runResolvedComparison } from "@voidtrace/experiments";
+import {
+  type ExperimentOutcome,
+  materializeScenarioPatch as materializeExperimentScenarioPatch,
+  runResolvedComparison,
+  type ScenarioPatchOutcome,
+} from "@voidtrace/experiments";
 import {
   type EvaluationOutcome,
   evaluateScenario as evaluateKernelScenario,
@@ -23,6 +28,13 @@ export type SdkExperimentRequest = {
 };
 
 export type SdkExperimentOutcome = ExperimentOutcome;
+
+export type SdkScenarioPatchRequest = {
+  readonly patch: unknown;
+  readonly scenario: unknown;
+};
+
+export type SdkScenarioPatchOutcome = ScenarioPatchOutcome;
 
 const SDK_EXPERIMENT_REQUEST_KEYS = ["catalog", "experiment", "scenarios"] as const;
 
@@ -92,4 +104,10 @@ export async function runExperiment(request: SdkExperimentRequest): Promise<SdkE
     catalog: requestSnapshot.catalog,
     ruleset: ruleset.snapshot,
   });
+}
+
+export async function materializeScenarioPatch(
+  request: SdkScenarioPatchRequest,
+): Promise<SdkScenarioPatchOutcome> {
+  return materializeExperimentScenarioPatch(request);
 }

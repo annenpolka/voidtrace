@@ -727,3 +727,13 @@ export function createExperimentRunner(
 export const runResolvedComparison = createExperimentRunner({
   evaluateScenario: evaluateKernelScenario,
 });
+
+export {
+  type MaterializeScenarioPatchRequest,
+  materializeScenarioPatch,
+  type ScenarioPatchError,
+  type ScenarioPatchErrorCode,
+  type ScenarioPatchFailure,
+  type ScenarioPatchOutcome,
+  type ScenarioPatchSuccess,
+} from "./scenario-patch.ts";

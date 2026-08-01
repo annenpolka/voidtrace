@@ -1,0 +1,115 @@
+/// Finite, content-addressed scalar replacement Patch for one immutable Scenario revision.
+module voidtrace.contracts.`scenario-patch`
+
+import "artifact.pkl"
+import "model.pkl"
+
+local schemaIdentifier = "urn:voidtrace:schema:scenario-patch:0.1.0"
+local contractVersion = "0.1.0"
+local maximumOperations = 64
+
+function artifactReference(expectedKindValue: String): model.RefNode = new model.RefNode {
+  target = "artifact-ref"
+  expectedKind = expectedKindValue
+}
+
+function scalarValue(): model.UnionNode = new model.UnionNode {
+  variants = new {
+    new model.StringNode {}
+    new model.NumberNode {}
+    new model.BooleanNode {}
+    new model.NullNode {}
+  }
+}
+
+function allowedScenarioPath(): model.StringNode = new model.StringNode {
+  pattern =
+    #"^/(?:attacker/configuration/(?:[^~/]|~0|~1)+|targets/(?:0|[1-9][0-9]*)/configuration/(?:[^~/]|~0|~1)+|targetGraph/relations/(?:0|[1-9][0-9]*)/(?:resolvedDistanceMeters|lineOfSightClear|resolvedHitCount)|initialState/(?:[^~/]|~0|~1)+|actionPlan/(?:0|[1-9][0-9]*)/parameters/(?:[^~/]|~0|~1)+|simulation/timeLimitMs|metrics/(?:0|[1-9][0-9]*))$"#
+  minLength = 1
+}
+
+function resultScenarioIdentity(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Stable identity declared for the materialized Scenario."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "revision"
+      description = "Non-negative immutable revision declared for the materialized Scenario."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 0
+      }
+    }
+  }
+}
+
+function scalarReplacement(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "op"
+      description = "Finite Patch operation; ScenarioPatch 0.1.0 accepts replace only."
+      required = true
+      schema = new model.LiteralNode {
+        value = "replace"
+      }
+    }
+    new model.Field {
+      name = "path"
+      description =
+        "Allowed JSON Pointer to one existing scalar Scenario leaf; keys use ~0 and ~1 escaping and array indices are canonical decimals."
+      required = true
+      schema = allowedScenarioPath()
+    }
+    new model.Field {
+      name = "value"
+      description = "Finite replacement scalar; object, array, and non-JSON values are unsupported."
+      required = true
+      schema = scalarValue()
+    }
+  }
+}
+
+scenarioPatch: model.Contract = new {
+  id = "scenario-patch"
+  typeName = "ScenarioPatch"
+  schemaId = schemaIdentifier
+  version = contractVersion
+  description =
+    "Immutable bounded scalar replacements that materialize one Scenario revision from an exact base Scenario reference."
+  root = new model.ObjectNode {
+    fields = (
+      artifact.envelopeFields(
+        schemaIdentifier,
+        "voidtrace.scenario-patch",
+        contractVersion,
+      )
+    ) {
+      new model.Field {
+        name = "baseScenarioRef"
+        description = "Exact immutable Scenario revision to which every replacement applies."
+        required = true
+        schema = artifactReference("voidtrace.scenario")
+      }
+      new model.Field {
+        name = "resultScenario"
+        description = "Explicit identity assigned to the materialized Scenario."
+        required = true
+        schema = resultScenarioIdentity()
+      }
+      new model.Field {
+        name = "operations"
+        description = "One to 64 ordered, unique scalar replacement operations."
+        required = true
+        schema = new model.ArrayNode {
+          items = scalarReplacement()
+          minItems = 1
+          maxItems = maximumOperations
+        }
+      }
+    }
+  }
+}

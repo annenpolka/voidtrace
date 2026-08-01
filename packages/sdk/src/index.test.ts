@@ -10,7 +10,12 @@ import probabilityScenarioFixture from "../../../data/fixtures/golden/probabilit
 import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical-armor.scenario.json" with {
   type: "json",
 };
-import { describeCapabilities, evaluateScenario, runExperiment } from "./index.ts";
+import {
+  describeCapabilities,
+  evaluateScenario,
+  materializeScenarioPatch,
+  runExperiment,
+} from "./index.ts";
 
 type ArtifactIdentity = {
   readonly kind: string;
@@ -99,6 +104,29 @@ async function comparisonExperiment(
       },
     ],
     primaryMetric: "damage.health.total",
+  });
+}
+
+async function criticalTierScenarioPatch(): Promise<object> {
+  return withContentHash({
+    $schema: "urn:voidtrace:schema:scenario-patch:0.1.0",
+    kind: "voidtrace.scenario-patch",
+    schemaVersion: "0.1.0",
+    id: "scenario-patch.sdk-critical-tier",
+    revision: 0,
+    gameBuild: scenarioFixture.gameBuild,
+    baseScenarioRef: artifactRef(scenarioFixture),
+    resultScenario: {
+      id: "scenario.sdk-materialized-critical-tier",
+      revision: 0,
+    },
+    operations: [
+      {
+        op: "replace",
+        path: "/actionPlan/0/parameters/criticalTier",
+        value: 2,
+      },
+    ],
   });
 }
 
@@ -284,5 +312,90 @@ describe("VoidTrace SDK", () => {
         message: "Experiment request has an invalid field set",
       },
     });
+  });
+
+  it("materializes a Scenario Patch and evaluates the ordinary derived Scenario", async () => {
+    const request = {
+      patch: await criticalTierScenarioPatch(),
+      scenario: scenarioFixture,
+    };
+    const requestBefore = canonicalize(request);
+
+    const first = await materializeScenarioPatch(structuredClone(request));
+    const second = await materializeScenarioPatch(structuredClone(request));
+
+    expect(first.ok).toBe(true);
+    expect(second).toEqual(first);
+    expect(canonicalize(request)).toBe(requestBefore);
+    if (!first.ok) {
+      throw new Error(first.error.message);
+    }
+    expect(first.scenario.id).toBe("scenario.sdk-materialized-critical-tier");
+    expect(first.scenario.createdFrom).toEqual(artifactRef(scenarioFixture));
+    expect(first.scenario.actionPlan[0]?.parameters.criticalTier).toBe(2);
+    expect(await contentHashIsValid(first.scenario)).toBe(true);
+    expect(allObjectsAreFrozen(first)).toBe(true);
+
+    const evaluation = await evaluateScenario({
+      scenario: first.scenario,
+      catalog: catalogFixture,
+    });
+    expect(evaluation.ok).toBe(true);
+    if (!evaluation.ok) {
+      throw new Error(evaluation.error.message);
+    }
+    expect(evaluation.result.metrics["damage.health.total"]).toBe(150);
+    expect(evaluation.result.warnings).toContainEqual({
+      code: "warning.synthetic-experimental-rules",
+      message:
+        "This Result uses synthetic experimental mechanics and is not a verified current Warframe claim.",
+    });
+  });
+
+  it("keeps the SDK Patch wrapper exact, mutation-safe, and accessor-safe", async () => {
+    const request = structuredClone({
+      patch: await criticalTierScenarioPatch(),
+      scenario: scenarioFixture,
+    });
+    const pending = materializeScenarioPatch(request);
+    (request.patch as Record<string, unknown>).id = "scenario-patch.mutated-after-call";
+    (request.scenario as Record<string, unknown>).contentHash = `sha256:${"f".repeat(64)}`;
+    const outcome = await pending;
+    expect(outcome.ok).toBe(true);
+
+    const extra = await materializeScenarioPatch({
+      patch: await criticalTierScenarioPatch(),
+      scenario: scenarioFixture,
+      unexpected: true,
+    } as never);
+    expect(extra).toEqual({
+      ok: false,
+      error: {
+        code: "scenario-patch-request-invalid",
+        message: "Scenario Patch request has an invalid field set",
+      },
+    });
+
+    const secret = "PRIVATE SDK Scenario Patch getter exception";
+    let accessorReads = 0;
+    const accessorRequest: Record<string, unknown> = { scenario: scenarioFixture };
+    Object.defineProperty(accessorRequest, "patch", {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        throw new Error(secret);
+      },
+    });
+    const rejected = await materializeScenarioPatch(accessorRequest as never);
+    expect(rejected).toEqual({
+      ok: false,
+      error: {
+        code: "scenario-patch-request-invalid",
+        message: "Scenario Patch request must be a plain JSON object",
+      },
+    });
+    expect(accessorReads).toBe(0);
+    expect(JSON.stringify(rejected)).not.toContain(secret);
+    expect(allObjectsAreFrozen(rejected)).toBe(true);
   });
 });

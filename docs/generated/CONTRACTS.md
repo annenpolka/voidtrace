@@ -211,6 +211,28 @@ Immutable, reproducible evaluation input with explicit structured extension poin
 | `metrics` | required | Non-empty list of requested metric identifiers. |
 | `assumptions` | required | Explicit assumptions that qualify evaluation of this Scenario. |
 
+## ScenarioPatch
+
+- Contract ID: `scenario-patch`
+- Schema ID: `urn:voidtrace:schema:scenario-patch:0.1.0`
+- Schema version: `0.1.0`
+
+Immutable bounded scalar replacements that materialize one Scenario revision from an exact base Scenario reference.
+
+| Field | Presence | Meaning |
+| --- | --- | --- |
+| `$schema` | required | Schema identifier used to validate this Artifact. |
+| `kind` | required | Stable discriminator for this Artifact kind. |
+| `schemaVersion` | required | Version of this Artifact contract. |
+| `id` | required | Stable identity of this Artifact. |
+| `revision` | required | Non-negative immutable revision of this Artifact. |
+| `createdFrom` | optional | Optional Artifact revision from which this Artifact was derived. |
+| `contentHash` | required | SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. |
+| `gameBuild` | required | Game build against which this Artifact is defined. |
+| `baseScenarioRef` | required | Exact immutable Scenario revision to which every replacement applies. |
+| `resultScenario` | required | Explicit identity assigned to the materialized Scenario. |
+| `operations` | required | One to 64 ordered, unique scalar replacement operations. |
+
 ## Trace
 
 - Contract ID: `trace`

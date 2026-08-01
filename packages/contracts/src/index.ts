@@ -10,6 +10,7 @@ export type {
   Result,
   Ruleset,
   Scenario,
+  ScenarioPatch,
   Trace,
 } from "@voidtrace/spec-artifacts/contracts";
 export {

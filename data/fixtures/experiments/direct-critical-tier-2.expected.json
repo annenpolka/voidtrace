@@ -1,0 +1,9 @@
+{
+  "patchId": "scenario-patch.golden-critical-tier-2",
+  "baseScenarioId": "scenario.golden-direct-critical-armor",
+  "resultScenarioId": "scenario.golden-patched-critical-tier-2",
+  "changedPaths": ["/actionPlan/0/parameters/criticalTier"],
+  "criticalTier": 2,
+  "healthDamage": 150,
+  "remainingHealth": 850
+}

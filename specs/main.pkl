@@ -9,9 +9,11 @@ import "contracts/model.pkl"
 import "contracts/problem.pkl"
 import "contracts/result.pkl"
 import "contracts/ruleset.pkl" as rulesetContract
+import "contracts/scenario-patch.pkl" as scenarioPatchContract
 import "contracts/scenario.pkl"
 import "contracts/trace.pkl"
 import "experiments/comparison.pkl"
+import "experiments/scenario-patch.pkl" as scenarioPatch
 import "golden/direct-critical-armor.pkl"
 import "golden/expected-critical-armor.pkl"
 import "golden/multishot-critical-armor.pkl"
@@ -109,6 +111,7 @@ clauses: Listing<base.Clause> = new {
   cliSurface.inputSurface
   comparison.resolvedMembership
   comparison.comparisonIntegrity
+  scenarioPatch.isolation
 }
 
 contracts: Listing<model.Contract> = new {
@@ -120,6 +123,7 @@ contracts: Listing<model.Contract> = new {
   problem.problem
   rulesetContract.ruleset
   scenario.scenario
+  scenarioPatchContract.scenarioPatch
   result.result
   `trace`.`trace`
 }

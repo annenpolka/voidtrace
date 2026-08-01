@@ -198,6 +198,53 @@ describe("renderGeneratedFiles", () => {
     });
   });
 
+  it("publishes Scenario Patch separately from resolved Experiment comparison", () => {
+    const generated = renderGeneratedFiles({
+      ...spec,
+      clauses: [
+        {
+          id: "EXP-001",
+          pattern: "resolved_experiment_membership",
+          desc: "validate a bounded set of resolved Scenario revisions",
+          guarantee: "property-tested",
+          maturity: "active",
+          area: "experiments",
+        },
+        {
+          id: "SCN-001",
+          pattern: "patch_isolation",
+          desc: "replace only declared Scenario scalar paths",
+          guarantee: "property-tested",
+          maturity: "active",
+          area: "experiments",
+        },
+      ],
+    });
+    const capabilities = generated.find(
+      (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
+    );
+
+    const parsed = JSON.parse(capabilities?.contents ?? "{}") as {
+      capabilities: unknown[];
+    };
+    expect(parsed.capabilities).toEqual(
+      expect.arrayContaining([
+        {
+          id: "experiments.resolved-comparison",
+          status: "supported",
+          activeClauseRefs: ["EXP-001"],
+          plannedClauseRefs: [],
+        },
+        {
+          id: "experiments.scenario-patch",
+          status: "supported",
+          activeClauseRefs: ["SCN-001"],
+          plannedClauseRefs: [],
+        },
+      ]),
+    );
+  });
+
   it("publishes fixed Multishot separately from direct Critical and Armor", () => {
     const generated = renderGeneratedFiles({
       ...spec,

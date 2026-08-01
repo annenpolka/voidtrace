@@ -1,0 +1,91 @@
+{
+  "$schema": "urn:voidtrace:schema:scenario:0.3.0",
+  "kind": "voidtrace.scenario",
+  "schemaVersion": "0.3.0",
+  "id": "scenario.golden-patched-critical-tier-2",
+  "revision": 0,
+  "createdFrom": {
+    "kind": "voidtrace.scenario",
+    "schemaVersion": "0.3.0",
+    "id": "scenario.golden-direct-critical-armor",
+    "revision": 2,
+    "contentHash": "sha256:77214ec7c647cc6964075fe439693b5b9048f560aef3e65cb2a486de93cd5bfb",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "gameBuild": "synthetic-fixture-0",
+  "catalogRef": {
+    "kind": "catalog-snapshot",
+    "schemaVersion": "0.1.0",
+    "id": "catalog.synthetic-mini",
+    "revision": 0,
+    "contentHash": "sha256:006b3b5671b11df87c1b1a905ba99c0c925c468bf090197f9c2de6a1c4130437",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "rulesetRef": {
+    "kind": "ruleset",
+    "schemaVersion": "0.18.0",
+    "id": "ruleset.synthetic-core",
+    "revision": 1,
+    "contentHash": "sha256:30813f8a72f38145f911657da72f7117495b1000fdf5ea68e10975e79c26a00b",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "attacker": {
+    "id": "actor.attacker",
+    "configuration": {
+      "weaponId": "weapon.synthetic-aperture",
+      "attackModeId": "attack-mode.synthetic-aperture.primary"
+    }
+  },
+  "targets": [
+    {
+      "id": "actor.target",
+      "configuration": {
+        "catalogTargetId": "target.synthetic-calibration",
+        "resolvedHealth": 1000,
+        "resolvedShield": 0,
+        "resolvedArmor": 300,
+        "resolvedOverguard": 0
+      }
+    }
+  ],
+  "targetGraph": {
+    "relations": []
+  },
+  "initialState": {},
+  "actionPlan": [
+    {
+      "id": "action.direct-hit-1",
+      "kind": "action.direct-hit",
+      "parameters": {
+        "targetId": "actor.target",
+        "hitLocation": "hit-location.neutral-body",
+        "damageLayer": "health",
+        "criticalTier": 2
+      }
+    }
+  ],
+  "simulation": {
+    "mode": "deterministic",
+    "timeLimitMs": 1
+  },
+  "metrics": [
+    "damage.direct-hit.total",
+    "critical.tier",
+    "critical.multiplier",
+    "damage.post-critical.total",
+    "armor.remaining-multiplier",
+    "damage.health.total",
+    "target.health.remaining"
+  ],
+  "assumptions": [
+    {
+      "id": "assumption.synthetic-mechanics",
+      "description": "The fixture and Ruleset are synthetic and do not claim verified current Warframe behavior."
+    },
+    {
+      "id": "assumption.fixed-critical-tier",
+      "description": "This Scenario supplies a fixed Critical tier, so it does not evaluate Critical probability or a roll."
+    }
+  ],
+  "contentHash": "sha256:d05c1ee15020a5e443c6c701e40a76a5a136de6fd11158d0562d20fd1ceaa973"
+}

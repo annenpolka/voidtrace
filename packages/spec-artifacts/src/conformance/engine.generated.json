@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:c7d5a44e32430cf80cc4425343c9d2f6e7f0d2239250efd081965a3593cc67d6",
+  "sourceFingerprint": "sha256:9c64de136d953b833c35d6112d2c5dd9be61685dcae4b0841686f6626d82fc28",
   "activeClauses": [
     {
       "id": "BEM-001",
@@ -394,6 +394,14 @@
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "kernel"
+    },
+    {
+      "id": "SCN-001",
+      "pattern": "patch_isolation",
+      "desc": "ScenarioPatch 0.1.0は完全なbase ScenarioRef、baseと異なる明示result Scenario id/revision、宣言順を持つ1以上64以下のreplace operationを保持する。各pathは許可されたJSON Pointer形で既存scalar leafへ一意に解決され、~0／~1 escapeとcanonical array indexを使用し、置換値は元と同じJSON scalar kindかつ異なるcanonical値でなければならない。適用前にPatchとbase Scenarioを一度だけbehavior-free snapshotし、Contract、content hash、完全参照、game buildを検査する。全operationを隔離cloneへ宣言順で適用した後だけ、baseのschema、kind、schemaVersion、gameBuild、CatalogRef、RulesetRefを保持し、明示result identity、baseへのcreatedFrom、新しいcontentHashを持つScenarioを生成してContractとhashを再検査する。派生に必須のid、revision、createdFrom、contentHashと指定path以外のcanonical Scenario値を変更せず、caller入力を変更せず、一件でも失敗すれば部分Scenarioを返さない。add、remove、test、move、copy、root／object／array／欠落field置換、scalar kind変更、Patch-aware Experiment実行、Sweep、Breakpoint、Ruleset branchを実行しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "experiments"
     },
     {
       "id": "SCP-001",

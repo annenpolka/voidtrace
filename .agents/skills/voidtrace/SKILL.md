@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect its synthetic experimental Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, ordered punch-through, ricochet, or chain fixtures, and the checked-in resolved Scenario comparison with Result, Trace, or Comparison JSON. Use for checked-in Scenario execution, supported resolved Armor, Health, fixed-tier variation, resolved comparison inspection, and explicit capability or unsupported-boundary reporting. The skill may be invoked to report an unsupported request, but must not execute, approximate, or answer it as supported, including current Warframe claims or build advice, Scenario Patch, Sweep, Breakpoint, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect synthetic Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, ordered punch-through, ricochet, or chain fixtures, the resolved Scenario comparison, and the finite content-addressed Scenario Patch slice. Use for checked-in Scenario execution, fixed-tier variation, comparison or Patch inspection, and explicit capability or unsupported-boundary reporting. The skill may report an unsupported request, but must not execute, approximate, or answer it as supported, including current Warframe claims or build advice, arbitrary JSON Patch, Sweep, Breakpoint, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -77,7 +77,12 @@ checked-in three-target Direct-plus-Radial impact Scenarios:
 - full Result and causal Trace JSON.
 - the checked-in resolved Experiment comparison, which evaluates one base Scenario followed by two
   declared variant Scenario revisions under the same synthetic Catalog and Ruleset, then reports
-  `damage.health.total` and the signed `variant - base` delta in a content-addressed Comparison.
+  `damage.health.total` and the signed `variant - base` delta in a content-addressed Comparison;
+- the finite Scenario Patch materializer, including the checked-in Critical-tier 1→2 Patch, which
+  verifies an exact content-addressed base Scenario, applies 1 to 64 unique ordered replace-only
+  same-kind scalar changes at the Contract allowlisted existing paths, assigns the declared new
+  identity and exact `createdFrom`, then validates and hashes a normal Scenario before optional
+  SDK evaluation.
 
 The comparison helper accepts only the checked-in Experiment and its exact three Scenario
 revisions. It does not apply Scenario Patch, synthesize a variant, sort the declared variants,
@@ -87,6 +92,17 @@ comparison needs any of those behaviors, state that it is unsupported and stop w
 it with the checked-in comparison. After refusing, you may mention the exact checked-in comparison
 as a distinct available example, but do not run it or present it as satisfying the request. You may
 instead offer separately authorized Pkl-first implementation work.
+
+The Scenario Patch helper accepts a Contract-valid, content-addressed Patch and its exact
+content-addressed base Scenario. It never edits either input, silently repairs or rehashes stale
+input, creates a missing path, or substitutes a nearby fixture. Its supported operations are not
+full RFC 6902: only `replace` of an existing scalar under attacker or target configuration,
+resolved Target Graph relation fields, initial state, action parameters, simulation time limit,
+or an existing metric entry. Duplicate normalized paths, no-ops, scalar-kind changes, stale base
+references, and reuse of the exact base identity fail atomically without a partial Scenario.
+`add`, `remove`, `test`, `move`, `copy`, root or structural replacement, object or array values,
+Patch-aware Experiment, Sweep, Breakpoint, ruleset branches, generated operations, and formal CLI
+Patch commands remain unsupported.
 
 Before running a Direct-plus-Radial request, require checked-in resolved impact relations and one
 supported explicit Critical resolution. Use the shared-mode Golden when no separate mode or tier
@@ -250,6 +266,15 @@ node .agents/skills/voidtrace/scripts/run-comparison.ts --pretty
 node .agents/skills/voidtrace/scripts/run-comparison.ts --check-golden
 ```
 
+Materialize the checked-in Scenario Patch, optionally evaluate the resulting normal Scenario, or
+apply another already-valid Patch to its exact base:
+
+```bash
+node .agents/skills/voidtrace/scripts/apply-scenario-patch.ts --evaluate --check-golden
+node .agents/skills/voidtrace/scripts/apply-scenario-patch.ts \
+  --patch path/to/patch.json --scenario path/to/base.scenario.json
+```
+
 Vary only the supported resolved inputs:
 
 ```bash
@@ -289,6 +314,10 @@ for another agent or script. `--help` lists the finite adapter options.
   and Trace and the content-addressed Comparison matched the Experiment order. Its
   `deltaFromBase` is signed `variant - base`; do not take an absolute value or interpret its sign
   as a winner without metric-direction semantics.
+- Scenario Patch helper exit `0` means the exact base reference and both input hashes passed, all
+  replacements completed atomically, and the emitted normal Scenario passed Contract and hash
+  validation. With `--evaluate`, read metrics from `evaluation.result`; Patch materialization does
+  not itself claim or calculate Damage.
 - Exit `2` with `ok: false` is a structured domain rejection. Report `error.code`,
   `error.mechanicId` when present, and `error.message`.
 - Exit `1` with `ok: false` and an `adapter.*` code means input, file, or golden-check failure in
