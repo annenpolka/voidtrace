@@ -91,7 +91,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 05:36:00Z) Domain／Rules／Kernel／Trace replay／CLI／repository-local skillを実装した。base Damage 20、固定tier 1、Armor 300、Health 50、3 ticks／100msのGoldenはDamage 60、Health `50→30→10→0`、14 decisionsを再生する。
 - [x] (2026-08-01 06:10:29Z) Ruleset更新で失効した既存17 Scenarioの参照とcontent hashを再計算し、全Catalog／ScenarioのContractとhashを検証した。adversarial Trace reviewの修正後、Node 26.0.0／24.18.0で53 Clauses、8 Contracts、生成24ファイル、21テストファイル411テストの全gateを通した。
 - [x] (2026-08-01 06:23:20Z) Beam実装を `ce1fff9` としてコミットし、repository-local skillをfeature commit後のfresh executorで評価した。Iteration 0はdescription／body一致、対応Iteration 1／2は7/7、非対応Iteration 1／2は6/6、wrong-Catalog hold-outは6/6で、全回とも不明点0、retry 0だった。
-- [ ] Ruleset `0.18.0`マイルストーンをpublic mainへpushし、GitHub Actions `Check`を確認する。
+- [x] (2026-08-01 06:26:51Z) Ruleset `0.18.0`マイルストーンをpublic mainの `9ed37ef` へpushし、GitHub Actions `Check` run `30687704748`の成功を確認した。
 
 ## Surprises & Discoveries
 
@@ -746,6 +746,7 @@ Resolved Beam tickマイルストーンのローカル検証記録は次のと�
     empirical unsupported Iteration 1 / 2: 6/6 / 6/6, unclear 0 / 0, retries 0 / 0
     empirical wrong-Catalog hold-out: 6/6, catalog-reference-mismatch exit 2, no mutation or substitution
     empirical usage metadata: Agent tool_uses / duration_ms unavailable; quantitative convergence not claimed
+    public GitHub Check: run 30687704748 for 9ed37ef succeeded in 1m16s
 
 Scenario Contract `0.3.0`、Ruleset `0.18.0` revision `1` とresolved synthetic Beam ticksを含むローカル基準線は `ce1fff9 feat: add resolved beam tick vertical slice` としてコミット済みである。
 
