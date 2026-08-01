@@ -112,6 +112,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 09:34:00Z) feature commit後のfresh executorでempirical-prompt-tuningを2回実行し、対応・構造編集拒否・誤base拒否の各5項目を両回100%で通した。materialize-only holdoutも5/5、不明点0、実行retry 0だった。full-file出力制限による非対応executorの再読は各回1件で、定量収束には数えない。
 - [x] (2026-08-01 09:41:00Z) 独立仕様reviewを反映し、成功不能だった`null` operationをContractから除外し、result identityを`(id, revision)` pairとして明文化して片側変更の成功回帰を追加し、3 literal fixtureをSDK regression gateへ接続した。
 - [x] (2026-08-01 09:51:29Z) 独立runtime／security reviewを反映し、descriptor snapshotのProxy trap境界を正確化して構造trap例外非漏洩を回帰化し、Patch hashをgoldenへpinし、helperのexit 0／1／2 subprocess testを追加した。skill validation／smokeとNode 26.0.0／24.18.0の双方で27生成ファイル、56 Clauses、11 Contracts、26テストファイル480件を含む全`check`を通した。修正後targeted re-reviewにactionable findingは残らなかった。
+- [x] (2026-08-01 09:54:29Z) Scenario Patch実装 `09ce13a` とreview強化 `69803b9` をpublic mainへpushし、GitHub Actions `Check` run `30694606897` がhead `69803b9` に対して1分23秒で成功した。
 
 ## Surprises & Discoveries
 
@@ -887,6 +888,8 @@ Scenario Patchマイルストーンのローカル受け入れ結果は次のと
     unsupported: null, add/remove/test/move/copy, root/object/array, Patch-aware Experiment, Sweep, Breakpoint, ruleset branch
     formal CLI: unchanged (`describe` / `run` / `trace`)
     implementation commit: 09ce13a
+    review and documentation commit: 69803b9
+    public GitHub Check: run 30694606897 for 69803b9 succeeded in 1m23s
 
 ## Interfaces and Dependencies
 
