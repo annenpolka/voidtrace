@@ -4,8 +4,8 @@ module voidtrace.contracts.ruleset
 import "artifact.pkl"
 import "model.pkl"
 
-local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.17.0"
-local contractVersion = "0.17.0"
+local schemaIdentifier = "urn:voidtrace:schema:ruleset:0.18.0"
+local contractVersion = "0.18.0"
 
 function nonEmptyString(): model.StringNode = new model.StringNode {
   minLength = 1
@@ -118,6 +118,28 @@ function expandResolvedStatusTicks(): model.ObjectNode = new model.ObjectNode {
     new model.Field {
       name = "maximumTicks"
       description = "Positive safe execution bound for one resolved Status action."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 1
+      }
+    }
+  }
+}
+
+function expandResolvedBeamTicks(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Expand one resolved Beam action into an explicit bounded count of ordered logical-time tick events."
+      required = true
+      schema = new model.LiteralNode {
+        value = "event.expand-resolved-beam-ticks"
+      }
+    }
+    new model.Field {
+      name = "maximumTicks"
+      description = "Positive safe execution bound for one resolved Beam action."
       required = true
       schema = new model.IntegerNode {
         minimum = 1
@@ -408,6 +430,20 @@ function aggregateSequentialStatusTicks(): model.ObjectNode = new model.ObjectNo
   }
 }
 
+function aggregateSequentialBeamTicks(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "kind"
+      description =
+        "Aggregate ordered terminal Beam tick Damage Vectors and preserve the final sequential Health state."
+      required = true
+      schema = new model.LiteralNode {
+        value = "damage-vector.aggregate-sequential-beam-ticks"
+      }
+    }
+  }
+}
+
 function aggregateResolvedPunchThroughTargets(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
@@ -539,6 +575,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           expandFixedPellets()
           expandResolvedPelletAllocation()
           expandResolvedStatusTicks()
+          expandResolvedBeamTicks()
           expandResolvedPunchThroughTargets()
           expandResolvedRicochetTargets()
           expandResolvedChainTargets()
@@ -557,6 +594,7 @@ function rule(): model.ObjectNode = new model.ObjectNode {
           aggregateSequentialPellets()
           aggregateResolvedPelletAllocation()
           aggregateSequentialStatusTicks()
+          aggregateSequentialBeamTicks()
           aggregateResolvedPunchThroughTargets()
           aggregateResolvedRicochetTargets()
           aggregateResolvedChainTargets()

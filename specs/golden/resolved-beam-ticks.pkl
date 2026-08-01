@@ -1,0 +1,11 @@
+/// Literal obligation for three resolved Beam ticks through Critical, Armor, and Health.
+module voidtrace.golden.resolvedBeamTicks
+
+import "../patterns/base.pkl"
+
+roundTrip: base.GoldenScenario = new {
+  id = "GOL-018"
+  desc =
+    "data/fixtures/golden/resolved-beam-ticks.scenario.jsonはbase Damage 20の合成Beam attack mode、Critical tier 1、Critical multiplier 2、Armor 300、Health 50、tickCount 3、tickIntervalMs 100を受理する。各tickを100ms、200ms、300msでbase 20→Critical後40→Armor後Health Damage 20と評価し、Healthを50→30→10→0へ逐次commitする。Beam Damage合計60、残Health 0、14 decisionsをliteral expected vectorとしてResultおよびTraceと照合する"
+  maturity = "active"
+}

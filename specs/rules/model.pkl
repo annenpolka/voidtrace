@@ -50,6 +50,11 @@ class ExpandResolvedStatusTicks extends RuleOperation {
   maximumTicks: UInt(isPositive)
 }
 
+class ExpandResolvedBeamTicks extends RuleOperation {
+  kind = "event.expand-resolved-beam-ticks"
+  maximumTicks: UInt(isPositive)
+}
+
 class ExpandResolvedPunchThroughTargets extends RuleOperation {
   kind = "event.expand-resolved-punch-through-targets"
   maximumTargets: UInt(isPositive)
@@ -81,6 +86,10 @@ class CopyResolvedStatusTickDamage extends RuleOperation {
 
 class AggregateSequentialStatusTicks extends RuleOperation {
   kind = "damage-vector.aggregate-sequential-status-ticks"
+}
+
+class AggregateSequentialBeamTicks extends RuleOperation {
+  kind = "damage-vector.aggregate-sequential-beam-ticks"
 }
 
 class AggregateResolvedPunchThroughTargets extends RuleOperation {

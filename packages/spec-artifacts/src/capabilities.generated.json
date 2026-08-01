@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:38919548ff764c0da591e098c22297a7d3929cd55e073623717e86cdb10539ae",
+  "sourceFingerprint": "sha256:2ba3b77c39a0c723db896e9970863871bf4d510044afb1d340a24030d7ba9c25",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -123,6 +123,15 @@
       "activeClauseRefs": [
         "GOL-008",
         "STS-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "mechanics.resolved-beam-ticks",
+      "status": "supported",
+      "activeClauseRefs": [
+        "BEM-001",
+        "GOL-018"
       ],
       "plannedClauseRefs": []
     },

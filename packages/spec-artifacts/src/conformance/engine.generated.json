@@ -1,8 +1,16 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:38919548ff764c0da591e098c22297a7d3929cd55e073623717e86cdb10539ae",
+  "sourceFingerprint": "sha256:2ba3b77c39a0c723db896e9970863871bf4d510044afb1d340a24030d7ba9c25",
   "activeClauses": [
+    {
+      "id": "BEM-001",
+      "pattern": "resolved_beam_ticks",
+      "desc": "action.resolved-beam-ticksはdelivery beamのattack mode、固定非負safe-integer Critical tier、1以上64以下の明示tickCount、正のsafe-integer tickIntervalMsを受理し、index iの安定したBeam tick childを(i+1)*tickIntervalMsへscheduleする。最後tickはScenario timeLimitMs以下でなければならない。各tickはattack modeのbase Damageをcopyし、共通固定Critical tier、resolved Armor、直前tickのHealthの順で評価し、全tickのDamageと終端Healthを集約する。held durationからのtick数導出、Beam ramp、Fire Rate、Magazine、Ammo、Reload、Chain Beam、tick別CriticalまたはStatus roll、Status付与、expected分岐、生成乱数、現行WarframeのBeam式は導出しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
     {
       "id": "CHN-001",
       "pattern": "resolved_chain_path",
@@ -263,6 +271,14 @@
       "id": "GOL-017",
       "pattern": "golden_scenario",
       "desc": "data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.jsonは共有primary modeのCritical chance 0.25と親impactの明示roll 0.2からtier 1を一度だけ解決し、Directと全Radial childへ継承する。DirectはAを300→200へ更新し、続くRadialはAを200→100、Cを90→55へ更新し、Bは範囲外で60を保つ。Direct Damage 100、Radial Damage 135、合計235、残Health合計215をliteral expected vectorとしてResultおよびTraceと照合し、親roll decisionが一つだけ存在する",
+      "guarantee": "example-tested",
+      "maturity": "active",
+      "area": "mechanics"
+    },
+    {
+      "id": "GOL-018",
+      "pattern": "golden_scenario",
+      "desc": "data/fixtures/golden/resolved-beam-ticks.scenario.jsonはbase Damage 20の合成Beam attack mode、Critical tier 1、Critical multiplier 2、Armor 300、Health 50、tickCount 3、tickIntervalMs 100を受理する。各tickを100ms、200ms、300msでbase 20→Critical後40→Armor後Health Damage 20と評価し、Healthを50→30→10→0へ逐次commitする。Beam Damage合計60、残Health 0、14 decisionsをliteral expected vectorとしてResultおよびTraceと照合する",
       "guarantee": "example-tested",
       "maturity": "active",
       "area": "mechanics"

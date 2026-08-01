@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:ruleset:0.17.0",
+  "$id": "urn:voidtrace:schema:ruleset:0.18.0",
   "title": "Ruleset",
   "description": "Generated finite Rule IR interpreted by the Kernel-facing Rules package.",
   "type": "object",
@@ -8,7 +8,7 @@
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:ruleset:0.17.0"
+      "const": "urn:voidtrace:schema:ruleset:0.18.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.17.0"
+      "const": "0.18.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -191,6 +191,26 @@
                   },
                   "maximumTicks": {
                     "description": "Positive safe execution bound for one resolved Status action.",
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "maximumTicks"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Expand one resolved Beam action into an explicit bounded count of ordered logical-time tick events.",
+                    "type": "string",
+                    "const": "event.expand-resolved-beam-ticks"
+                  },
+                  "maximumTicks": {
+                    "description": "Positive safe execution bound for one resolved Beam action.",
                     "type": "integer",
                     "minimum": 1
                   }
@@ -482,6 +502,20 @@
                     "description": "Aggregate ordered terminal Status tick Damage Vectors and preserve the final sequential Health state.",
                     "type": "string",
                     "const": "damage-vector.aggregate-sequential-status-ticks"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "description": "Aggregate ordered terminal Beam tick Damage Vectors and preserve the final sequential Health state.",
+                    "type": "string",
+                    "const": "damage-vector.aggregate-sequential-beam-ticks"
                   }
                 },
                 "required": [

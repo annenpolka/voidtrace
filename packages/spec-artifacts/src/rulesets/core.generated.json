@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:ruleset:0.17.0",
+  "$schema": "urn:voidtrace:schema:ruleset:0.18.0",
   "kind": "ruleset",
-  "schemaVersion": "0.17.0",
+  "schemaVersion": "0.18.0",
   "id": "ruleset.synthetic-core",
   "revision": 1,
-  "contentHash": "sha256:d0659a1f766ab740d8e6226e090d92fa035c076374627577e508cb687428a1c7",
+  "contentHash": "sha256:30813f8a72f38145f911657da72f7117495b1000fdf5ea68e10975e79c26a00b",
   "gameBuild": "synthetic-fixture-0",
   "rules": [
     {
@@ -77,6 +77,25 @@
       ],
       "operation": {
         "kind": "event.expand-resolved-status-ticks",
+        "maximumTicks": 64
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.beam.schedule-resolved-ticks",
+      "description": "Expand one explicit resolved Beam action into a bounded count of ordered logical-time tick events.",
+      "phase": "attack.emit",
+      "eventKind": "action.resolved-beam-ticks",
+      "reads": [
+        "action.beam-tick-count",
+        "action.beam-tick-interval-ms"
+      ],
+      "writes": [
+        "event.beam-tick-count"
+      ],
+      "operation": {
+        "kind": "event.expand-resolved-beam-ticks",
         "maximumTicks": 64
       },
       "evidenceStatus": "experimental",
@@ -229,6 +248,23 @@
       "evidenceIds": []
     },
     {
+      "id": "rule.beam.construct-resolved-tick",
+      "description": "Construct one Beam tick Damage Vector from the resolved Beam attack mode.",
+      "phase": "damage.construct",
+      "eventKind": "damage.beam-tick",
+      "reads": [
+        "attack.base-damage"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.copy"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
       "id": "rule.impact.resolve-shared-critical-roll",
       "description": "Resolve one explicit Critical roll against the shared primary attack mode Critical chance at the parent impact, then expose one fixed tier for every Direct and Radial child.",
       "phase": "critical.roll",
@@ -298,6 +334,25 @@
       "description": "Scale one resolved Radial Hit by the same explicit fixed Critical tier operation as the synthetic Direct Hit slice.",
       "phase": "critical.resolve",
       "eventKind": "damage.radial",
+      "reads": [
+        "event.damage",
+        "event.critical-tier",
+        "attack.critical-multiplier"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.scale-critical-tier"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.beam.scale-critical-tier",
+      "description": "Scale one Beam tick by its explicit fixed Critical tier.",
+      "phase": "critical.resolve",
+      "eventKind": "damage.beam-tick",
       "reads": [
         "event.damage",
         "event.critical-tier",
@@ -386,6 +441,25 @@
       "evidenceIds": []
     },
     {
+      "id": "rule.beam.standard-armor",
+      "description": "Apply the resolved target Armor multiplier to one Beam tick.",
+      "phase": "target.mitigate",
+      "eventKind": "damage.beam-tick",
+      "reads": [
+        "event.damage",
+        "target.armor"
+      ],
+      "writes": [
+        "event.damage"
+      ],
+      "operation": {
+        "kind": "damage-vector.scale-standard-armor",
+        "constant": 300
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
       "id": "rule.damage.commit-health",
       "description": "Commit the final Direct Hit Damage Vector to the resolved Health layer and record the remaining Health.",
       "phase": "damage.commit",
@@ -426,6 +500,24 @@
       "description": "Commit one resolved synthetic Status tick to the target Health layer.",
       "phase": "damage.commit",
       "eventKind": "damage.status-tick",
+      "reads": [
+        "event.damage",
+        "target.health"
+      ],
+      "writes": [
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage.commit-health"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.beam.commit-resolved-tick-health",
+      "description": "Commit one resolved Beam tick to the target Health layer.",
+      "phase": "damage.commit",
+      "eventKind": "damage.beam-tick",
       "reads": [
         "event.damage",
         "target.health"
@@ -535,6 +627,26 @@
       ],
       "operation": {
         "kind": "damage-vector.aggregate-sequential-status-ticks"
+      },
+      "evidenceStatus": "experimental",
+      "evidenceIds": []
+    },
+    {
+      "id": "rule.beam.aggregate-resolved-ticks",
+      "description": "Aggregate every terminal Beam tick Damage Vector and preserve the final sequential remaining Health.",
+      "phase": "result.aggregate",
+      "eventKind": "action.resolved-beam-ticks",
+      "reads": [
+        "tick.damage",
+        "tick.health-before",
+        "tick.health-after"
+      ],
+      "writes": [
+        "event.damage",
+        "target.health"
+      ],
+      "operation": {
+        "kind": "damage-vector.aggregate-sequential-beam-ticks"
       },
       "evidenceStatus": "experimental",
       "evidenceIds": []

@@ -16,6 +16,7 @@ import "golden/multishot-critical-armor.pkl"
 import "golden/pellet-critical-armor.pkl"
 import "golden/probability-critical-armor.pkl"
 import "golden/radial-critical-armor.pkl"
+import "golden/resolved-beam-ticks.pkl"
 import "golden/resolved-chain.pkl"
 import "golden/resolved-direct-radial-impact.pkl"
 import "golden/resolved-distinct-mode-direct-radial-impact.pkl"
@@ -32,6 +33,7 @@ import "kernel/event-ordering.pkl"
 import "kernel/rng.pkl"
 import "kernel/scope.pkl"
 import "mechanics/chain.pkl"
+import "mechanics/beam.pkl"
 import "mechanics/clauses.pkl" as mechanicsClauses
 import "mechanics/critical.pkl"
 import "mechanics/defense.pkl"
@@ -71,6 +73,7 @@ clauses: Listing<base.Clause> = new {
   mechanicsClauses.resolvedDirectRadialImpactCanBindDistinctFixedCriticalTiers
   mechanicsClauses.resolvedDirectRadialImpactCanShareExplicitCriticalRoll
   mechanicsClauses.resolvedStatusTicksCommitInTimeOrder
+  mechanicsClauses.resolvedBeamTicksUseFixedDamagePipelineInTimeOrder
   mechanicsClauses.resolvedPunchThroughVisitsTargetsInPathOrder
   mechanicsClauses.resolvedRicochetVisitsTargetsInPathOrder
   mechanicsClauses.resolvedChainVisitsTargetsInPathOrder
@@ -87,6 +90,7 @@ clauses: Listing<base.Clause> = new {
   `radial-critical-armor`.roundTrip
   `resolved-radial-targets`.roundTrip
   `resolved-status-ticks`.roundTrip
+  `resolved-beam-ticks`.roundTrip
   `resolved-punch-through`.roundTrip
   `resolved-ricochet`.roundTrip
   `resolved-chain`.roundTrip
@@ -116,7 +120,7 @@ contracts: Listing<model.Contract> = new {
 
 ruleset: ruleModel.Ruleset = new {
   id = "ruleset.synthetic-core"
-  version = "0.17.0"
+  version = "0.18.0"
   revision = 1
   gameBuild = "synthetic-fixture-0"
   rules {
@@ -124,6 +128,7 @@ ruleset: ruleModel.Ruleset = new {
     pellet.emitFixedRule
     pellet.expandResolvedAllocationRule
     status.scheduleResolvedTicksRule
+    beam.scheduleResolvedTicksRule
     `punch-through`.expandResolvedTargetsRule
     ricochet.expandResolvedTargetsRule
     chain.expandResolvedTargetsRule
@@ -132,22 +137,27 @@ ruleset: ruleModel.Ruleset = new {
     critical.resolveExpectedBranchesRule
     `direct-hit`.rule
     radial.constructRule
+    beam.constructResolvedTickRule
     impact.resolveSharedCriticalRollRule
     critical.resolveTierRollRule
     critical.scaleTierRule
     radial.scaleCriticalTierRule
+    beam.scaleCriticalTierRule
     radial.applyResolvedFalloffRule
     status.constructResolvedTickRule
     defense.rule
     radial.armorRule
+    beam.armorRule
     `direct-hit`.commitRule
     radial.commitRule
     status.commitResolvedTickRule
+    beam.commitResolvedTickRule
     critical.aggregateExpectedBranchesRule
     multishot.aggregateFixedRule
     pellet.aggregateFixedRule
     pellet.aggregateResolvedAllocationRule
     status.aggregateResolvedTicksRule
+    beam.aggregateResolvedTicksRule
     `punch-through`.aggregateResolvedTargetsRule
     ricochet.aggregateResolvedTargetsRule
     chain.aggregateResolvedTargetsRule

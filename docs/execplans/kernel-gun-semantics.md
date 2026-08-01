@@ -87,7 +87,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-31 00:04:17Z) empirical-prompt-tuningは対応・非対応を2回ずつ、改変Trace hold-outを1回評価し、全critical checklistを連続達成した。対応側のtool-useは9回で一致したが、非対応側は4回と7回、hold-outは10回だったため、全体の定量的な速度収束は主張しない。
 - [x] (2026-07-31 00:06:37Z) Ruleset `0.17.0`マイルストーンをpublic mainへpushし、`7b79f91`に対するGitHub Actions `Check` run `30592492415`の成功を確認した。
 - [x] (2026-08-01 05:12:33Z) 元計画のCommit 7以降の順序と実装済み境界を照合し、次の縦切りを解決済み固定tick数／間隔を持つ合成Beamに固定した。
-- [ ] `BEM-001`と`GOL-018`でBeam tickの有限schedule、固定Critical／Armor／Health pipeline、逐次commit、集約を規定し、Ruleset `0.18.0`を生成する。
+- [x] (2026-08-01 05:19:25Z) `BEM-001`と`GOL-018`でBeam tickの有限schedule、固定Critical／Armor／Health pipeline、逐次commit、集約を規定し、Ruleset `0.18.0`を生成した。逆翻訳でBeam専用capabilityと6 Rulesを確認した。
 - [ ] Domain／Rules／Kernel／Trace replay／CLI／skillを実装し、Node 26／24の全ゲート、empirical評価、public push、CIを完了する。
 
 ## Surprises & Discoveries
@@ -169,6 +169,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: explicit scalar parameterは値が `null` の場合、keyの存在だけではresolution modeを安全に決定できない。
   Evidence: Domain parserは `criticalTier` または `criticalRoll` のちょうど一方が有効な数値であることを検査し、null、範囲外roll、tierとrollの併記、rollとRadial固有parameterの併記を部分Artifactなしで拒否する。
+
+- Observation: 新しいBeam ClauseとGoldenを生成した初回のcapability manifestは、それらを汎用Direct capabilityへ誤分類した。
+  Evidence: 初回の `just spec-gen` は `BEM-001/GOL-018` を `mechanics.direct-critical-armor` へ列挙した。生成器の有限分類と回帰試験を追加し、再生成後は `mechanics.resolved-beam-ticks` が両Clauseだけをsupportedとした。
 
 ## Decision Log
 

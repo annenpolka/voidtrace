@@ -106,6 +106,13 @@ resolvedStatusTicksCommitInTimeOrder: base.ResolvedStatusTicks = new {
   maturity = "active"
 }
 
+resolvedBeamTicksUseFixedDamagePipelineInTimeOrder: base.ResolvedBeamTicks = new {
+  id = "BEM-001"
+  desc =
+    "action.resolved-beam-ticksはdelivery beamのattack mode、固定非負safe-integer Critical tier、1以上64以下の明示tickCount、正のsafe-integer tickIntervalMsを受理し、index iの安定したBeam tick childを(i+1)*tickIntervalMsへscheduleする。最後tickはScenario timeLimitMs以下でなければならない。各tickはattack modeのbase Damageをcopyし、共通固定Critical tier、resolved Armor、直前tickのHealthの順で評価し、全tickのDamageと終端Healthを集約する。held durationからのtick数導出、Beam ramp、Fire Rate、Magazine、Ammo、Reload、Chain Beam、tick別CriticalまたはStatus roll、Status付与、expected分岐、生成乱数、現行WarframeのBeam式は導出しない"
+  maturity = "active"
+}
+
 resolvedPunchThroughVisitsTargetsInPathOrder: base.ResolvedPunchThroughPath = new {
   id = "PTH-001"
   desc =

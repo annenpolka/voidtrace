@@ -129,6 +129,12 @@ class ResolvedStatusTicks extends Clause {
   area = "mechanics"
 }
 
+class ResolvedBeamTicks extends Clause {
+  pattern = "resolved_beam_ticks"
+  guarantee = "property-tested"
+  area = "mechanics"
+}
+
 class ResolvedPunchThroughPath extends Clause {
   pattern = "resolved_punch_through_path"
   guarantee = "property-tested"

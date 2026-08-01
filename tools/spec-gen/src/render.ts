@@ -241,6 +241,9 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
   const statusClauses = spec.clauses.filter(
     (clause) => clause.id.startsWith("STS-") || clause.id === "GOL-008",
   );
+  const beamClauses = spec.clauses.filter(
+    (clause) => clause.id.startsWith("BEM-") || clause.id === "GOL-018",
+  );
   const punchThroughClauses = spec.clauses.filter(
     (clause) => clause.id.startsWith("PTH-") || clause.id === "GOL-009",
   );
@@ -260,6 +263,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       !radialTargetClauses.includes(clause) &&
       !directRadialImpactClauses.includes(clause) &&
       !statusClauses.includes(clause) &&
+      !beamClauses.includes(clause) &&
       !punchThroughClauses.includes(clause) &&
       !ricochetClauses.includes(clause) &&
       !chainClauses.includes(clause),
@@ -334,6 +338,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       capability("mechanics.resolved-radial-targets", radialTargetClauses),
       capability("mechanics.resolved-direct-radial-impact", directRadialImpactClauses),
       capability("mechanics.resolved-status-ticks", statusClauses),
+      capability("mechanics.resolved-beam-ticks", beamClauses),
       capability("mechanics.resolved-punch-through", punchThroughClauses),
       capability("mechanics.resolved-ricochet", ricochetClauses),
       capability("mechanics.resolved-chain", chainClauses),

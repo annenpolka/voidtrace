@@ -209,6 +209,18 @@ describe("renderGeneratedFiles", () => {
         },
         {
           ...clause,
+          id: "BEM-001",
+          area: "mechanics",
+          maturity: "active",
+        },
+        {
+          ...clause,
+          id: "GOL-018",
+          area: "mechanics",
+          maturity: "active",
+        },
+        {
+          ...clause,
           id: "PTH-001",
           area: "mechanics",
           maturity: "active",
@@ -306,6 +318,11 @@ describe("renderGeneratedFiles", () => {
           id: "mechanics.resolved-status-ticks",
           status: "supported",
           activeClauseRefs: ["STS-001"],
+        }),
+        expect.objectContaining({
+          id: "mechanics.resolved-beam-ticks",
+          status: "supported",
+          activeClauseRefs: ["BEM-001", "GOL-018"],
         }),
         expect.objectContaining({
           id: "mechanics.resolved-punch-through",

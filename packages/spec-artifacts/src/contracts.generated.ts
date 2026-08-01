@@ -213,11 +213,11 @@ export type Result = {
 /** Generated finite Rule IR interpreted by the Kernel-facing Rules package. */
 export type Ruleset = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:ruleset:0.17.0";
+  readonly "$schema": "urn:voidtrace:schema:ruleset:0.18.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "ruleset";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.17.0";
+  readonly "schemaVersion": "0.18.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -262,6 +262,11 @@ export type Ruleset = {
       /** Expand one resolved Status action into an explicit bounded count of ordered logical-time tick events. */
       readonly "kind": "event.expand-resolved-status-ticks";
       /** Positive safe execution bound for one resolved Status action. */
+      readonly "maximumTicks": number;
+    } | {
+      /** Expand one resolved Beam action into an explicit bounded count of ordered logical-time tick events. */
+      readonly "kind": "event.expand-resolved-beam-ticks";
+      /** Positive safe execution bound for one resolved Beam action. */
       readonly "maximumTicks": number;
     } | {
       /** Expand one resolved punch-through path into an explicit bounded count of ordered target events. */
@@ -329,6 +334,9 @@ export type Ruleset = {
     } | {
       /** Aggregate ordered terminal Status tick Damage Vectors and preserve the final sequential Health state. */
       readonly "kind": "damage-vector.aggregate-sequential-status-ticks";
+    } | {
+      /** Aggregate ordered terminal Beam tick Damage Vectors and preserve the final sequential Health state. */
+      readonly "kind": "damage-vector.aggregate-sequential-beam-ticks";
     } | {
       /** Aggregate terminal Damage and target-specific Health for a resolved punch-through path. */
       readonly "kind": "damage-vector.aggregate-resolved-punch-through-targets";

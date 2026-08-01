@@ -1,0 +1,114 @@
+/// Experimental resolved Beam ticks with explicit count, timing, and fixed Critical resolution.
+module voidtrace.mechanics.beam
+
+import "../rules/model.pkl"
+
+scheduleResolvedTicksRule: model.Rule = new {
+  id = "rule.beam.schedule-resolved-ticks"
+  description =
+    "Expand one explicit resolved Beam action into a bounded count of ordered logical-time tick events."
+  phase = "attack.emit"
+  eventKind = "action.resolved-beam-ticks"
+  reads {
+    "action.beam-tick-count"
+    "action.beam-tick-interval-ms"
+  }
+  writes {
+    "event.beam-tick-count"
+  }
+  operation = new model.ExpandResolvedBeamTicks {
+    maximumTicks = 64
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+constructResolvedTickRule: model.Rule = new {
+  id = "rule.beam.construct-resolved-tick"
+  description = "Construct one Beam tick Damage Vector from the resolved Beam attack mode."
+  phase = "damage.construct"
+  eventKind = "damage.beam-tick"
+  reads {
+    "attack.base-damage"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.CopyDamageVector {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+scaleCriticalTierRule: model.Rule = new {
+  id = "rule.beam.scale-critical-tier"
+  description = "Scale one Beam tick by its explicit fixed Critical tier."
+  phase = "critical.resolve"
+  eventKind = "damage.beam-tick"
+  reads {
+    "event.damage"
+    "event.critical-tier"
+    "attack.critical-multiplier"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.ScaleCriticalTier {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+armorRule: model.Rule = new {
+  id = "rule.beam.standard-armor"
+  description = "Apply the resolved target Armor multiplier to one Beam tick."
+  phase = "target.mitigate"
+  eventKind = "damage.beam-tick"
+  reads {
+    "event.damage"
+    "target.armor"
+  }
+  writes {
+    "event.damage"
+  }
+  operation = new model.ScaleStandardArmor {
+    constant = 300
+  }
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+commitResolvedTickRule: model.Rule = new {
+  id = "rule.beam.commit-resolved-tick-health"
+  description = "Commit one resolved Beam tick to the target Health layer."
+  phase = "damage.commit"
+  eventKind = "damage.beam-tick"
+  reads {
+    "event.damage"
+    "target.health"
+  }
+  writes {
+    "target.health"
+  }
+  operation = new model.CommitHealthDamage {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
+
+aggregateResolvedTicksRule: model.Rule = new {
+  id = "rule.beam.aggregate-resolved-ticks"
+  description =
+    "Aggregate every terminal Beam tick Damage Vector and preserve the final sequential remaining Health."
+  phase = "result.aggregate"
+  eventKind = "action.resolved-beam-ticks"
+  reads {
+    "tick.damage"
+    "tick.health-before"
+    "tick.health-after"
+  }
+  writes {
+    "event.damage"
+    "target.health"
+  }
+  operation = new model.AggregateSequentialBeamTicks {}
+  evidenceStatus = "experimental"
+  evidenceIds = new {}
+}
