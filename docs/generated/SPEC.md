@@ -4,8 +4,8 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:2ba3b77c39a0c723db896e9970863871bf4d510044afb1d340a24030d7ba9c25`
-- Generated contracts: 8 (see [CONTRACTS.md](./CONTRACTS.md))
+- Source fingerprint: `sha256:516abefc15923b0ae287c5ad4c57b2f67c20d7d0cd23ef318526d62e6b57b09c`
+- Generated contracts: 10 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
 
@@ -35,6 +35,8 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `DMG-002` | `mechanics` | `damage_total_equals_components` | `property-tested` | `active` | 各Damage Vectorのtotalは有限な非負成分の総和と一致する |
 | `ENG-001` | `kernel` | `deterministic_replay` | `property-tested` | `active` | 同一Catalog、Ruleset、Scenario、seedは同一のcanonical Resultを返す |
 | `ENG-002` | `kernel` | `event_time_monotonic` | `property-tested` | `active` | Event Queueから処理されるイベント時刻は後退しない |
+| `EXP-001` | `experiments` | `resolved_experiment_membership` | `property-tested` | `active` | Experimentは一つのCatalogRefとRulesetRef、一つのbase ScenarioRef、宣言順を持つ1以上15以下のvariant ScenarioRef、一つのprimary metricを保持する。評価前にExperiment、Catalog、Ruleset、供給された全Scenarioを一度だけsnapshot、Contract、content hash、完全参照で検査し、供給Scenario集合は宣言集合と過不足なく一致しなければならない。baseとvariantは同じgame build、Catalog revision、Ruleset revisionを参照し、variant IDとScenario id/revisionは一意、primary metricは各Scenario metricsに厳密に一度だけ存在し、Monte Carloではないことを要求する。検証済みsnapshotをbase、次にvariant宣言順で既存の単一Scenario evaluatorへ一度ずつ渡し、callerの入力Artifactを変更しない。未解決参照、JSON Patch、Sweep、Breakpoint、ruleset branch、Monte Carloを暗黙に補完または実行しない |
+| `EXP-002` | `experiments` | `resolved_experiment_comparison` | `property-tested` | `active` | 解決済みExperiment比較はbaseを最初に、variantを宣言順に一度ずつ単一Scenario evaluatorへ渡し、各Result／Traceを対応Scenarioへ完全性検査してからprimary metricを直接読み、各variantについて有限な符号付き差variant-baseだけを生成する。Comparisonはidをcomparison.<experiment.id>、revisionとgameBuildをExperimentと同値、createdFromなしとし、Experiment、Scenario、Resultの完全ArtifactRef、metricValue、baseのdelta 0、variant宣言順のdeltaを保持する。一つでも評価失敗、metric欠落、非有限delta、参照不整合があればComparisonも部分evaluation列も返さない。負の0は0へ正規化し、丸め、比率、優劣方向、tie、ranking、統計量は導出しない |
 | `GOL-001` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/direct-critical-armor.scenario.jsonは独立literal expected vectorと一致するResultおよびTraceを生成する |
 | `GOL-002` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/probability-critical-armor.scenario.jsonは明示Critical rollから隣接tierを解決し、独立literal expected vectorと一致するResultおよびTraceを生成する |
 | `GOL-003` | `mechanics` | `golden_scenario` | `example-tested` | `active` | data/fixtures/golden/tier-2-critical-armor.scenario.jsonはCritical chance 1.25と明示roll 0.2からtier 2を解決し、Critical multiplier 2、base Damage 100、Armor 300に対する最終Health Damage 150と残Health 850を独立literal expected vectorとしてResultおよびTraceと照合する |
@@ -67,7 +69,7 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `RNG-001` | `kernel` | `same_logical_random` | `property-tested` | `active` | 同一seed、論理Event ID、roll purposeは同一乱数を返す |
 | `SCP-001` | `scope` | `scope_boundary` | `manual` | `active` | 物理・衝突・軌道は解決済みHitPlanとして入力され、Kernelは幾何学的命中判定を行わない |
 | `SCP-002` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | 非対応メカニクスをゼロ効果として黙って無視せず、構造化された非対応結果を返す |
-| `SCP-003` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoS、ordered path、またはtarget別Pellet配分だけを有限構造として保持する。Runtimeは空relations、resolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered path、resolved multi-target Radialが参照する同一impactの1以上64以下のimpact-distance relations、またはresolved Pellet allocationが参照する全target分のallocation relationsだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する |
+| `SCP-003` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoS、ordered path、またはtarget別Pellet配分だけを有限構造として保持する。Runtimeは空relations、resolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered path、resolved multi-target Radialまたはresolved Direct＋Radial impactが参照する同一impactの1以上64以下のimpact-distance relations、またはresolved Pellet allocationが参照する全target分のallocation relationsだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する |
 | `STS-001` | `mechanics` | `resolved_status_ticks` | `property-tested` | `active` | action.resolved-status-ticksはstatus.synthetic-resolved-dot、有限な非負resolvedHealthDamagePerTick、1以上のsafe-integer tickCount、正のsafe-integer tickIntervalMsを受理する。最大64 tickをintervalの倍数時刻で単一targetのHealthへ順次commitし、最後のtickはScenario timeLimitMs以下でなければならない。Status chance、type抽選、付与元Direct／Radial、Critical、Armor、stack、refresh、snapshot式、暗黙rollは生成しない |
 | `TRC-001` | `kernel` | `trace_reconstructs_result` | `property-tested` | `active` | Scenarioの初期HealthをアンカーとしてTraceの順序付きDamage Vector、Health commit、expected branch集約を再生すると、Resultの最終Damage Vectorとdeterministicまたはexpectedの残Healthに一致する |
 | `TRC-002` | `kernel` | `rejected_rule_has_reason` | `property-tested` | `planned` | 不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する |

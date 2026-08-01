@@ -4,12 +4,14 @@ module voidtrace
 import "cli/surface.pkl" as cliSurface
 import "contracts/artifact.pkl"
 import "contracts/catalog.pkl"
+import "contracts/experiment.pkl"
 import "contracts/model.pkl"
 import "contracts/problem.pkl"
 import "contracts/result.pkl"
 import "contracts/ruleset.pkl" as rulesetContract
 import "contracts/scenario.pkl"
 import "contracts/trace.pkl"
+import "experiments/comparison.pkl"
 import "golden/direct-critical-armor.pkl"
 import "golden/expected-critical-armor.pkl"
 import "golden/multishot-critical-armor.pkl"
@@ -105,12 +107,16 @@ clauses: Listing<base.Clause> = new {
   cliSurface.aliasEquivalence
   cliSurface.applicationBoundary
   cliSurface.inputSurface
+  comparison.resolvedMembership
+  comparison.comparisonIntegrity
 }
 
 contracts: Listing<model.Contract> = new {
   artifact.artifactRef
   artifact.fingerprint
   catalog.catalogSnapshot
+  experiment.experiment
+  experiment.comparison
   problem.problem
   rulesetContract.ruleset
   scenario.scenario

@@ -46,6 +46,53 @@ Normalized immutable weapon, target, and modifier data for reproducible evaluati
 | `targets` | required | Normalized target definitions. |
 | `mods` | required | Normalized modifier definitions, whether supported or not. |
 
+## Comparison
+
+- Contract ID: `comparison`
+- Schema ID: `urn:voidtrace:schema:comparison:0.1.0`
+- Schema version: `0.1.0`
+
+Content-addressed primary-metric projections from one complete resolved Experiment.
+
+| Field | Presence | Meaning |
+| --- | --- | --- |
+| `$schema` | required | Schema identifier used to validate this Artifact. |
+| `kind` | required | Stable discriminator for this Artifact kind. |
+| `schemaVersion` | required | Version of this Artifact contract. |
+| `id` | required | Stable identity of this Artifact. |
+| `revision` | required | Non-negative immutable revision of this Artifact. |
+| `createdFrom` | optional | Optional Artifact revision from which this Artifact was derived. |
+| `contentHash` | required | SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. |
+| `gameBuild` | required | Game build against which this Artifact is defined. |
+| `experimentRef` | required | Exact Experiment revision evaluated to produce this Comparison. |
+| `primaryMetric` | required | Metric identifier observed in the base and every variant Result. |
+| `base` | required | Primary metric projection for the declared base Scenario. |
+| `variants` | required | Variant metric projections in the exact declaration order of the Experiment. |
+
+## Experiment
+
+- Contract ID: `experiment`
+- Schema ID: `urn:voidtrace:schema:experiment:0.1.0`
+- Schema version: `0.1.0`
+
+Immutable bounded comparison of already resolved Scenario revisions under one Catalog and Ruleset.
+
+| Field | Presence | Meaning |
+| --- | --- | --- |
+| `$schema` | required | Schema identifier used to validate this Artifact. |
+| `kind` | required | Stable discriminator for this Artifact kind. |
+| `schemaVersion` | required | Version of this Artifact contract. |
+| `id` | required | Stable identity of this Artifact. |
+| `revision` | required | Non-negative immutable revision of this Artifact. |
+| `createdFrom` | optional | Optional Artifact revision from which this Artifact was derived. |
+| `contentHash` | required | SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. |
+| `gameBuild` | required | Game build against which this Artifact is defined. |
+| `catalogRef` | required | CatalogSnapshot revision shared by every declared Scenario. |
+| `rulesetRef` | required | Ruleset revision shared by every declared Scenario. |
+| `baseScenarioRef` | required | Exact immutable Scenario revision used as the comparison base. |
+| `variants` | required | Ordered non-empty finite list of already resolved Scenario variants. |
+| `primaryMetric` | required | Metric identifier that must exist in every evaluated Result. |
+
 ## Fingerprint
 
 - Contract ID: `fingerprint`

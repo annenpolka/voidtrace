@@ -96,6 +96,89 @@ export type CatalogSnapshot = {
   }>;
 };
 
+/** Content-addressed primary-metric projections from one complete resolved Experiment. */
+export type Comparison = {
+  /** Schema identifier used to validate this Artifact. */
+  readonly "$schema": "urn:voidtrace:schema:comparison:0.1.0";
+  /** Stable discriminator for this Artifact kind. */
+  readonly "kind": "voidtrace.comparison";
+  /** Version of this Artifact contract. */
+  readonly "schemaVersion": "0.1.0";
+  /** Stable identity of this Artifact. */
+  readonly "id": string;
+  /** Non-negative immutable revision of this Artifact. */
+  readonly "revision": number;
+  /** Optional Artifact revision from which this Artifact was derived. */
+  readonly "createdFrom"?: ArtifactRef & { readonly "kind": "voidtrace.comparison" };
+  /** SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. */
+  readonly "contentHash": string;
+  /** Game build against which this Artifact is defined. */
+  readonly "gameBuild": string;
+  /** Exact Experiment revision evaluated to produce this Comparison. */
+  readonly "experimentRef": ArtifactRef & { readonly "kind": "voidtrace.experiment" };
+  /** Metric identifier observed in the base and every variant Result. */
+  readonly "primaryMetric": string;
+  /** Primary metric projection for the declared base Scenario. */
+  readonly "base": {
+    /** Exact base Scenario revision evaluated for this metric projection. */
+    readonly "scenarioRef": ArtifactRef & { readonly "kind": "voidtrace.scenario" };
+    /** Exact Result revision from which the base metric value was read. */
+    readonly "resultRef": ArtifactRef & { readonly "kind": "voidtrace.result" };
+    /** Finite primary metric value read directly from the base Result. */
+    readonly "metricValue": number;
+    /** The base metric projection has an exact zero delta from itself. */
+    readonly "deltaFromBase": 0;
+  };
+  /** Variant metric projections in the exact declaration order of the Experiment. */
+  readonly "variants": ReadonlyArray<{
+    /** Experiment-local stable identity copied from the declared variant. */
+    readonly "id": string;
+    /** Exact variant Scenario revision evaluated for this metric projection. */
+    readonly "scenarioRef": ArtifactRef & { readonly "kind": "voidtrace.scenario" };
+    /** Exact Result revision from which the variant metric value was read. */
+    readonly "resultRef": ArtifactRef & { readonly "kind": "voidtrace.result" };
+    /** Finite primary metric value read directly from the variant Result. */
+    readonly "metricValue": number;
+    /** Finite signed difference: variant metric value minus base metric value. */
+    readonly "deltaFromBase": number;
+  }>;
+};
+
+/** Immutable bounded comparison of already resolved Scenario revisions under one Catalog and Ruleset. */
+export type Experiment = {
+  /** Schema identifier used to validate this Artifact. */
+  readonly "$schema": "urn:voidtrace:schema:experiment:0.1.0";
+  /** Stable discriminator for this Artifact kind. */
+  readonly "kind": "voidtrace.experiment";
+  /** Version of this Artifact contract. */
+  readonly "schemaVersion": "0.1.0";
+  /** Stable identity of this Artifact. */
+  readonly "id": string;
+  /** Non-negative immutable revision of this Artifact. */
+  readonly "revision": number;
+  /** Optional Artifact revision from which this Artifact was derived. */
+  readonly "createdFrom"?: ArtifactRef & { readonly "kind": "voidtrace.experiment" };
+  /** SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. */
+  readonly "contentHash": string;
+  /** Game build against which this Artifact is defined. */
+  readonly "gameBuild": string;
+  /** CatalogSnapshot revision shared by every declared Scenario. */
+  readonly "catalogRef": ArtifactRef & { readonly "kind": "catalog-snapshot" };
+  /** Ruleset revision shared by every declared Scenario. */
+  readonly "rulesetRef": ArtifactRef & { readonly "kind": "ruleset" };
+  /** Exact immutable Scenario revision used as the comparison base. */
+  readonly "baseScenarioRef": ArtifactRef & { readonly "kind": "voidtrace.scenario" };
+  /** Ordered non-empty finite list of already resolved Scenario variants. */
+  readonly "variants": ReadonlyArray<{
+    /** Experiment-local stable identity of this resolved variant. */
+    readonly "id": string;
+    /** Exact immutable Scenario revision evaluated for this variant. */
+    readonly "scenarioRef": ArtifactRef & { readonly "kind": "voidtrace.scenario" };
+  }>;
+  /** Metric identifier that must exist in every evaluated Result. */
+  readonly "primaryMetric": string;
+};
+
 /** Complete immutable input fingerprint for a reproducible execution. */
 export type Fingerprint = {
   /** Version of the product that requested the evaluation. */
@@ -636,11 +719,13 @@ export type Trace = {
     readonly "matched": true;
   }>;
 };
-export type ContractId = "artifact-ref" | "catalog-snapshot" | "fingerprint" | "problem" | "result" | "ruleset" | "scenario" | "trace";
+export type ContractId = "artifact-ref" | "catalog-snapshot" | "comparison" | "experiment" | "fingerprint" | "problem" | "result" | "ruleset" | "scenario" | "trace";
 
 export type ContractById = {
   readonly "artifact-ref": ArtifactRef;
   readonly "catalog-snapshot": CatalogSnapshot;
+  readonly "comparison": Comparison;
+  readonly "experiment": Experiment;
   readonly "fingerprint": Fingerprint;
   readonly "problem": Problem;
   readonly "result": Result;

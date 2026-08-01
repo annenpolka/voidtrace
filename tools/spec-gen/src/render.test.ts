@@ -161,6 +161,43 @@ describe("renderGeneratedFiles", () => {
     });
   });
 
+  it("publishes resolved Experiment comparison as an independently derived capability", () => {
+    const generated = renderGeneratedFiles({
+      ...spec,
+      clauses: [
+        {
+          id: "EXP-001",
+          pattern: "resolved_experiment_membership",
+          desc: "validate a bounded set of resolved Scenario revisions",
+          guarantee: "property-tested",
+          maturity: "active",
+          area: "experiments",
+        },
+        {
+          id: "EXP-002",
+          pattern: "resolved_experiment_comparison",
+          desc: "project one primary metric and signed deltas",
+          guarantee: "property-tested",
+          maturity: "active",
+          area: "experiments",
+        },
+      ],
+    });
+    const capabilities = generated.find(
+      (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
+    );
+
+    const parsed = JSON.parse(capabilities?.contents ?? "{}") as {
+      capabilities: unknown[];
+    };
+    expect(parsed.capabilities).toContainEqual({
+      id: "experiments.resolved-comparison",
+      status: "supported",
+      activeClauseRefs: ["EXP-001", "EXP-002"],
+      plannedClauseRefs: [],
+    });
+  });
+
   it("publishes fixed Multishot separately from direct Critical and Armor", () => {
     const generated = renderGeneratedFiles({
       ...spec,

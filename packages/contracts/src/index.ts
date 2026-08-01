@@ -1,9 +1,11 @@
 export type {
   ArtifactRef,
   CatalogSnapshot,
+  Comparison,
   ContractById,
   ContractId,
   Fingerprint,
+  Experiment,
   Problem,
   Result,
   Ruleset,
@@ -14,7 +16,12 @@ export {
   artifactMatchesRef,
   type ReferencedArtifact,
 } from "./artifact-ref.ts";
-export { canonicalizeJson, type JsonValue } from "./canonical-json.ts";
+export {
+  canonicalizeJson,
+  type JsonValue,
+  snapshotJsonObject,
+  snapshotJsonValue,
+} from "./canonical-json.ts";
 export {
   attachResultHash,
   attachArtifactContentHash,

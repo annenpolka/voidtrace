@@ -180,6 +180,69 @@ const trace = {
   ],
 } as const;
 
+const experiment = {
+  $schema: "urn:voidtrace:schema:experiment:0.1.0",
+  kind: "voidtrace.experiment",
+  schemaVersion: "0.1.0",
+  id: "experiment.example",
+  revision: 0,
+  contentHash: HASH,
+  gameBuild: "43.0.0",
+  catalogRef: artifactRef("catalog-snapshot", "catalog.example"),
+  rulesetRef: artifactRef("ruleset", "ruleset.example"),
+  baseScenarioRef: artifactRef("voidtrace.scenario", "scenario.base"),
+  variants: [
+    {
+      id: "variant.one",
+      scenarioRef: artifactRef("voidtrace.scenario", "scenario.variant-one"),
+    },
+  ],
+  primaryMetric: "metric.total-damage",
+} as const;
+
+const comparison = {
+  $schema: "urn:voidtrace:schema:comparison:0.1.0",
+  kind: "voidtrace.comparison",
+  schemaVersion: "0.1.0",
+  id: "comparison.experiment-example",
+  revision: 0,
+  contentHash: HASH,
+  gameBuild: "43.0.0",
+  experimentRef: artifactRef("voidtrace.experiment", "experiment.example"),
+  primaryMetric: "metric.total-damage",
+  base: {
+    scenarioRef: artifactRef("voidtrace.scenario", "scenario.base"),
+    resultRef: artifactRef("voidtrace.result", "result.base"),
+    metricValue: 10.25,
+    deltaFromBase: 0,
+  },
+  variants: [
+    {
+      id: "variant.one",
+      scenarioRef: artifactRef("voidtrace.scenario", "scenario.variant-one"),
+      resultRef: artifactRef("voidtrace.result", "result.variant-one"),
+      metricValue: 7.75,
+      deltaFromBase: -2.5,
+    },
+  ],
+} as const;
+
+function experimentVariant(index: number) {
+  return {
+    id: `variant.${index}`,
+    scenarioRef: artifactRef("voidtrace.scenario", `scenario.variant-${index}`),
+  };
+}
+
+function comparisonVariant(index: number) {
+  return {
+    ...experimentVariant(index),
+    resultRef: artifactRef("voidtrace.result", `result.variant-${index}`),
+    metricValue: index + 0.5,
+    deltaFromBase: index - comparison.base.metricValue,
+  };
+}
+
 describe("generated Contract validation", () => {
   it("compiles every schema and accepts representative Artifacts", () => {
     expect(validateContract("artifact-ref", artifactRef("ruleset", "ruleset.example"))).toEqual({
@@ -190,6 +253,94 @@ describe("generated Contract validation", () => {
     expect(validateContract("scenario", scenario).ok).toBe(true);
     expect(validateContract("result", result).ok).toBe(true);
     expect(validateContract("trace", trace).ok).toBe(true);
+    expect(validateContract("experiment", experiment).ok).toBe(true);
+    expect(validateContract("comparison", comparison).ok).toBe(true);
+  });
+
+  it("enforces the one-to-fifteen resolved Experiment variant boundary", () => {
+    for (const count of [1, 15]) {
+      expect(
+        validateContract("experiment", {
+          ...experiment,
+          variants: Array.from({ length: count }, (_, index) => experimentVariant(index)),
+        }).ok,
+      ).toBe(true);
+      expect(
+        validateContract("comparison", {
+          ...comparison,
+          variants: Array.from({ length: count }, (_, index) => comparisonVariant(index)),
+        }).ok,
+      ).toBe(true);
+    }
+
+    for (const count of [0, 16]) {
+      expect(
+        validateContract("experiment", {
+          ...experiment,
+          variants: Array.from({ length: count }, (_, index) => experimentVariant(index)),
+        }).ok,
+      ).toBe(false);
+      expect(
+        validateContract("comparison", {
+          ...comparison,
+          variants: Array.from({ length: count }, (_, index) => comparisonVariant(index)),
+        }).ok,
+      ).toBe(false);
+    }
+  });
+
+  it("enforces typed Experiment references and closed comparison projections", () => {
+    expect(
+      validateContract("experiment", {
+        ...experiment,
+        baseScenarioRef: artifactRef("ruleset", "scenario.base"),
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("experiment", {
+        ...experiment,
+        variants: [{ ...experiment.variants[0], extra: true }],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("comparison", {
+        ...comparison,
+        experimentRef: artifactRef("voidtrace.scenario", "experiment.example"),
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("comparison", {
+        ...comparison,
+        base: { ...comparison.base, resultRef: artifactRef("ruleset", "result.base") },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("comparison", {
+        ...comparison,
+        variants: [{ ...comparison.variants[0], extra: true }],
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("requires an exact zero base delta and finite numeric metric values", () => {
+    expect(
+      validateContract("comparison", {
+        ...comparison,
+        base: { ...comparison.base, deltaFromBase: 1 },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("comparison", {
+        ...comparison,
+        base: { ...comparison.base, metricValue: "10.25" },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("comparison", {
+        ...comparison,
+        variants: [{ ...comparison.variants[0], metricValue: Number.POSITIVE_INFINITY }],
+      }).ok,
+    ).toBe(false);
   });
 
   it("rejects wrong discriminators, extra fields, invalid hashes, and negative revisions", () => {

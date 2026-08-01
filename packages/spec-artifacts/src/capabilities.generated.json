@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:2ba3b77c39a0c723db896e9970863871bf4d510044afb1d340a24030d7ba9c25",
+  "sourceFingerprint": "sha256:516abefc15923b0ae287c5ad4c57b2f67c20d7d0cd23ef318526d62e6b57b09c",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -14,6 +14,8 @@
       "contractRefs": [
         "artifact-ref",
         "catalog-snapshot",
+        "comparison",
+        "experiment",
         "fingerprint",
         "problem",
         "result",
@@ -159,6 +161,15 @@
       "activeClauseRefs": [
         "CHN-001",
         "GOL-011"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "experiments.resolved-comparison",
+      "status": "supported",
+      "activeClauseRefs": [
+        "EXP-001",
+        "EXP-002"
       ],
       "plannedClauseRefs": []
     },

@@ -26,6 +26,8 @@ export const KNOWN_PATTERNS = [
   "armor_formula_example",
   "trace_reconstructs_result",
   "rejected_rule_has_reason",
+  "resolved_experiment_membership",
+  "resolved_experiment_comparison",
   "golden_scenario",
   "cli_command_output_selection",
   "cli_deterministic_json",
@@ -39,7 +41,15 @@ export const VERIFICATION_LEVELS = ["property-tested", "example-tested", "manual
 
 export const CLAUSE_MATURITIES = ["planned", "active", "retired"] as const;
 
-export const SPEC_AREAS = ["scope", "kernel", "mechanics", "catalog", "cli", "lab"] as const;
+export const SPEC_AREAS = [
+  "scope",
+  "kernel",
+  "mechanics",
+  "catalog",
+  "experiments",
+  "cli",
+  "lab",
+] as const;
 
 export type PatternId = (typeof KNOWN_PATTERNS)[number];
 export type VerificationLevel = (typeof VERIFICATION_LEVELS)[number];
@@ -234,6 +244,8 @@ export const IMPLEMENTED_ORACLE_PATTERNS: readonly PatternId[] = [
   "armor_formula_example",
   "trace_reconstructs_result",
   "rejected_rule_has_reason",
+  "resolved_experiment_membership",
+  "resolved_experiment_comparison",
   "golden_scenario",
   "cli_command_output_selection",
   "cli_deterministic_json",

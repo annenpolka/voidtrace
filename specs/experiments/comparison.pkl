@@ -1,0 +1,18 @@
+/// Verification obligations for bounded resolved Scenario comparisons.
+module voidtrace.experiments.comparison
+
+import "../patterns/base.pkl"
+
+resolvedMembership: base.ResolvedExperimentMembership = new {
+  id = "EXP-001"
+  desc =
+    "Experimentは一つのCatalogRefとRulesetRef、一つのbase ScenarioRef、宣言順を持つ1以上15以下のvariant ScenarioRef、一つのprimary metricを保持する。評価前にExperiment、Catalog、Ruleset、供給された全Scenarioを一度だけsnapshot、Contract、content hash、完全参照で検査し、供給Scenario集合は宣言集合と過不足なく一致しなければならない。baseとvariantは同じgame build、Catalog revision、Ruleset revisionを参照し、variant IDとScenario id/revisionは一意、primary metricは各Scenario metricsに厳密に一度だけ存在し、Monte Carloではないことを要求する。検証済みsnapshotをbase、次にvariant宣言順で既存の単一Scenario evaluatorへ一度ずつ渡し、callerの入力Artifactを変更しない。未解決参照、JSON Patch、Sweep、Breakpoint、ruleset branch、Monte Carloを暗黙に補完または実行しない"
+  maturity = "active"
+}
+
+comparisonIntegrity: base.ResolvedExperimentComparison = new {
+  id = "EXP-002"
+  desc =
+    "解決済みExperiment比較はbaseを最初に、variantを宣言順に一度ずつ単一Scenario evaluatorへ渡し、各Result／Traceを対応Scenarioへ完全性検査してからprimary metricを直接読み、各variantについて有限な符号付き差variant-baseだけを生成する。Comparisonはidをcomparison.<experiment.id>、revisionとgameBuildをExperimentと同値、createdFromなしとし、Experiment、Scenario、Resultの完全ArtifactRef、metricValue、baseのdelta 0、variant宣言順のdeltaを保持する。一つでも評価失敗、metric欠落、非有限delta、参照不整合があればComparisonも部分evaluation列も返さない。負の0は0へ正規化し、丸め、比率、優劣方向、tie、ranking、統計量は導出しない"
+  maturity = "active"
+}

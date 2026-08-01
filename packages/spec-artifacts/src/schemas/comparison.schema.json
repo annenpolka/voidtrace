@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:comparison:0.1.0",
+  "title": "Comparison",
+  "description": "Content-addressed primary-metric projections from one complete resolved Experiment.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Schema identifier used to validate this Artifact.",
+      "type": "string",
+      "const": "urn:voidtrace:schema:comparison:0.1.0"
+    },
+    "kind": {
+      "description": "Stable discriminator for this Artifact kind.",
+      "type": "string",
+      "const": "voidtrace.comparison"
+    },
+    "schemaVersion": {
+      "description": "Version of this Artifact contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "id": {
+      "description": "Stable identity of this Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative immutable revision of this Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdFrom": {
+      "description": "Optional Artifact revision from which this Artifact was derived.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.comparison"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build against which this Artifact is defined.",
+      "type": "string",
+      "minLength": 1
+    },
+    "experimentRef": {
+      "description": "Exact Experiment revision evaluated to produce this Comparison.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.experiment"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "primaryMetric": {
+      "description": "Metric identifier observed in the base and every variant Result.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "base": {
+      "description": "Primary metric projection for the declared base Scenario.",
+      "type": "object",
+      "properties": {
+        "scenarioRef": {
+          "description": "Exact base Scenario revision evaluated for this metric projection.",
+          "allOf": [
+            {
+              "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "voidtrace.scenario"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          ]
+        },
+        "resultRef": {
+          "description": "Exact Result revision from which the base metric value was read.",
+          "allOf": [
+            {
+              "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "voidtrace.result"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          ]
+        },
+        "metricValue": {
+          "description": "Finite primary metric value read directly from the base Result.",
+          "type": "number"
+        },
+        "deltaFromBase": {
+          "description": "The base metric projection has an exact zero delta from itself.",
+          "type": "integer",
+          "const": 0
+        }
+      },
+      "required": [
+        "scenarioRef",
+        "resultRef",
+        "metricValue",
+        "deltaFromBase"
+      ],
+      "additionalProperties": false
+    },
+    "variants": {
+      "description": "Variant metric projections in the exact declaration order of the Experiment.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Experiment-local stable identity copied from the declared variant.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "scenarioRef": {
+            "description": "Exact variant Scenario revision evaluated for this metric projection.",
+            "allOf": [
+              {
+                "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "voidtrace.scenario"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          },
+          "resultRef": {
+            "description": "Exact Result revision from which the variant metric value was read.",
+            "allOf": [
+              {
+                "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "voidtrace.result"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          },
+          "metricValue": {
+            "description": "Finite primary metric value read directly from the variant Result.",
+            "type": "number"
+          },
+          "deltaFromBase": {
+            "description": "Finite signed difference: variant metric value minus base metric value.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "scenarioRef",
+          "resultRef",
+          "metricValue",
+          "deltaFromBase"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 15
+    }
+  },
+  "required": [
+    "$schema",
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild",
+    "experimentRef",
+    "primaryMetric",
+    "base",
+    "variants"
+  ],
+  "additionalProperties": false
+}

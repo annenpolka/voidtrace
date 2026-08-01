@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:experiment:0.1.0",
+  "title": "Experiment",
+  "description": "Immutable bounded comparison of already resolved Scenario revisions under one Catalog and Ruleset.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Schema identifier used to validate this Artifact.",
+      "type": "string",
+      "const": "urn:voidtrace:schema:experiment:0.1.0"
+    },
+    "kind": {
+      "description": "Stable discriminator for this Artifact kind.",
+      "type": "string",
+      "const": "voidtrace.experiment"
+    },
+    "schemaVersion": {
+      "description": "Version of this Artifact contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "id": {
+      "description": "Stable identity of this Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative immutable revision of this Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdFrom": {
+      "description": "Optional Artifact revision from which this Artifact was derived.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.experiment"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build against which this Artifact is defined.",
+      "type": "string",
+      "minLength": 1
+    },
+    "catalogRef": {
+      "description": "CatalogSnapshot revision shared by every declared Scenario.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "catalog-snapshot"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "rulesetRef": {
+      "description": "Ruleset revision shared by every declared Scenario.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "ruleset"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "baseScenarioRef": {
+      "description": "Exact immutable Scenario revision used as the comparison base.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.scenario"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "variants": {
+      "description": "Ordered non-empty finite list of already resolved Scenario variants.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Experiment-local stable identity of this resolved variant.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "scenarioRef": {
+            "description": "Exact immutable Scenario revision evaluated for this variant.",
+            "allOf": [
+              {
+                "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "voidtrace.scenario"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "scenarioRef"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 15
+    },
+    "primaryMetric": {
+      "description": "Metric identifier that must exist in every evaluated Result.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    }
+  },
+  "required": [
+    "$schema",
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild",
+    "catalogRef",
+    "rulesetRef",
+    "baseScenarioRef",
+    "variants",
+    "primaryMetric"
+  ],
+  "additionalProperties": false
+}

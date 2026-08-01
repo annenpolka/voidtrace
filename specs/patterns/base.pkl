@@ -5,7 +5,7 @@ typealias VerificationLevel = "property-tested" | "example-tested" | "manual"
 
 typealias ClauseMaturity = "planned" | "active" | "retired"
 
-typealias SpecArea = "scope" | "kernel" | "mechanics" | "catalog" | "cli" | "lab"
+typealias SpecArea = "scope" | "kernel" | "mechanics" | "catalog" | "experiments" | "cli" | "lab"
 
 abstract class Clause {
   /// Permanent identifier such as ENG-001.
@@ -175,6 +175,18 @@ class RejectedRuleHasReason extends Clause {
   pattern = "rejected_rule_has_reason"
   guarantee = "property-tested"
   area = "kernel"
+}
+
+class ResolvedExperimentMembership extends Clause {
+  pattern = "resolved_experiment_membership"
+  guarantee = "property-tested"
+  area = "experiments"
+}
+
+class ResolvedExperimentComparison extends Clause {
+  pattern = "resolved_experiment_comparison"
+  guarantee = "property-tested"
+  area = "experiments"
 }
 
 class GoldenScenario extends Clause {

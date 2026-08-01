@@ -1,0 +1,198 @@
+/// Resolved finite Scenario comparison input and its content-addressed summary output.
+module voidtrace.contracts.experiment
+
+import "artifact.pkl"
+import "model.pkl"
+
+local experimentSchemaIdentifier = "urn:voidtrace:schema:experiment:0.1.0"
+local comparisonSchemaIdentifier = "urn:voidtrace:schema:comparison:0.1.0"
+local contractVersion = "0.1.0"
+local maximumVariants = 15
+
+function artifactReference(expectedKindValue: String): model.RefNode = new model.RefNode {
+  target = "artifact-ref"
+  expectedKind = expectedKindValue
+}
+
+function experimentVariant(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Experiment-local stable identity of this resolved variant."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "scenarioRef"
+      description = "Exact immutable Scenario revision evaluated for this variant."
+      required = true
+      schema = artifactReference("voidtrace.scenario")
+    }
+  }
+}
+
+function baseMetricProjection(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "scenarioRef"
+      description = "Exact base Scenario revision evaluated for this metric projection."
+      required = true
+      schema = artifactReference("voidtrace.scenario")
+    }
+    new model.Field {
+      name = "resultRef"
+      description = "Exact Result revision from which the base metric value was read."
+      required = true
+      schema = artifactReference("voidtrace.result")
+    }
+    new model.Field {
+      name = "metricValue"
+      description = "Finite primary metric value read directly from the base Result."
+      required = true
+      schema = new model.NumberNode {}
+    }
+    new model.Field {
+      name = "deltaFromBase"
+      description = "The base metric projection has an exact zero delta from itself."
+      required = true
+      schema = new model.LiteralNode {
+        value = 0
+      }
+    }
+  }
+}
+
+function variantMetricProjection(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Experiment-local stable identity copied from the declared variant."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "scenarioRef"
+      description = "Exact variant Scenario revision evaluated for this metric projection."
+      required = true
+      schema = artifactReference("voidtrace.scenario")
+    }
+    new model.Field {
+      name = "resultRef"
+      description = "Exact Result revision from which the variant metric value was read."
+      required = true
+      schema = artifactReference("voidtrace.result")
+    }
+    new model.Field {
+      name = "metricValue"
+      description = "Finite primary metric value read directly from the variant Result."
+      required = true
+      schema = new model.NumberNode {}
+    }
+    new model.Field {
+      name = "deltaFromBase"
+      description = "Finite signed difference: variant metric value minus base metric value."
+      required = true
+      schema = new model.NumberNode {}
+    }
+  }
+}
+
+experiment: model.Contract = new {
+  id = "experiment"
+  typeName = "Experiment"
+  schemaId = experimentSchemaIdentifier
+  version = contractVersion
+  description =
+    "Immutable bounded comparison of already resolved Scenario revisions under one Catalog and Ruleset."
+  root = new model.ObjectNode {
+    fields = (
+      artifact.envelopeFields(
+        experimentSchemaIdentifier,
+        "voidtrace.experiment",
+        contractVersion,
+      )
+    ) {
+      new model.Field {
+        name = "catalogRef"
+        description = "CatalogSnapshot revision shared by every declared Scenario."
+        required = true
+        schema = artifactReference("catalog-snapshot")
+      }
+      new model.Field {
+        name = "rulesetRef"
+        description = "Ruleset revision shared by every declared Scenario."
+        required = true
+        schema = artifactReference("ruleset")
+      }
+      new model.Field {
+        name = "baseScenarioRef"
+        description = "Exact immutable Scenario revision used as the comparison base."
+        required = true
+        schema = artifactReference("voidtrace.scenario")
+      }
+      new model.Field {
+        name = "variants"
+        description = "Ordered non-empty finite list of already resolved Scenario variants."
+        required = true
+        schema = new model.ArrayNode {
+          items = experimentVariant()
+          minItems = 1
+          maxItems = maximumVariants
+        }
+      }
+      new model.Field {
+        name = "primaryMetric"
+        description = "Metric identifier that must exist in every evaluated Result."
+        required = true
+        schema = artifact.stableId()
+      }
+    }
+  }
+}
+
+comparison: model.Contract = new {
+  id = "comparison"
+  typeName = "Comparison"
+  schemaId = comparisonSchemaIdentifier
+  version = contractVersion
+  description =
+    "Content-addressed primary-metric projections from one complete resolved Experiment."
+  root = new model.ObjectNode {
+    fields = (
+      artifact.envelopeFields(
+        comparisonSchemaIdentifier,
+        "voidtrace.comparison",
+        contractVersion,
+      )
+    ) {
+      new model.Field {
+        name = "experimentRef"
+        description = "Exact Experiment revision evaluated to produce this Comparison."
+        required = true
+        schema = artifactReference("voidtrace.experiment")
+      }
+      new model.Field {
+        name = "primaryMetric"
+        description = "Metric identifier observed in the base and every variant Result."
+        required = true
+        schema = artifact.stableId()
+      }
+      new model.Field {
+        name = "base"
+        description = "Primary metric projection for the declared base Scenario."
+        required = true
+        schema = baseMetricProjection()
+      }
+      new model.Field {
+        name = "variants"
+        description = "Variant metric projections in the exact declaration order of the Experiment."
+        required = true
+        schema = new model.ArrayNode {
+          items = variantMetricProjection()
+          minItems = 1
+          maxItems = maximumVariants
+        }
+      }
+    }
+  }
+}

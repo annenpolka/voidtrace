@@ -269,6 +269,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       !chainClauses.includes(clause),
   );
   const cliClauses = spec.clauses.filter((clause) => clause.area === "cli");
+  const experimentClauses = spec.clauses.filter((clause) => clause.area === "experiments");
   const rulesetContract = spec.contracts.find((contract) => contract.id === "ruleset");
   if (!rulesetContract) {
     throw new Error("Ruleset Contract is required when rendering Rule IR");
@@ -342,6 +343,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       capability("mechanics.resolved-punch-through", punchThroughClauses),
       capability("mechanics.resolved-ricochet", ricochetClauses),
       capability("mechanics.resolved-chain", chainClauses),
+      capability("experiments.resolved-comparison", experimentClauses),
       capability("cli.core", cliClauses),
     ],
   };
