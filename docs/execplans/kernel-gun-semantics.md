@@ -121,7 +121,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 13:22:55Z) Node 26.0.0で27生成ファイルのfreshness、57 Clauses、11 Contracts、28テストファイル504件を含む`just check`を通した。
 - [x] (2026-08-01 13:34:07Z) 機能を`a85a038`としてコミットし、Node 24.18.0でも28テストファイル504件の全`check`を通した。feature commit後のfresh executorは対応／非対応を2回とも6/6、holdoutの単体Patch routingも6/6で通し、新規不明点0だった。usage metadataは取得不能のため定量収束は主張しない。
 - [x] (2026-08-01 13:34:07Z) 最終独立静的reviewはPkl／generated union、complete-set検査、全materialization barrier、派生Scenario integrity、resolved互換、SDK snapshot、oracle discovery、operator fixtureを照合し、actionable findingなしで完了した。
-- [ ] 最終進捗記録をコミットし、public mainへpushしてGitHub Actions CIを確認する。
+- [x] (2026-08-01 13:37:26Z) 機能`a85a038`と検証記録`e96f809`をpublic mainへpushし、GitHub Actions `Check` run `30702050521`がhead `e96f809`に対して1分15秒で成功した。
 
 ## Surprises & Discoveries
 
@@ -939,6 +939,8 @@ Patch-backed Experimentマイルストーンのローカル受け入れ結果は
     unsupported: mixed source modes, Patch chains, Sweep, Breakpoint, ruleset branches, Monte Carlo, ratio, winner, ranking, tie, interpolation, concurrency
     formal CLI: unchanged (`describe` / `run` / `trace`)
     feature commit: a85a038
+    validation record commit: e96f809
+    public GitHub Check: run 30702050521 for e96f809 succeeded in 1m15s
 
 ## Interfaces and Dependencies
 
