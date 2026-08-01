@@ -105,7 +105,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 08:38:11Z) README／AGENTS／repository-local skillを現境界へ更新した。empirical-prompt-tuningの変更前2件と変更後2件はすべて100%、critical全通過、retry 0、変更後のtarget-instruction不明点0だった。tool-use／durationは取得不能のため定量収束を主張しない。
 - [x] (2026-08-01 08:38:11Z) skill validation／smoke、Node 26.0.0とNode 24.18.0の双方で26生成ファイル、55 Clauses、10 Contracts、24テストファイル453件を含む全 `check` を通した。
 - [x] (2026-08-01 08:48:00Z) 最終独立reviewで指摘されたfingerprint再利用を防ぐためKernel Engineを`0.19.0`へ上げ、Ruleset IR `0.18.0`とは分離した。修正後reviewにactionable findingは残らず、機能を `80571a0` としてコミットした。
-- [ ] 最終文書をcommitしてpublic mainへpushし、GitHub Actions `Check`を確認する。
+- [x] (2026-08-01 08:50:34Z) 最終文書を `d8ae3cc` としてpublic mainへpushし、GitHub Actions `Check` run `30692501313` がhead `d8ae3cc` に対して1分10秒で成功した。
 
 ## Surprises & Discoveries
 
@@ -842,7 +842,8 @@ Experimentマイルストーンの受け入れ結果は次のとおりである�
     unsupported: guard rejection, operation rejection, all-phase candidate audit, Scenario Patch, Sweep, Breakpoint
     formal CLI: unchanged (`describe` / `run` / `trace`)
     implementation commit: 80571a0
-    documentation commit / public GitHub Check: pending
+    documentation commit: d8ae3cc
+    public GitHub Check: run 30692501313 for d8ae3cc succeeded in 1m10s
 
 ## Interfaces and Dependencies
 
