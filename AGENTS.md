@@ -82,9 +82,21 @@ geometry, collision, wall penetration, attenuation, reflection angles, chain can
 branching, distance, revisit behavior, target selection, or rolls. Every other non-empty Target
 Graph is rejected without partial Artifacts.
 
+Experiment Contract `0.1.0` separately accepts one exact Catalog and Ruleset reference, one base
+Scenario reference, 1 to 15 ordered variant Scenario references, and one primary metric. The
+resolved comparison runner requires the supplied Scenario set to match those references exactly,
+evaluates the base and then each variant once through the existing single-Scenario Kernel,
+integrity-checks every Result and Trace, and returns one content-addressed Comparison Contract
+`0.1.0` with finite metric values and signed `variant - base` deltas. A failure returns no partial
+Comparison or evaluation rows. It does not apply Scenario Patch, synthesize variants, run Sweep,
+Breakpoint, Ruleset branches, Monte Carlo, ratios, winner or ranking semantics, or statistical
+uncertainty. This slice is exposed through `@voidtrace/sdk` and the repository-local operator
+skill; the formal CLI has no Experiment command.
+
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
-repository-local analytic expected preset; it is not the formal CLI boundary and does not
-synthesize Critical chance, rolls, Multishot counts, or pellet counts. The formal CLI can run the
+repository-local analytic expected preset plus the exact resolved Scenario comparison; it is not
+the formal CLI boundary and does not synthesize Critical chance, rolls, Multishot counts, pellet
+counts, comparison members, or variant inputs. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
 resolved Pellet allocation, resolved Direct-plus-Radial impact, resolved Status tick, and resolved
 Beam tick fixtures.

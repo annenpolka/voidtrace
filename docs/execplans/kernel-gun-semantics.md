@@ -92,6 +92,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 06:10:29Z) Ruleset更新で失効した既存17 Scenarioの参照とcontent hashを再計算し、全Catalog／ScenarioのContractとhashを検証した。adversarial Trace reviewの修正後、Node 26.0.0／24.18.0で53 Clauses、8 Contracts、生成24ファイル、21テストファイル411テストの全gateを通した。
 - [x] (2026-08-01 06:23:20Z) Beam実装を `ce1fff9` としてコミットし、repository-local skillをfeature commit後のfresh executorで評価した。Iteration 0はdescription／body一致、対応Iteration 1／2は7/7、非対応Iteration 1／2は6/6、wrong-Catalog hold-outは6/6で、全回とも不明点0、retry 0だった。
 - [x] (2026-08-01 06:26:51Z) Ruleset `0.18.0`マイルストーンをpublic mainの `9ed37ef` へpushし、GitHub Actions `Check` run `30687704748`の成功を確認した。
+- [x] (2026-08-01 07:25:00Z) 元計画の次項目Experimentについて、codebase-investigatorの6段階静的調査を完了し、`docs/investigations/experiment-slice.md`へ証拠、矛盾、採用境界を記録した。
+- [x] (2026-08-01 07:25:00Z) 最初のExperimentを、同一Catalog／Rulesetに束縛されたbase Scenarioと1〜15件の解決済みvariant Scenario参照を宣言順に評価し、一つのprimary metricの符号付き差 `variant - base` を返すall-or-nothing比較へ固定した。
+- [x] (2026-08-01 07:12:43Z) Experiment／Comparison Contract、`EXP-001/002`、`packages/experiments`、SDK facade、合成fixture、境界／独立／敵対／統合テストを実装し、仕様を `88a846f`、runnerを `69e881a` としてコミットした。23テストファイル438件のローカル回帰が通過した。
+- [x] (2026-08-01 07:36:10Z) `SCP-003`のDirect＋Radial記述漏れをPklで修正し、READMEとAGENTSの現状態をRuleset `0.18.0`、55 Clauses、10 Contracts、Experiment SDK／skill境界へ更新した。
+- [x] (2026-08-01 07:36:10Z) empirical-prompt-tuningを比較対応／符号解釈／未対応Patch等で2回、custom Beam比較hold-outと修正後targeted rerunで実施した。最終2件は100%、critical全通過、retry 0、target-instruction不明点0。helper追跡状態、紹介と代替実行、unsupported routingの3点を修正した。tool-use／durationは取得不能のため定量収束を主張しない。
+- [x] (2026-08-01 07:57:57Z) 最終adversarial／contract reviewを反映し、SDKの最初のawait前snapshot、accessor非実行／秘密非漏洩、extra field拒否、1〜15 variantsのfast-check propertyを `9965e5b` としてコミットした。独立再レビューにactionable findingは残らなかった。
+- [x] (2026-08-01 07:57:57Z) Node 26.0.0とNode 24.18.0の双方で、26生成ファイルのfreshness、55 Clauses、10 Contracts、23テストファイル444件を含む `just check` を通した。
+- [ ] 最終文書コミット、public push、GitHub Actions確認を完了する。
 
 ## Surprises & Discoveries
 
@@ -196,6 +204,18 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: Trace-only replayはBeam construct時のbase Damage合計をCatalog由来のscalar readへ束縛するが、合計を保ったDamage type間の付け替えまでは独立に証明しない。
   Evidence: evaluatorとCatalog fingerprintは元入力を束縛し、正常Artifactの生成を検証する。一方、Trace単体でcomponent vectorまで根拠化するには、component別readを契約へ追加するかCatalog-aware replayへ拡張する別マイルストーンが必要であり、今回のsynthetic Beam sliceでは境界を拡張しない。
+
+- Observation: 複数Scenarioの比較では、供給配列順を実行順にするとExperiment宣言順と入力transport順が混同される。
+  Evidence: runnerは供給Scenarioをid／revisionで完全照合してからbaseとvariant宣言順へ再解決する。逆順供給のSDK／runnerテストは100／100／75とdelta 0／0／-25を同じComparison hashで再現した。
+
+- Observation: 注入可能な単一Scenario evaluatorの失敗codeをそのまま公開causeCodeへ複写すると、任意の内部文字列を漏らせた。
+  Evidence: adversarial executorが `code` と `causeCode` の両方へ秘密文字列を入れ、初期実装からの露出を再現した。runnerは失敗理由を固定 `evaluator-reported-failure` へ正規化し、exception、extra field、任意failure payloadの非漏洩回帰を通した。
+
+- Observation: SDK facadeがRulesetロードをawaitしてからrequest fieldを読むと、runner自身の同期snapshotより前にcaller mutationやthrowing accessorが介入できた。
+  Evidence: 最終adversarial reviewが `runExperiment` のawait境界を指摘した。SDKはexact 3-field requestを最初のawait前にdescriptor snapshotし、呼出し直後のmutation、accessor非実行／秘密非漏洩、extra field拒否の回帰を通した。
+
+- Observation: `EXP-001/002`を`property-tested`として公開するには、有限なexample matrixだけでは検証方法の表記と実証が一致しなかった。
+  Evidence: fast-check propertyを追加し、1〜15 variants、供給順permutation、有限小数／負の0の符号付きdelta、missing／duplicate／extra／undeclared集合、任意evaluator失敗位置を生成した。全runで宣言順、非丸め、hash、事前拒否、call prefix、部分row禁止を検査する。
 
 ## Decision Log
 
@@ -371,6 +391,18 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: 各tickは `20→40→20`となり、Healthを `50→30→10→0` へ更新する。Beam Damage合計60と14 decisionsをliteralに固定すれば、CriticalとArmorの再利用、時刻100／200／300ms、Health clamp、最終集約を一つの例で検査できる。
   Date/Author: 2026-08-01 05:12:33Z / Codex
 
+- Decision: 最初のExperiment Contractは `catalogRef`、`rulesetRef`、`baseScenarioRef`、1〜15件の `{ id, scenarioRef }`、`primaryMetric`だけを持つ解決済み比較とし、JSON Patch、Sweep、Breakpoint、ruleset branch、Monte Carloを含めない。
+  Rationale: 現行の有限Contract IRは完全なArtifactRefを表現できる一方、再帰JSON値やJSON Pointer／Patch操作の意味論を持たない。すでに解決済みのScenario revisionを比較すれば、差分生成を先取りせずcontent-addressed provenanceと宣言順を独立に検証できる。
+  Date/Author: 2026-08-01 07:25:00Z / Codex
+
+- Decision: 最初のExperiment runnerは `packages/experiments`へ置き、baseの後にvariant宣言順で単一Scenario Kernel evaluatorを呼ぶ。全ScenarioはExperimentと同じCatalog／Ruleset／game buildを参照し、variant IDとScenario参照は一意、primary metricは全Resultに存在しなければならず、一件でも失敗した場合はComparisonも部分evaluation列も返さない。
+  Rationale: Kernelの単一戦闘意味論を変更せず、SDKがApplication向け構成を担う既存依存方向を保てる。ゼロ補完や成功branchだけの返却を禁止すれば、比較として見える不完全Artifactを生成しない。
+  Date/Author: 2026-08-01 07:25:00Z / Codex
+
+- Decision: ComparisonはExperimentとは別のcontent-addressed Artifactとし、Experiment参照、primary metric、baseおよびvariantごとのScenario／Result参照、値、baseからの符号付き差 `variant - base` だけを保持する。
+  Rationale: Result値そのものを再計算せず、比較入力と出力のprovenanceをSchemaとhashで検査できる。比率、優劣方向、tie、ranking、統計量はmetric意味論を必要とするためこのsliceでは生成しない。
+  Date/Author: 2026-08-01 07:25:00Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -404,6 +436,8 @@ Resolved Direct＋Radial impactマイルストーンでは、一つの親impact�
 共有explicit-roll Direct＋Radialマイルストーンでは、親impactがprimary modeのCritical chance `0.25` と明示roll `0.2`からtier 1を一度だけ解決し、Directと全Radial childrenへ継承できるようになった。GoldenはDirect 100、Radial 135、合計235、終端Health A=100、C=55、B=60、残Health合計215を17 decisionsで再生する。DirectとRadialのconstructは共通の親roll eventを持ち、改変Traceはhash一致後もchance／roll／tierの因果整合性を再検査される。別attack mode chance、child-specific roll、生成乱数、expected分岐、Projectile物理、現行Warframe値は引き続き非対応である。
 
 Resolved Beam tickマイルストーンでは、`delivery: beam` の合成attack modeを、明示tick数と間隔で安定した時刻付きchildrenへ展開し、各tickへbase Damage、共通固定Critical tier、resolved Armor、逐次Health commitを適用できるようになった。Goldenは各tickを `20→40→20` と評価して100／200／300msでHealthを `50→30→10→0` へ更新し、Damage合計60を14 decisionsで再生する。64 tick超、time horizon超過、安全でない時刻、非Beam delivery、expected／roll入力は部分Artifactなしで拒否する。held duration、ramp、Fire Rate、Magazine／Ammo／Reload、Chain Beam、tick別roll、Status、現行ゲーム式は引き続き非対応である。
+
+Resolved Experiment comparisonマイルストーンでは、Experiment `0.1.0` とComparison `0.1.0`を追加し、同一Catalog／Rulesetに束縛されたbaseと1〜15件の解決済みvariant Scenarioをbase、次に宣言順で評価できるようになった。checked-in fixtureは入力ファイルを逆順に供給してもDirect base 100、explicit-roll 100、Radial 75を返し、符号付き差 `variant - base` は0、0、-25となる。Comparisonは入力と各ResultのArtifactRef、metric値、差、content hashを持ち、一件でも不整合または評価失敗があれば部分rowを返さない。fast-checkはvariant数、供給順permutation、有限小数と負の0、Scenario集合のmissing／duplicate／extra、任意の失敗位置を生成して順序、非丸め、hash、事前拒否、call prefixを検証する。SDKはrequestを最初のawait前にsnapshotし、accessorを実行せず、秘密をfailureへ漏らさない。操作面はSDKとrepository-local skillに限定し、formal CLIの `describe`／`run`／`trace` は変更していない。JSON Patch、Sweep、Breakpoint、ruleset branch、Monte Carlo、比率、勝者、rankingは非対応である。
 
 ## Context and Orientation
 
@@ -750,9 +784,28 @@ Resolved Beam tickマイルストーンのローカル検証記録は次のと�
 
 Scenario Contract `0.3.0`、Ruleset `0.18.0` revision `1` とresolved synthetic Beam ticksを含むローカル基準線は `ce1fff9 feat: add resolved beam tick vertical slice` としてコミット済みである。
 
+Experimentマイルストーンの受け入れ結果は次のとおりである。
+
+    Experiment / Comparison: 0.1.0 / 0.1.0
+    Ruleset / Scenario / Result: 0.18.0 / 0.3.0 / 0.2.0
+    Clauses / Contracts / generated files: 55 / 10 / 26
+    Node 26.0.0: 23 test files / 444 tests
+    Node 24.18.0: 23 test files / 444 tests
+    checked-in comparison members: base + 2 variants
+    primary metric values: 100 / 100 / 75
+    signed deltas: 0 / 0 / -25
+    execution order: base, then Experiment declaration order despite reverse supplied order
+    property coverage: 1-15 variants, permutations, fractions, negative zero, set mismatches, arbitrary failure positions
+    SDK boundary: pre-await snapshot, no accessor execution, no accessor-secret leakage
+    unsupported: Patch, Sweep, Breakpoint, ruleset branch, Monte Carlo, ratio, winner, ranking
+    empirical targeted final: 2/2 at 100%, retries 0, target-instruction unclear 0
+    empirical usage metadata: tool uses and duration unavailable; quantitative convergence not claimed
+    implementation commits: 88a846f, 69e881a, e3192a3, 9965e5b
+    formal CLI: unchanged
+
 ## Interfaces and Dependencies
 
-既存の公開SDK関数 `evaluateScenario(request: { scenario: unknown; catalog: unknown }): Promise<EvaluationOutcome>` を維持する。CLIとskillは引き続きこの境界を通り、KernelやRulesを直接組み立てない。
+既存の公開SDK関数 `evaluateScenario(request: { scenario: unknown; catalog: unknown }): Promise<EvaluationOutcome>` を維持する。CLIと単一Scenario向けskill helperは引き続きこの境界を通る。比較helperは公開SDK関数 `runExperiment` を通り、そのSDKが単一Scenario evaluatorを構成する。どちらのhelperもKernelやRulesを直接組み立てない。
 
 MultishotとPellet入力はScenarioの別actionに属する解決済み値として定義し、Catalogの生データや確率的rollを暗黙に読み込まない。Kernelが生成する子イベントはEvent Queueの論理時刻、sequence、stable ID順序に従う。Rule executionは生成Rulesetだけから行い、Kernel、CLI、skillへgrouped-hit計算を重複させない。
 
