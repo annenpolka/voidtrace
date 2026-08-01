@@ -119,7 +119,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 13:22:55Z) Experiment Contractを`0.2.0`へ上げ、homogeneous resolved配列またはPatch-backed配列のunionと`EXP-003`をPklで規定した。27生成ファイルの逆翻訳は57 active／0 planned、11 Contracts、`experiments.resolved-comparison` supportedを示す。
 - [x] (2026-08-01 13:22:55Z) exact baseと1〜15件のexact Patchを全件materialize後に比較するrunner、SDK facade、literal fixture、repository-local helper、独立property／敵対／SDK／subprocessテストを実装した。checked-in例はbase 100、variant 150、delta +50を返す。
 - [x] (2026-08-01 13:22:55Z) Node 26.0.0で27生成ファイルのfreshness、57 Clauses、11 Contracts、28テストファイル504件を含む`just check`を通した。
-- [ ] Node 24の全gate、feature commit後のempirical skill評価、独立review、public push／CI確認を完了する。
+- [x] (2026-08-01 13:34:07Z) 機能を`a85a038`としてコミットし、Node 24.18.0でも28テストファイル504件の全`check`を通した。feature commit後のfresh executorは対応／非対応を2回とも6/6、holdoutの単体Patch routingも6/6で通し、新規不明点0だった。usage metadataは取得不能のため定量収束は主張しない。
+- [x] (2026-08-01 13:34:07Z) 最終独立静的reviewはPkl／generated union、complete-set検査、全materialization barrier、派生Scenario integrity、resolved互換、SDK snapshot、oracle discovery、operator fixtureを照合し、actionable findingなしで完了した。
+- [ ] 最終進捗記録をコミットし、public mainへpushしてGitHub Actions CIを確認する。
 
 ## Surprises & Discoveries
 
@@ -911,6 +913,32 @@ Scenario Patchマイルストーンのローカル受け入れ結果は次のと
     implementation commit: 09ce13a
     review and documentation commit: 69803b9
     public GitHub Check: run 30694606897 for 69803b9 succeeded in 1m23s
+
+Patch-backed Experimentマイルストーンのローカル受け入れ結果は次のとおりである。
+
+    Experiment / Comparison: 0.2.0 / 0.1.0
+    ScenarioPatch / Scenario: 0.1.0 / 0.3.0
+    Kernel Engine / Ruleset: unchanged at 0.19.0 / 0.18.0 revision 1
+    Clauses / Contracts / generated files: 57 active / 11 / 27
+    source modes: homogeneous resolved Scenario refs or homogeneous ScenarioPatch refs
+    patch boundary: exact base plus 1-15 exact Patches; supplied order is not declaration order
+    atomicity: every Patch validates and materializes before the first Scenario evaluation
+    evaluation order: base, then materialized variants in Experiment declaration order
+    derived integrity: Contract, content hash, result identity, createdFrom, Catalog, Ruleset, game build, metric, non-Monte Carlo
+    checked-in comparison: base 100 / tier-2 variant 150 / signed delta +50
+    fixture Experiment hash: sha256:8a9043b2971c277c750927d17b70c232dae5d9fad457e5dce95b1c0dc9c71a3d
+    property/adversarial coverage: 1-15 variants, permutations, exact sets/refs, duplicate identities, late materializer failure, arbitrary evaluator failure, mutation/accessor/Proxy containment
+    SDK boundary: caller graph snapshotted before Ruleset-load await
+    Node 26.0.0: 28 test files / 504 tests
+    Node 24.18.0: 28 test files / 504 tests
+    empirical Iteration 1 / 2: supported 6/6 and unsupported 6/6 in both rounds, new unclear points 0
+    empirical standalone-materialization holdout: 6/6, no comparison-helper substitution
+    empirical usage metadata: tool uses and duration unavailable; quantitative convergence not claimed
+    independent review: no actionable findings
+    residual risks: pre-count descriptor snapshot has no byte/depth budget; oracle pattern-to-test linkage remains a reviewed whitelist
+    unsupported: mixed source modes, Patch chains, Sweep, Breakpoint, ruleset branches, Monte Carlo, ratio, winner, ranking, tie, interpolation, concurrency
+    formal CLI: unchanged (`describe` / `run` / `trace`)
+    feature commit: a85a038
 
 ## Interfaces and Dependencies
 

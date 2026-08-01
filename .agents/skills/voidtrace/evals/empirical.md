@@ -306,6 +306,150 @@ Convergence check: reset to zero consecutive clears because a new unclear point 
 
 Convergence check: one consecutive clear round after the Iteration 2 fix.
 
+## Patch-backed Experiment operator evaluation
+
+This evaluation follows feature commit `a85a038`, which adds one checked-in Patch-backed
+Experiment comparison without widening the formal CLI or implementing Sweep or Breakpoint.
+
+### Iteration 0: description/body consistency
+
+- The frontmatter names resolved and Patch-backed comparison, standalone Scenario Patch
+  materialization, and explicit unsupported-boundary reporting.
+- The body supplies separate commands and interpretation rules for resolved comparison,
+  Patch-backed comparison, and standalone materialization.
+- Patch chains, caller-selected comparison members, Sweep, Breakpoint, winner/ranking semantics,
+  current-game claims, and formal CLI Experiment commands remain explicitly unsupported.
+- Static result: description and body are consistent. This is not an empirical convergence round.
+
+### Frozen scenarios and requirements
+
+#### Scenario A — median: checked-in Patch-backed comparison
+
+Run the checked-in Critical-tier 1 to 2 Patch-backed comparison and report its metric, order,
+provenance, and experimental boundary.
+
+1. [critical] Verify every helper fixture is tracked and byte-identical to `HEAD` before calling it
+   checked-in.
+2. [critical] Run `run-patch-comparison.ts --check-golden`, not a nearby helper.
+3. Report `damage.health.total` as base 100, variant 150, signed `variant - base` delta +50.
+4. State that all declared Patches are materialized before base-then-variant evaluation.
+5. Name the Experiment, base Scenario, ScenarioPatch, and materialized Scenario identities.
+6. Preserve the synthetic/experimental warning and do not infer winner or Sweep semantics.
+
+#### Scenario B — unsupported edge: Sweep, Breakpoint, and strongest tier
+
+Ask for automatic tier 1 to 5 Sweep, Breakpoint derivation, and a strongest-tier decision while
+requesting that a nearby fixture be substituted.
+
+1. [critical] Reject Sweep and Breakpoint as unsupported and execute no helper or formal CLI.
+2. [critical] Do not substitute the one-Patch comparison, generate Patches, or present +50 as the
+   requested Sweep.
+3. Name custom member generation, winner semantics, and Breakpoint derivation as outside the
+   operator boundary.
+4. Mention the distinct checked-in example without running it unless separately requested.
+5. Offer Pkl-first implementation as a separate task without claiming current-game truth.
+6. Preserve the synthetic/experimental warning and do not ask for values as though the feature
+   already exists.
+
+### Iteration 1
+
+#### Changes from Iteration 0
+
+- None after the Patch-backed operator consistency update.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — checked-in Patch-backed comparison | ○ | 100% | unavailable | unavailable | 1 | — |
+| B — unsupported Sweep/Breakpoint | ○ | 100% | unavailable | unavailable | 0 | — |
+
+The collaboration runner did not expose `tool_uses` or `duration_ms`; those fields remain
+unavailable rather than estimated.
+
+#### Structured reflection
+
+- Both fresh executors satisfied all six frozen requirements and reported no instruction-side
+  unclear points.
+- Scenario A verified all five helper fixtures against `HEAD`, passed the golden command, and
+  reported 100, 150, +50 plus exact provenance and materialize-before-evaluate order. Its one
+  retry corrected the executor's own output-field projection; the comparison command itself ran
+  once and the executor did not attribute the retry to the skill.
+- Scenario B stopped without commands, substitution, Patch generation, or winner inference.
+
+#### Discretionary fill-ins
+
+- Scenario A also reported Rule order, Catalog, Ruleset, Engine version, and the materialized hash.
+- Scenario B interpreted “strongest” as requiring winner/ranking and metric-direction semantics.
+
+#### Ledger updates
+
+- No new instruction-side failure pattern.
+
+Convergence check: one consecutive clear Patch-backed comparison round. A fresh second round is
+required.
+
+### Iteration 2
+
+#### Changes from Iteration 1
+
+- None. Iteration 1 surfaced no instruction-side fix.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — checked-in Patch-backed comparison | ○ | 100% | unavailable | unavailable | 0 | — |
+| B — unsupported Sweep/Breakpoint | ○ | 100% | unavailable | unavailable | 0 | — |
+
+#### Structured reflection
+
+- Both fresh executors again satisfied all requirements with no unclear points.
+- Scenario A verified tracked and byte-identical inputs, passed the exact helper command, and kept
+  Patch provenance, evaluation order, signed-delta semantics, and experimental limits distinct.
+- Scenario B again stopped without executing or substituting the one-Patch example.
+
+#### Ledger updates
+
+- No new patterns.
+
+Convergence check: two consecutive qualitative clears. Quantitative convergence is not claimed
+because usage metadata is unavailable. Holdout remains.
+
+### Holdout — standalone materialization routing
+
+The user explicitly asks for standalone materialization and evaluation, not a Comparison or delta.
+
+1. [critical] Verify the standalone helper's five fixtures are tracked and byte-identical to
+   `HEAD`.
+2. [critical] Run `apply-scenario-patch.ts --evaluate --check-golden` and no comparison helper.
+3. Report the Patch and materialized Scenario identities plus exact base `createdFrom`.
+4. Report fixed tier 2, Health Damage 150, and remaining Health 850.
+5. Distinguish standalone materialization from Experiment Comparison and emit no delta, winner, or
+   Sweep claim.
+6. Preserve the synthetic/experimental and non-current-game boundary.
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| C — standalone materialize and evaluate | ○ | 100% | unavailable | unavailable | 0 | — |
+
+The holdout executor verified all fixtures, invoked only the standalone helper, reported the exact
+Scenario provenance and 150/850 metrics, and did not route through either comparison helper. No
+overfitting signal or new unclear point surfaced.
+
+### Patch-backed Experiment evaluation status
+
+- Description/body consistency: pass.
+- Two consecutive fresh-executor rounds: both scenarios 100%, every critical item passed, and zero
+  new unclear points.
+- Holdout: 100%, zero retries, and correct standalone-versus-Comparison routing.
+- Failure-pattern ledger: no new entry.
+- `tool_uses` and `duration_ms`: unavailable from this collaboration runner, so quantitative
+  convergence thresholds are not asserted or fabricated.
+- Resource decision: ship the bounded Patch-backed Experiment operator skill.
+
 ## Scenario Patch operator-surface evaluation
 
 This evaluation covers the first finite Scenario Patch materializer and its repository-local
