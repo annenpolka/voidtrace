@@ -135,6 +135,8 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 15:17:53Z) `BRK-001`とFiniteBreakpointAnalysis Contract `0.1.0`をPklから28生成ファイルへ反映した。逆翻訳は59 active／0 planned、12 Contracts、33 property-testedを示し、Ruleset `0.18.0` revision `1`とKernel Engine `0.19.0`は不変である。
 - [x] (2026-08-01 15:17:53Z) 左右finite Sweepのcomplete preflight barrier、strict numeric axis、fingerprint照合、有限`left - right`算術、三findingとambiguous failure、content-addressed Analysisをexperiments／SDKへ実装した。固定fixtureは座標0、2、3、差-50、+50、+100からsampled sign reversalを返し、repository-local helperはSDKへ一度だけ委譲する。
 - [x] (2026-08-01 15:17:53Z) Node 26.0.0でformat、lint、typecheck、architecture boundary、28生成ファイルfreshness、59 Clauses、12 Contracts、32テストファイル563件を含む全`just check`を通した。独立Pkl／generated reviewはactionable findingなしだった。
+- [x] (2026-08-01 15:22:54Z) 機能を`6e3368b`としてコミットした後、Breakpoint入力fixture 12件がtrackedかつHEAD同一であることを確認し、full Analysis goldenと全operator smokeをexit 0で通した。独立runtime／security／operator／docs reviewはいずれも最終actionable findingなしだった。
+- [x] (2026-08-01 15:22:54Z) Node 24.18.0でもformat、lint、typecheck、architecture boundary、freshness、32テストファイル563件を含む全`pnpm check`を通した。
 
 ## Surprises & Discoveries
 
@@ -1013,9 +1015,40 @@ Patch-backed Experimentマイルストーンのローカル受け入れ結果は
     validation record commit: c6438ae
     public GitHub Check: run 30703615879 for c6438ae succeeded in 1m25s
 
+有限Breakpointマイルストーンのローカル受け入れ結果は次のとおりである。
+
+    FiniteBreakpointAnalysis: 0.1.0, method finite-scan
+    Experiment / Comparison / ScenarioPatch / Scenario: 0.3.0 / 0.1.0 / 0.1.0 / 0.3.0
+    Kernel Engine / Ruleset: unchanged at 0.19.0 / 0.18.0 revision 1
+    Clauses / Contracts / generated files: 59 active / 12 / 28
+    source boundary: exactly two complete finite Sweep requests under one Catalog and Ruleset
+    compatibility: same game build, metric, path, point count, coordinates, and Result versions
+    axis: 1-15 finite numeric coordinates, strictly increasing in declaration order
+    atomicity: both complete Patch sets validate and materialize before the first evaluation
+    evaluation order: complete left base-plus-points, then complete right base-plus-points
+    checked-in metric / path: target.health.remaining / /actionPlan/0/parameters/criticalTier
+    checked-in coordinates: 0, 2, 3
+    left absolute values: 950, 850, 800
+    right absolute values: 1000, 800, 700
+    signed left-minus-right differences: -50, +50, +100
+    finding: sampled-sign-reversal between sample indexes 0 and 1, coordinates 0 and 2
+    Analysis hash: sha256:5e2f736b8436a985cd56d6c883debda30460760fef8c971d9fe929eeed86ffc4
+    findings: unique exact-equality, unique adjacent non-zero sampled-sign-reversal, or no-observed-candidate
+    ambiguity: two or more observed candidates return no Analysis Artifact
+    property/adversarial coverage: 1/15 points, independent candidate oracle, unordered/non-numeric/mismatched axes, overflow, preflight barrier, evaluation order, fingerprint mismatch, mutation/accessor/Proxy/evaluator secrecy, atomic failures
+    SDK/operator: findFiniteBreakpoint; fixed helper delegates once and full golden plus smoke exit 0
+    Node 26.0.0: 32 test files / 563 tests
+    Node 24.18.0: 32 test files / 563 tests
+    independent review: Pkl/generated, runtime/security, operator/docs; no actionable findings
+    residual risks: descriptor snapshot has no byte/depth budget; Proxy reflection side effects cannot be prevented; finite samples do not establish continuity or an unsampled crossing
+    unsupported: custom helper inputs, range/step generation, sorting/deduplication, multi-axis/products, continuous root/crossover, interpolation/tolerance/binary search, monotonicity, multiple-candidate enumeration, winner/ranking/tie, Ruleset branches, generated randomness, Monte Carlo, current-game mechanics
+    formal CLI: unchanged (`describe` / `run` / `trace`)
+    investigation commit: 66d6fa1
+    feature commit: 6e3368b
+
 ## Interfaces and Dependencies
 
-既存の公開SDK関数 `evaluateScenario(request: { scenario: unknown; catalog: unknown }): Promise<EvaluationOutcome>` を維持する。CLIと単一Scenario向けskill helperは引き続きこの境界を通る。比較helperは公開SDK関数 `runExperiment` を通り、そのSDKが単一Scenario evaluatorを構成する。Patch helperは公開SDK関数 `materializeScenarioPatch(request: { patch: unknown; scenario: unknown })`だけで通常Scenarioを生成し、評価が明示された場合だけその出力を`evaluateScenario`へ渡す。いずれのhelperもKernelやRulesを直接組み立てない。
+既存の公開SDK関数 `evaluateScenario(request: { scenario: unknown; catalog: unknown }): Promise<EvaluationOutcome>` を維持する。CLIと単一Scenario向けskill helperは引き続きこの境界を通る。比較helperは公開SDK関数 `runExperiment` を通り、そのSDKが単一Scenario evaluatorを構成する。Breakpoint helperは公開SDK関数 `findFiniteBreakpoint`へ固定fixture一式を一度だけ渡し、左右Sweepのpreflight、評価、差分、候補判定、Artifact生成を複製しない。Patch helperは公開SDK関数 `materializeScenarioPatch(request: { patch: unknown; scenario: unknown })`だけで通常Scenarioを生成し、評価が明示された場合だけその出力を`evaluateScenario`へ渡す。いずれのhelperもKernelやRulesを直接組み立てない。
 
 MultishotとPellet入力はScenarioの別actionに属する解決済み値として定義し、Catalogの生データや確率的rollを暗黙に読み込まない。Kernelが生成する子イベントはEvent Queueの論理時刻、sequence、stable ID順序に従う。Rule executionは生成Rulesetだけから行い、Kernel、CLI、skillへgrouped-hit計算を重複させない。
 
