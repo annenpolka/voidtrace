@@ -93,10 +93,23 @@ Breakpoint, Ruleset branches, Monte Carlo, ratios, winner or ranking semantics, 
 uncertainty. This slice is exposed through `@voidtrace/sdk` and the repository-local operator
 skill; the formal CLI has no Experiment command.
 
+ScenarioPatch Contract `0.1.0` separately accepts one exact base Scenario reference, one explicit
+result Scenario identity pair, and 1 to 64 ordered replace-only operations over allowlisted
+existing non-null scalar paths. The materializer snapshots both inputs before awaiting, verifies both Contracts and
+content hashes plus the exact base reference and game build, rejects duplicate paths, missing or
+non-scalar leaves, kind changes, no-ops, and reuse of the exact base identity, then emits a normal
+Scenario with the declared identity, exact base `createdFrom`, and a new verified content hash.
+Failure is atomic and returns no partial Scenario. It does not add or remove fields, replace null,
+objects, or arrays, implement full RFC 6902, evaluate Damage, synthesize or rehash input, compose
+with Experiment, or run Sweep, Breakpoint, or Ruleset branches. This slice is exposed through
+`@voidtrace/sdk` and the repository-local operator skill; Kernel, runtime-node, and the formal CLI
+remain unchanged.
+
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
-repository-local analytic expected preset plus the exact resolved Scenario comparison; it is not
+repository-local analytic expected preset plus the exact resolved Scenario comparison and finite
+Scenario Patch materialization; it is not
 the formal CLI boundary and does not synthesize Critical chance, rolls, Multishot counts, pellet
-counts, comparison members, or variant inputs. The formal CLI can run the
+counts, comparison members, variant inputs, Patch operations, or Patch content hashes. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
 resolved Pellet allocation, resolved Direct-plus-Radial impact, resolved Status tick, and resolved
 Beam tick fixtures.

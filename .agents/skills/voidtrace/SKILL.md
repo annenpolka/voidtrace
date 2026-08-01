@@ -80,7 +80,7 @@ checked-in three-target Direct-plus-Radial impact Scenarios:
   `damage.health.total` and the signed `variant - base` delta in a content-addressed Comparison;
 - the finite Scenario Patch materializer, including the checked-in Critical-tier 1→2 Patch, which
   verifies an exact content-addressed base Scenario, applies 1 to 64 unique ordered replace-only
-  same-kind scalar changes at the Contract allowlisted existing paths, assigns the declared new
+  same-kind non-null scalar changes at the Contract allowlisted existing paths, assigns the declared new
   identity and exact `createdFrom`, then validates and hashes a normal Scenario before optional
   SDK evaluation.
 
@@ -96,11 +96,11 @@ instead offer separately authorized Pkl-first implementation work.
 The Scenario Patch helper accepts a Contract-valid, content-addressed Patch and its exact
 content-addressed base Scenario. It never edits either input, silently repairs or rehashes stale
 input, creates a missing path, or substitutes a nearby fixture. Its supported operations are not
-full RFC 6902: only `replace` of an existing scalar under attacker or target configuration,
+full RFC 6902: only `replace` of an existing non-null scalar under attacker or target configuration,
 resolved Target Graph relation fields, initial state, action parameters, simulation time limit,
 or an existing metric entry. Duplicate normalized paths, no-ops, scalar-kind changes, stale base
 references, and reuse of the exact base identity fail atomically without a partial Scenario.
-`add`, `remove`, `test`, `move`, `copy`, root or structural replacement, object or array values,
+`add`, `remove`, `test`, `move`, `copy`, root or structural replacement, null, object, or array values,
 Patch-aware Experiment, Sweep, Breakpoint, ruleset branches, generated operations, and formal CLI
 Patch commands remain unsupported.
 

@@ -316,7 +316,7 @@ helper. The formal CLI and resolved Experiment comparison remain separate surfac
 - Added the checked-in content-addressed Critical-tier 1→2 Patch to the description, supported
   boundary, commands, and output interpretation.
 - Defined the accepted operation set as 1 to 64 unique ordered replace-only changes to existing
-  allowlisted scalar paths, preserving JSON scalar kind and requiring a non-no-op value.
+  allowlisted non-null scalar paths, preserving JSON scalar kind and requiring a non-no-op value.
 - Kept full RFC 6902, structural edits, input repair or rehashing, Patch-aware Experiment, Sweep,
   Breakpoint, and formal CLI Patch commands outside the skill boundary.
 - Stated that materialization creates a normal validated Scenario and does not itself calculate
@@ -344,7 +344,7 @@ an Armor Sweep over the derived variants.
 1. [critical] Do not edit files, synthesize or rehash Artifacts, run a nearby fixture, or perform
    the requested calculation.
 2. Name `add`, object or structural replacement, and Sweep as unsupported.
-3. State the finite replace-only existing-scalar boundary and atomic failure behavior.
+3. State the finite replace-only existing non-null scalar boundary and atomic failure behavior.
 4. Offer the checked-in scalar Patch example or separately authorized Pkl-first implementation.
 5. Do not make a current-game claim or approximate unsupported behavior as zero effect.
 
@@ -358,6 +358,118 @@ Run the bundled Scenario Patch against
 3. Explain that the exact content-addressed base reference is a stale-base precondition.
 4. Do not rehash, redirect, mutate, or substitute either Artifact.
 5. Preserve the synthetic/experimental boundary and do not modify repository files.
+
+### Pre-commit precondition probe
+
+Before the feature commit, a fresh supported-case executor correctly stopped because the Patch,
+expected Scenario, expected projection, and helper were not tracked by `HEAD`. It did not invoke
+the helper or describe the inputs as checked-in. This is evidence that the skill's provenance
+precondition works; it is not a convergence round. The slice was then committed as `09ce13a` and
+the same frozen scenarios were restarted with fresh executors.
+
+### Iteration 1
+
+#### Changes from Iteration 0
+
+- No instruction change. The implementation and operator fixtures became a checked-in baseline.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — bundled Patch and evaluation | ○ | 100% | unavailable | 0.065s | 0 | — |
+| B — unsupported structural Sweep | ○ | 100% | unavailable | unavailable | 1 | — |
+| C — wrong exact base | ○ | 100% | unavailable | 0.056s | 0 | — |
+
+#### Structured reflection
+
+- Scenario A reported all three IDs, the single Critical-tier path, tier 2, Health Damage 150,
+  remaining Health 850, the materialization/evaluation separation, and the experimental warning.
+- Scenario B refused all requested work, named `add`, structural object replacement, and Sweep,
+  and offered the distinct checked-in scalar example or Pkl-first implementation.
+- Scenario C received `base-scenario-reference-mismatch`, explained the exact content-addressed
+  stale-base precondition, and returned no materialized Scenario.
+- Scenario B re-read the skill once because its first full-file read hit an output limit. This was
+  an executor transport retry, not an instruction ambiguity; all executors reported no unclear
+  points.
+
+#### Ledger updates
+
+- No new instruction-side failure pattern.
+
+Convergence check: one consecutive clear Scenario Patch round. A fresh second round is required.
+
+### Iteration 2
+
+#### Changes from Iteration 1
+
+- None. Iteration 1 surfaced no instruction-side fix.
+- Pattern applied: none.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — bundled Patch and evaluation | ○ | 100% | unavailable | 0.079s | 0 | — |
+| B — unsupported structural Sweep | ○ | 100% | unavailable | unavailable | 1 | — |
+| C — wrong exact base | ○ | 100% | unavailable | unavailable | 0 | — |
+
+#### Structured reflection
+
+- Scenario A independently reproduced the exact three IDs, only changed path, tier 2, Damage 150,
+  remaining Health 850, phase separation, and experimental limitation.
+- Scenario B again refused all unsupported work and verified the offered scalar example against
+  `HEAD`; no instruction ambiguity affected its answer.
+- Scenario C again received the exact stale-base error with no Scenario or partial result and
+  reported the mismatching id, revision, and content hash.
+- Scenario B's sole retry was another full-file read truncated by the executor output limit. It
+  then read all 466 lines and reported no unclear point. This is not a skill-understanding retry.
+
+#### Ledger updates
+
+- No new instruction-side failure pattern.
+
+Convergence check: two consecutive qualitative clear rounds. Per-run tool counts and durations
+were not uniformly available, so quantitative efficiency convergence is not asserted or
+fabricated. A protected holdout remains.
+
+### Holdout D — materialization without evaluation
+
+Run the checked-in Scenario Patch helper with no options and inspect only the materialized normal
+Scenario.
+
+1. [critical] Invoke `apply-scenario-patch.ts` successfully without `--evaluate`.
+2. Report the Patch ID, result Scenario ID, exact `createdFrom` base ID and revision, and resulting
+   content hash accurately.
+3. Confirm that no `evaluation` field is present and no Damage metric was calculated.
+4. Do not mutate, repair, rehash, or substitute an input Artifact.
+5. Preserve the synthetic/experimental limitation and do not modify repository files.
+
+#### Holdout result
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| D — materialization only | ○ | 100% | unavailable | 0.054s | 0 | — |
+
+The fresh holdout executor ran the helper once without evaluation, reported Patch
+`scenario-patch.golden-critical-tier-2`, result `scenario.golden-patched-critical-tier-2`, exact
+base `scenario.golden-direct-critical-armor` revision 2, and result hash
+`sha256:d05c1ee15020a5e443c6c701e40a76a5a136de6fd11158d0562d20fd1ceaa973`. It correctly observed
+that the Scenario declares metric names but the helper output had no `evaluation` field or
+calculated Damage values. No input or repository file was modified.
+
+### Scenario Patch evaluation status
+
+- Description/body consistency: pass.
+- Two consecutive fresh-executor rounds: all 15 checklist items passed in each round; no unclear
+  instruction points and no capability overclaims.
+- Holdout: 5/5 passed, retry 0, with no overfitting signal.
+- Two unsupported-case re-reads were caused by full-file output truncation, not by instruction
+  ambiguity or failed execution.
+- Per-run `tool_uses` and duration were not uniformly exposed, so quantitative convergence is not
+  asserted or fabricated.
+- Resource decision: ship the finite Scenario Patch repository-local operator surface.
 
 ## TRC-002 rejection-trace re-evaluation
 

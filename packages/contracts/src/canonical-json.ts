@@ -126,7 +126,8 @@ function snapshot(value: unknown, path: string, ancestors: Set<object>): JsonVal
 }
 
 /**
- * Captures one descriptor-based, behavior-free snapshot of an I-JSON value.
+ * Captures one descriptor-based snapshot without invoking property-value getters.
+ * Structural Proxy reflection traps can still execute; callers must contain their failures.
  */
 export function snapshotJsonValue(value: unknown): JsonValue {
   return snapshot(value, "$", new Set());

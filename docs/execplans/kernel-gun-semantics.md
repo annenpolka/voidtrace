@@ -107,7 +107,11 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 08:48:00Z) 最終独立reviewで指摘されたfingerprint再利用を防ぐためKernel Engineを`0.19.0`へ上げ、Ruleset IR `0.18.0`とは分離した。修正後reviewにactionable findingは残らず、機能を `80571a0` としてコミットした。
 - [x] (2026-08-01 08:50:34Z) 最終文書を `d8ae3cc` としてpublic mainへpushし、GitHub Actions `Check` run `30692501313` がhead `d8ae3cc` に対して1分10秒で成功した。
 - [x] (2026-08-01 09:06:47Z) 次のScenario Patchについてcodebase-investigatorの6段階静的調査を完了し、`docs/investigations/scenario-patch-slice.md`へ現行surface、矛盾、security、採用境界、独立oracle条件を記録した。
-- [x] (2026-08-01 09:06:47Z) 最初のPatchを、完全参照したbase Scenarioの既存scalar leafへ1〜64件の一意なsame-type `replace`を宣言順に適用し、通常のcontent-addressed Scenarioを事前materializeする有限sliceへ固定した。現行Experiment、Kernel、formal CLIは変更しない。
+- [x] (2026-08-01 09:06:47Z) 最初のPatchを、完全参照したbase Scenarioの既存non-null scalar leafへ1〜64件の一意なsame-type `replace`を宣言順に適用し、通常のcontent-addressed Scenarioを事前materializeする有限sliceへ固定した。現行Experiment、Kernel、formal CLIは変更しない。
+- [x] (2026-08-01 09:25:52Z) `ScenarioPatch 0.1.0`、`SCN-001`、生成Schema／capability、原子的materializer、SDK facade、literal fixture、repository-local helperを実装し、Node 26／24で25テストファイル473件を通した縦切りを `09ce13a` としてコミットした。
+- [x] (2026-08-01 09:34:00Z) feature commit後のfresh executorでempirical-prompt-tuningを2回実行し、対応・構造編集拒否・誤base拒否の各5項目を両回100%で通した。materialize-only holdoutも5/5、不明点0、実行retry 0だった。full-file出力制限による非対応executorの再読は各回1件で、定量収束には数えない。
+- [x] (2026-08-01 09:41:00Z) 独立仕様reviewを反映し、成功不能だった`null` operationをContractから除外し、result identityを`(id, revision)` pairとして明文化して片側変更の成功回帰を追加し、3 literal fixtureをSDK regression gateへ接続した。
+- [x] (2026-08-01 09:51:29Z) 独立runtime／security reviewを反映し、descriptor snapshotのProxy trap境界を正確化して構造trap例外非漏洩を回帰化し、Patch hashをgoldenへpinし、helperのexit 0／1／2 subprocess testを追加した。skill validation／smokeとNode 26.0.0／24.18.0の双方で27生成ファイル、56 Clauses、11 Contracts、26テストファイル480件を含む全`check`を通した。修正後targeted re-reviewにactionable findingは残らなかった。
 
 ## Surprises & Discoveries
 
@@ -437,7 +441,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: 完全Scenarioへ解決してから既存Experiment／Kernelへ渡せば、比較順序、戦闘意味論、Result／Trace integrityを変更せず、差分生成の安全性を独立に検証できる。Patch-aware Experiment、Sweep、Breakpointは別のplanning sliceを要する。
   Date/Author: 2026-08-01 09:06:47Z / Codex
 
-- Decision: 最初のPatchは1〜64件の`replace`だけを受理し、既存allowlist pathのsame-type scalar leafだけを変更する。完全なbase ArtifactRefをstale-base preconditionとし、出力id／revisionはPatchが宣言、`createdFrom`はbase完全参照、`contentHash`は再計算する。
+- Decision: 最初のPatchは1〜64件の`replace`だけを受理し、既存allowlist pathのsame-type non-null scalar leafだけを変更する。完全なbase ArtifactRefをstale-base preconditionとし、出力`(id, revision)` pairはPatchが宣言、`createdFrom`はbase完全参照、`contentHash`は再計算する。
   Rationale: 現行有限Contract IRで表現でき、Critical tier、Armor、Health、resolved falloff／relation値、時間上限など実用的な合成variationを扱える。`add/remove/test/move/copy`、object／array値、構造変更を同時に入れると再帰JSON値、index shift、conflict、provenanceの意味論が必要になる。
   Date/Author: 2026-08-01 09:06:47Z / Codex
 
@@ -476,6 +480,8 @@ Resolved Direct＋Radial impactマイルストーンでは、一つの親impact�
 Resolved Beam tickマイルストーンでは、`delivery: beam` の合成attack modeを、明示tick数と間隔で安定した時刻付きchildrenへ展開し、各tickへbase Damage、共通固定Critical tier、resolved Armor、逐次Health commitを適用できるようになった。Goldenは各tickを `20→40→20` と評価して100／200／300msでHealthを `50→30→10→0` へ更新し、Damage合計60を14 decisionsで再生する。64 tick超、time horizon超過、安全でない時刻、非Beam delivery、expected／roll入力は部分Artifactなしで拒否する。held duration、ramp、Fire Rate、Magazine／Ammo／Reload、Chain Beam、tick別roll、Status、現行ゲーム式は引き続き非対応である。
 
 Resolved Experiment comparisonマイルストーンでは、Experiment `0.1.0` とComparison `0.1.0`を追加し、同一Catalog／Rulesetに束縛されたbaseと1〜15件の解決済みvariant Scenarioをbase、次に宣言順で評価できるようになった。checked-in fixtureは入力ファイルを逆順に供給してもDirect base 100、explicit-roll 100、Radial 75を返し、符号付き差 `variant - base` は0、0、-25となる。Comparisonは入力と各ResultのArtifactRef、metric値、差、content hashを持ち、一件でも不整合または評価失敗があれば部分rowを返さない。fast-checkはvariant数、供給順permutation、有限小数と負の0、Scenario集合のmissing／duplicate／extra、任意の失敗位置を生成して順序、非丸め、hash、事前拒否、call prefixを検証する。SDKはrequestを最初のawait前にsnapshotし、accessorを実行せず、秘密をfailureへ漏らさない。操作面はSDKとrepository-local skillに限定し、formal CLIの `describe`／`run`／`trace` は変更していない。JSON Patch、Sweep、Breakpoint、ruleset branch、Monte Carlo、比率、勝者、rankingは非対応である。
+
+Scenario Patchマイルストーンでは、`ScenarioPatch 0.1.0`と`SCN-001`を追加し、完全参照したbase Scenarioのallowlist済み既存non-null scalar leafへ1〜64件の一意なsame-kind変更を宣言順で適用できるようになった。入力は最初のawait前にproperty value getterを実行しないdescriptor snapshotへ取られ、Contract、hash、game build、base完全参照を検査する。portable JavaScriptの構造reflectionがProxy trapを実行して失敗しても、その例外内容は外部failureへ漏らさない。出力は明示された新しい`(id, revision)` pair、baseへの完全な`createdFrom`、再計算したcontent hashを持つ通常のScenarioであり、失敗時に部分Scenarioを返さない。checked-in PatchはCritical tierを1から2へ変更し、materialize-only hashをliteral Scenarioへ照合したうえで、別のSDK評価がHealth Damage 150、残Health 850を返す。`null`、add／remove／test／move／copy、object／array／root、Patch-aware Experiment、Sweep、Breakpoint、Ruleset branchは非対応である。Kernel、runtime-node、formal CLIは変更していない。
 
 ## Context and Orientation
 
@@ -861,9 +867,30 @@ Experimentマイルストーンの受け入れ結果は次のとおりである�
     documentation commit: d8ae3cc
     public GitHub Check: run 30692501313 for d8ae3cc succeeded in 1m10s
 
+Scenario Patchマイルストーンのローカル受け入れ結果は次のとおりである。
+
+    ScenarioPatch / Scenario: 0.1.0 / 0.3.0
+    Kernel Engine / Ruleset: unchanged at 0.19.0 / 0.18.0 revision 1
+    Clauses / Contracts / generated files: 56 active / 11 / 27
+    operation boundary: 1-64 unique ordered replace-only same-kind non-null existing scalar paths
+    integrity: exact Patch/base Contract and hash, exact base ref/game build, new verified Scenario hash
+    provenance: declared distinct (id, revision) pair and exact base createdFrom
+    checked-in change: /actionPlan/0/parameters/criticalTier from 1 to 2
+    materialized Scenario hash: sha256:d05c1ee15020a5e443c6c701e40a76a5a136de6fd11158d0562d20fd1ceaa973
+    optional SDK evaluation: tier 2, Health Damage 150, remaining Health 850
+    stale-base behavior: base-scenario-reference-mismatch with no partial Scenario
+    adversarial coverage: accessors, structural Proxy traps, hidden properties, sparse arrays, prototype-named keys, escaped pointers
+    Node 26.0.0: 26 test files / 480 tests
+    Node 24.18.0: 26 test files / 480 tests
+    empirical Iteration 1 / 2: 15/15 / 15/15, unclear 0; holdout 5/5
+    quantitative empirical convergence: not claimed because metadata was not uniformly available
+    unsupported: null, add/remove/test/move/copy, root/object/array, Patch-aware Experiment, Sweep, Breakpoint, ruleset branch
+    formal CLI: unchanged (`describe` / `run` / `trace`)
+    implementation commit: 09ce13a
+
 ## Interfaces and Dependencies
 
-既存の公開SDK関数 `evaluateScenario(request: { scenario: unknown; catalog: unknown }): Promise<EvaluationOutcome>` を維持する。CLIと単一Scenario向けskill helperは引き続きこの境界を通る。比較helperは公開SDK関数 `runExperiment` を通り、そのSDKが単一Scenario evaluatorを構成する。どちらのhelperもKernelやRulesを直接組み立てない。
+既存の公開SDK関数 `evaluateScenario(request: { scenario: unknown; catalog: unknown }): Promise<EvaluationOutcome>` を維持する。CLIと単一Scenario向けskill helperは引き続きこの境界を通る。比較helperは公開SDK関数 `runExperiment` を通り、そのSDKが単一Scenario evaluatorを構成する。Patch helperは公開SDK関数 `materializeScenarioPatch(request: { patch: unknown; scenario: unknown })`だけで通常Scenarioを生成し、評価が明示された場合だけその出力を`evaluateScenario`へ渡す。いずれのhelperもKernelやRulesを直接組み立てない。
 
 MultishotとPellet入力はScenarioの別actionに属する解決済み値として定義し、Catalogの生データや確率的rollを暗黙に読み込まない。Kernelが生成する子イベントはEvent Queueの論理時刻、sequence、stable ID順序に従う。Rule executionは生成Rulesetだけから行い、Kernel、CLI、skillへgrouped-hit計算を重複させない。
 

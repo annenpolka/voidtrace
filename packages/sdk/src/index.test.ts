@@ -1,6 +1,15 @@
 import generatedCapabilities from "@voidtrace/spec-artifacts/capabilities" with { type: "json" };
 import { describe, expect, it } from "vitest";
 import catalogFixture from "../../../data/fixtures/catalog-mini/catalog.json" with { type: "json" };
+import scenarioPatchExpectedProjectionFixture from "../../../data/fixtures/experiments/direct-critical-tier-2.expected.json" with {
+  type: "json",
+};
+import scenarioPatchExpectedScenarioFixture from "../../../data/fixtures/experiments/direct-critical-tier-2.expected.scenario.json" with {
+  type: "json",
+};
+import scenarioPatchFixture from "../../../data/fixtures/experiments/direct-critical-tier-2.scenario-patch.json" with {
+  type: "json",
+};
 import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
   type: "json",
 };
@@ -350,6 +359,39 @@ describe("VoidTrace SDK", () => {
       message:
         "This Result uses synthetic experimental mechanics and is not a verified current Warframe claim.",
     });
+  });
+
+  it("connects the checked-in Scenario Patch and literal expectations to the regression gate", async () => {
+    const materialized = await materializeScenarioPatch({
+      patch: scenarioPatchFixture,
+      scenario: scenarioFixture,
+    });
+    expect(materialized.ok).toBe(true);
+    if (!materialized.ok) {
+      throw new Error(materialized.error.message);
+    }
+    expect(canonicalize(materialized.scenario)).toBe(
+      canonicalize(scenarioPatchExpectedScenarioFixture),
+    );
+
+    const evaluation = await evaluateScenario({
+      scenario: materialized.scenario,
+      catalog: catalogFixture,
+    });
+    expect(evaluation.ok).toBe(true);
+    if (!evaluation.ok) {
+      throw new Error(evaluation.error.message);
+    }
+    expect({
+      patchId: scenarioPatchFixture.id,
+      patchContentHash: scenarioPatchFixture.contentHash,
+      baseScenarioId: scenarioPatchFixture.baseScenarioRef.id,
+      resultScenarioId: materialized.scenario.id,
+      changedPaths: scenarioPatchFixture.operations.map((operation) => operation.path),
+      criticalTier: materialized.scenario.actionPlan[0]?.parameters.criticalTier,
+      healthDamage: evaluation.result.metrics["damage.health.total"],
+      remainingHealth: evaluation.result.metrics["target.health.remaining"],
+    }).toEqual(scenarioPatchExpectedProjectionFixture);
   });
 
   it("keeps the SDK Patch wrapper exact, mutation-safe, and accessor-safe", async () => {

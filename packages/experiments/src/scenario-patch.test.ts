@@ -373,6 +373,25 @@ describe("Scenario Patch materialization", () => {
     );
   });
 
+  it.each([
+    ["the base id with a new revision", baseScenario.id, baseScenario.revision + 1],
+    ["a new id with the base revision", "scenario.materialized-new-id", baseScenario.revision],
+  ])("accepts %s as a distinct result identity pair", async (_label, resultId, resultRevision) => {
+    const outcome = await materializeScenarioPatch({
+      patch: await patch(
+        [{ op: "replace", path: "/actionPlan/0/parameters/criticalTier", value: 2 }],
+        { resultId, resultRevision },
+      ),
+      scenario: baseScenario,
+    });
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    expect([outcome.scenario.id, outcome.scenario.revision]).toEqual([resultId, resultRevision]);
+  });
+
   it("rejects duplicate, missing, kind-changing, and no-op replacements without a partial Scenario", async () => {
     const duplicate = await patch([
       { op: "replace", path: "/actionPlan/0/parameters/criticalTier", value: 2 },
@@ -427,6 +446,10 @@ describe("Scenario Patch materialization", () => {
       "/patch/operations",
     ],
     [[{ op: "add", path: "/initialState/key", value: 1 }], "/patch/operations/0/op"],
+    [
+      [{ op: "replace", path: "/actionPlan/0/parameters/criticalTier", value: null }],
+      "/patch/operations/0/value",
+    ],
     [[{ op: "replace", path: "/id", value: "scenario.changed" }], "/patch/operations/0/path"],
     [
       [{ op: "replace", path: "/targets/00/configuration/resolvedArmor", value: 0 }],
@@ -501,6 +524,37 @@ describe("Scenario Patch materialization", () => {
     });
     expect(proxiedOutcome.ok).toBe(true);
     expect(proxyReads).toBe(0);
+
+    for (const trap of ["getPrototypeOf", "ownKeys", "getOwnPropertyDescriptor"] as const) {
+      let structuralTrapCalls = 0;
+      const target = {
+        patch: await patch([{ op: "replace", path: "/simulation/timeLimitMs", value: 2 }]),
+        scenario: baseScenario,
+      };
+      const handler: ProxyHandler<typeof target> = {};
+      if (trap === "getPrototypeOf") {
+        handler.getPrototypeOf = () => {
+          structuralTrapCalls += 1;
+          throw new Error(secret);
+        };
+      } else if (trap === "ownKeys") {
+        handler.ownKeys = () => {
+          structuralTrapCalls += 1;
+          throw new Error(secret);
+        };
+      } else {
+        handler.getOwnPropertyDescriptor = () => {
+          structuralTrapCalls += 1;
+          throw new Error(secret);
+        };
+      }
+      const structuralOutcome = expectFailure(
+        await materializeScenarioPatch(new Proxy(target, handler)),
+        "scenario-patch-request-invalid",
+      );
+      expect(structuralTrapCalls).toBe(1);
+      expect(JSON.stringify(structuralOutcome)).not.toContain(secret);
+    }
 
     const hiddenRequest = {
       patch: await patch([{ op: "replace", path: "/simulation/timeLimitMs", value: 2 }]),

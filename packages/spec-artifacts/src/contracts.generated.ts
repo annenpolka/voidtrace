@@ -593,8 +593,8 @@ export type ScenarioPatch = {
     readonly "op": "replace";
     /** Allowed JSON Pointer to one existing scalar Scenario leaf; keys use ~0 and ~1 escaping and array indices are canonical decimals. */
     readonly "path": string;
-    /** Finite replacement scalar; object, array, and non-JSON values are unsupported. */
-    readonly "value": string | number | boolean | null;
+    /** Finite non-null replacement scalar; null, object, array, and non-JSON values are unsupported. */
+    readonly "value": string | number | boolean;
   }>;
 };
 

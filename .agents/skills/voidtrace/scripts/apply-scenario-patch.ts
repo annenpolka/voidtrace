@@ -171,6 +171,7 @@ function projectGolden(patch: unknown, scenario: unknown, evaluation: unknown): 
   const metrics = record(result.metrics, "/evaluation/result/metrics");
   return {
     patchId: patchRecord.id,
+    patchContentHash: patchRecord.contentHash,
     baseScenarioId: baseScenarioRef.id,
     resultScenarioId: scenarioRecord.id,
     changedPaths: operationPaths(patch),

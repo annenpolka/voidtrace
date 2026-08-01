@@ -1,5 +1,6 @@
 {
   "patchId": "scenario-patch.golden-critical-tier-2",
+  "patchContentHash": "sha256:e37fcbd363744825ef6e11f122780e3775c2e3b1af6e7e6125e0e0106e81c3f3",
   "baseScenarioId": "scenario.golden-direct-critical-armor",
   "resultScenarioId": "scenario.golden-patched-critical-tier-2",
   "changedPaths": ["/actionPlan/0/parameters/criticalTier"],

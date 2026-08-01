@@ -3,7 +3,9 @@
 - Generated JSON Schema is the runtime authority; do not redefine Artifact shapes here.
 - Re-export generated TypeScript types instead of maintaining handwritten duplicates.
 - Validation must not coerce values, insert defaults, remove properties, or mutate inputs.
-- Snapshot runtime inputs once into behavior-free own data before validation, hashing, or comparison.
+- Snapshot runtime inputs once through own data descriptors before validation, hashing, or
+  comparison. Do not invoke property-value getters; structural Proxy reflection traps may execute,
+  so callers must receive only fixed failures without trapped exception details.
 - Canonicalization accepts only JSON values and must remain RFC 8785 compatible.
 - Artifact content hashes exclude only the self-referential `contentHash` field.
 - Do not import Kernel, Rules, Catalog, UI, filesystem, network, or LLM concerns.

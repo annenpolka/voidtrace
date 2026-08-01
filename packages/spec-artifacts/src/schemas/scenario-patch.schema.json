@@ -120,7 +120,7 @@
             "pattern": "^/(?:attacker/configuration/(?:[^~/]|~0|~1)+|targets/(?:0|[1-9][0-9]*)/configuration/(?:[^~/]|~0|~1)+|targetGraph/relations/(?:0|[1-9][0-9]*)/(?:resolvedDistanceMeters|lineOfSightClear|resolvedHitCount)|initialState/(?:[^~/]|~0|~1)+|actionPlan/(?:0|[1-9][0-9]*)/parameters/(?:[^~/]|~0|~1)+|simulation/timeLimitMs|metrics/(?:0|[1-9][0-9]*))$"
           },
           "value": {
-            "description": "Finite replacement scalar; object, array, and non-JSON values are unsupported.",
+            "description": "Finite non-null replacement scalar; null, object, array, and non-JSON values are unsupported.",
             "anyOf": [
               {
                 "type": "string"
@@ -130,9 +130,6 @@
               },
               {
                 "type": "boolean"
-              },
-              {
-                "type": "null"
               }
             ]
           }

@@ -6,7 +6,7 @@
 
 VoidTrace can compare exact, already-materialized Scenario revisions, but it cannot yet derive a
 variant from a base Scenario. The smallest safe next slice is a content-addressed
-`ScenarioPatch 0.1.0` that performs one to 64 ordered, unique, same-type scalar replacements at a
+`ScenarioPatch 0.1.0` that performs one to 64 ordered, unique, same-type non-null scalar replacements at a
 finite allowlist of existing Scenario paths and materializes one ordinary Scenario revision before
 the existing Experiment or Kernel boundary.
 
@@ -28,7 +28,7 @@ remains unverified until the Pkl Clause, independent property oracle, fixtures, 
 unknown request
   -> ScenarioPatch Contract + hash validation
   -> exact base Scenario Contract + hash + ArtifactRef validation
-  -> ordered scalar replacements on a behavior-free clone
+  -> ordered scalar replacements on an isolated descriptor-snapshot clone
   -> derived envelope (declared id/revision, createdFrom=base)
   -> Scenario Contract + new content hash validation
   -> ordinary Scenario
@@ -55,8 +55,9 @@ reproducibility utilities. Kernel, Runtime, and formal CLI remain unchanged.
   and time limits therefore fit the finite slice.
 - A derived Scenario can pass through the existing Kernel unchanged. Its new content hash naturally
   propagates into Result and Trace fingerprints and into later Experiment Scenario references.
-- `attachArtifactContentHash` hashes a behavior-free snapshot but does not deep-freeze nested
-  output by itself; the materializer must return a separately deep-frozen success value.
+- `attachArtifactContentHash` hashes a descriptor snapshot without invoking property value getters
+  but does not deep-freeze nested output by itself; the materializer must return a separately
+  deep-frozen success value.
 - Formal CLI behavior is normatively fixed to `describe`, `run`, and `trace`. Adding a Patch command
   would require a separate CLI vertical slice.
 
@@ -68,7 +69,8 @@ reproducibility utilities. Kernel, Runtime, and formal CLI remain unchanged.
 - a declared `resultScenario` identity containing `id` and non-negative `revision`;
 - one to 64 ordered operations;
 - operation shape `{ op: "replace", path, value }`;
-- scalar values only: string, finite number, boolean, or null.
+- non-null scalar values only: string, finite number, or boolean. `null` has no possible
+  same-kind non-noop replacement and is rejected at the Contract boundary.
 
 The first allowed path set is:
 
@@ -83,12 +85,13 @@ The first allowed path set is:
 - `/metrics/<index>`.
 
 `<key>` uses JSON Pointer escaping for `~` and `/`; array indices are canonical non-negative decimal
-integers. Every path must already exist and resolve to a scalar leaf. Replacements must preserve the
+integers. Every path must already exist and resolve to a non-null scalar leaf. Replacements must preserve the
 JSON scalar kind and must change the canonical value. Duplicate normalized paths are rejected.
 
 Patch application must:
 
-1. snapshot the request without invoking accessors;
+1. snapshot the request without invoking property value getters; portable JavaScript structural
+   reflection can invoke Proxy traps, whose exception details must not escape;
 2. validate the Patch and base Scenario Contracts and content hashes;
 3. require the exact base Artifact reference and matching game build;
 4. reject an output identity identical to the base identity;
@@ -166,7 +169,7 @@ The independent oracle must cover:
 - zero or 65 operations, duplicate normalized paths, missing paths, non-scalar targets, scalar-kind
   changes, no-op replacements, non-canonical array indices, invalid escapes, and protected roots;
 - `__proto__`, `constructor`, escaped slash/tilde keys, accessors, hidden properties, sparse arrays,
-  and exceptions whose text must not leak into structured errors;
+  structural Proxy trap failures, and exceptions whose text must not leak into structured errors;
 - a contract-valid but Kernel-unsupported derived Scenario remaining a later evaluation failure,
   rather than being silently repaired by the Patch layer;
 - evaluation of the checked-in derived Scenario through the existing SDK with the synthetic,

@@ -18,7 +18,6 @@ function scalarValue(): model.UnionNode = new model.UnionNode {
     new model.StringNode {}
     new model.NumberNode {}
     new model.BooleanNode {}
-    new model.NullNode {}
   }
 }
 
@@ -66,7 +65,8 @@ function scalarReplacement(): model.ObjectNode = new model.ObjectNode {
     }
     new model.Field {
       name = "value"
-      description = "Finite replacement scalar; object, array, and non-JSON values are unsupported."
+      description =
+        "Finite non-null replacement scalar; null, object, array, and non-JSON values are unsupported."
       required = true
       schema = scalarValue()
     }
