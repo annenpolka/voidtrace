@@ -10,6 +10,7 @@ import {
   type Trace,
   verifyArtifactContentHash,
 } from "@voidtrace/contracts";
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import catalogFixture from "../../../data/fixtures/catalog-mini/catalog.json" with { type: "json" };
 import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
@@ -19,6 +20,23 @@ import { createExperimentRunner, type ExperimentOutcome, type ScenarioEvaluator 
 
 const PRIMARY_METRIC = "damage.health.total";
 const SECRET = "PRIVATE evaluator stack and filesystem detail";
+const PROPERTY_RUNS = 25;
+const propertyMetricArbitrary = fc.oneof(
+  fc.integer({ min: -1_000_000, max: 1_000_000 }),
+  fc.double({ min: -1_000_000, max: 1_000_000, noNaN: true }),
+  fc.constant(-0),
+);
+const propertyMetricVectorArbitrary = fc
+  .tuple(
+    fc.integer({ min: -999_999, max: 999_999 }).map((value) => value + 0.25),
+    fc.integer({ min: -999_999, max: 999_999 }).map((value) => value + 0.75),
+    fc.array(propertyMetricArbitrary, { minLength: 14, maxLength: 14 }),
+  )
+  .map(([base, firstVariant, remaining]) => [base, firstVariant, ...remaining]);
+const propertyPermutationArbitrary = fc.uniqueArray(fc.integer({ min: 0, max: 15 }), {
+  minLength: 16,
+  maxLength: 16,
+});
 
 type ArtifactIdentity = {
   readonly kind: string;
@@ -34,6 +52,15 @@ type Fixture = {
   readonly ruleset: Ruleset;
   readonly base: Scenario;
   readonly variant: Scenario;
+  readonly experiment: Experiment;
+};
+
+type PropertyFixture = {
+  readonly catalog: CatalogSnapshot;
+  readonly ruleset: Ruleset;
+  readonly base: Scenario;
+  readonly variants: ReadonlyArray<Scenario>;
+  readonly undeclared: Scenario;
   readonly experiment: Experiment;
 };
 
@@ -109,9 +136,60 @@ async function makeFixture(options: { readonly sameScenarioId?: boolean } = {}):
   return { catalog, ruleset, base, variant, experiment };
 }
 
+async function makePropertyFixture(variantCount: number): Promise<PropertyFixture> {
+  const catalog = structuredClone(catalogFixture) as CatalogSnapshot;
+  const ruleset = await makeRuleset();
+  const base = await makeScenario(ruleset, {
+    id: "scenario.experiment-property-base",
+    revision: 0,
+  });
+  const variants = await Promise.all(
+    Array.from({ length: variantCount }, (_, index) =>
+      makeScenario(ruleset, {
+        id: `scenario.experiment-property-variant-${index}`,
+        revision: index + 1,
+      }),
+    ),
+  );
+  const undeclared = await makeScenario(ruleset, {
+    id: "scenario.experiment-property-undeclared",
+    revision: 99,
+  });
+  const experiment = (await attachArtifactContentHash({
+    $schema: "urn:voidtrace:schema:experiment:0.1.0",
+    kind: "voidtrace.experiment",
+    schemaVersion: "0.1.0",
+    id: "experiment.property",
+    revision: 0,
+    gameBuild: catalog.gameBuild,
+    catalogRef: artifactRef(catalog),
+    rulesetRef: artifactRef(ruleset),
+    baseScenarioRef: artifactRef(base),
+    variants: variants.map((scenario, index) => ({
+      id: `variant.property-${index}`,
+      scenarioRef: artifactRef(scenario),
+    })),
+    primaryMetric: PRIMARY_METRIC,
+  })) as Experiment;
+  return { catalog, ruleset, base, variants, undeclared, experiment };
+}
+
 function requestFor(
   fixture: Fixture,
   scenarios: ReadonlyArray<Scenario> = [fixture.base, fixture.variant],
+) {
+  return {
+    experiment: fixture.experiment,
+    scenarios,
+    catalog: fixture.catalog,
+    ruleset: fixture.ruleset,
+    productVersion: "0.0.0",
+  };
+}
+
+function propertyRequest(
+  fixture: PropertyFixture,
+  scenarios: ReadonlyArray<Scenario> = [fixture.base, ...fixture.variants],
 ) {
   return {
     experiment: fixture.experiment,
@@ -211,6 +289,179 @@ function expectIntegrityFailure(outcome: ExperimentOutcome): void {
 }
 
 describe("resolved Experiment adversarial boundaries", () => {
+  it("preserves declared membership, order, and signed deltas for generated finite metrics", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 15 }),
+        propertyMetricVectorArbitrary,
+        propertyPermutationArbitrary,
+        async (variantCount, metricValues, permutation) => {
+          const fixture = await makePropertyFixture(variantCount);
+          const declared = [fixture.base, ...fixture.variants];
+          const supplied = permutation
+            .filter((index) => index < declared.length)
+            .map((index) => declared[index] as Scenario);
+          const values = metricValues.slice(0, declared.length);
+          const metricsByMember = new Map(
+            declared.map((scenario, index) => [memberIdentity(scenario), values[index]]),
+          );
+          const calls: string[] = [];
+          const evaluator: ScenarioEvaluator = async ({ scenario }) => {
+            const member = scenario as Scenario;
+            const identity = memberIdentity(member);
+            const metricValue = metricsByMember.get(identity);
+            if (metricValue === undefined) {
+              throw new Error("Generated member has no metric value");
+            }
+            calls.push(identity);
+            return makeEvaluationOutcome(member, metricValue);
+          };
+
+          const outcome = await createExperimentRunner({ evaluateScenario: evaluator })(
+            propertyRequest(fixture, supplied),
+          );
+
+          expect(outcome.ok).toBe(true);
+          if (!outcome.ok) {
+            throw new Error(outcome.error.message);
+          }
+          const baseValue = values[0];
+          if (baseValue === undefined) {
+            throw new Error("Generated base has no metric value");
+          }
+          expect(calls).toEqual(declared.map(memberIdentity));
+          expect(outcome.comparison.base.metricValue).toBe(baseValue);
+          expect(outcome.comparison.base.deltaFromBase).toBe(0);
+          expect(Object.is(outcome.comparison.base.deltaFromBase, -0)).toBe(false);
+          expect(outcome.variants.map(({ id }) => id)).toEqual(
+            fixture.experiment.variants.map(({ id }) => id),
+          );
+          for (const [index, projection] of outcome.comparison.variants.entries()) {
+            const metricValue = values[index + 1];
+            if (metricValue === undefined) {
+              throw new Error("Generated variant has no metric value");
+            }
+            const rawDelta = metricValue - baseValue;
+            const expectedDelta = Object.is(rawDelta, -0) ? 0 : rawDelta;
+            expect(projection.metricValue).toBe(metricValue);
+            expect(projection.deltaFromBase).toBe(expectedDelta);
+            expect(Object.is(projection.deltaFromBase, -0)).toBe(false);
+          }
+          await expect(verifyArtifactContentHash(outcome.comparison)).resolves.toBe(true);
+        },
+      ),
+      { numRuns: PROPERTY_RUNS },
+    );
+  });
+
+  it("rejects generated missing, duplicate, or extra Scenario sets before evaluation", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 15 }),
+        fc.constantFrom("missing", "duplicate", "extra", "unexpected"),
+        fc.nat(15),
+        async (variantCount, mode, selectedIndex) => {
+          const fixture = await makePropertyFixture(variantCount);
+          const declared = [fixture.base, ...fixture.variants];
+          const index = selectedIndex % declared.length;
+          let malformed: Scenario[];
+          if (mode === "missing") {
+            malformed = declared.filter((_, memberIndex) => memberIndex !== index);
+          } else if (mode === "duplicate") {
+            malformed = [...declared];
+            malformed[index] = declared[(index + 1) % declared.length] as Scenario;
+          } else if (mode === "extra") {
+            malformed = [...declared, fixture.base];
+          } else {
+            malformed = [...declared];
+            malformed[index] = fixture.undeclared;
+          }
+          let calls = 0;
+          const evaluator: ScenarioEvaluator = async () => {
+            calls += 1;
+            return {
+              ok: false,
+              error: {
+                code: "scenario-invalid",
+                message: "Property evaluator must not run",
+              },
+            };
+          };
+
+          const outcome = await createExperimentRunner({ evaluateScenario: evaluator })(
+            propertyRequest(fixture, malformed),
+          );
+
+          expect(outcome.ok).toBe(false);
+          if (outcome.ok) {
+            throw new Error("Malformed generated Scenario set unexpectedly succeeded");
+          }
+          expect(outcome.error).toMatchObject({
+            code: "scenario-set-mismatch",
+            ...(mode === "unexpected" ? { causeCode: "unexpected-scenario" } : {}),
+          });
+          expect(calls).toBe(0);
+          expect(Object.keys(outcome).toSorted()).toEqual(["error", "ok"]);
+        },
+      ),
+      { numRuns: PROPERTY_RUNS },
+    );
+  });
+
+  it("fails closed at generated evaluator failure positions without partial rows", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 15 }),
+        propertyMetricVectorArbitrary,
+        propertyPermutationArbitrary,
+        fc.nat(15),
+        async (variantCount, metricValues, permutation, failureSeed) => {
+          const fixture = await makePropertyFixture(variantCount);
+          const declared = [fixture.base, ...fixture.variants];
+          const supplied = permutation
+            .filter((index) => index < declared.length)
+            .map((index) => declared[index] as Scenario);
+          const failureIndex = failureSeed % declared.length;
+          let calls = 0;
+          const evaluator: ScenarioEvaluator = async ({ scenario }) => {
+            const callIndex = calls;
+            calls += 1;
+            if (callIndex === failureIndex) {
+              return {
+                ok: false,
+                error: {
+                  code: "scenario-invalid",
+                  message: "Generated evaluator failure",
+                },
+              };
+            }
+            return makeEvaluationOutcome(scenario as Scenario, metricValues[callIndex] ?? 0);
+          };
+
+          const outcome = await createExperimentRunner({ evaluateScenario: evaluator })(
+            propertyRequest(fixture, supplied),
+          );
+
+          expect(outcome.ok).toBe(false);
+          if (outcome.ok) {
+            throw new Error("Generated evaluator failure unexpectedly produced a Comparison");
+          }
+          expect(outcome.error).toMatchObject({
+            code: "scenario-evaluation-failed",
+            causeCode: "evaluator-reported-failure",
+            ...(failureIndex === 0 ? {} : { memberId: `variant.property-${failureIndex - 1}` }),
+          });
+          expect(calls).toBe(failureIndex + 1);
+          expect(Object.keys(outcome).toSorted()).toEqual(["error", "ok"]);
+          expect(outcome).not.toHaveProperty("comparison");
+          expect(outcome).not.toHaveProperty("base");
+          expect(outcome).not.toHaveProperty("variants");
+        },
+      ),
+      { numRuns: PROPERTY_RUNS },
+    );
+  });
+
   it("uses descriptor snapshots for Proxy inputs and rejects accessors without invoking them", async () => {
     const fixture = await makeFixture();
     let proxyReads = 0;

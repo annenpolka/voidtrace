@@ -95,6 +95,9 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@voidtrace/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@voidtrace/experiments':
         specifier: workspace:*
         version: link:../experiments

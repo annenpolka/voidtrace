@@ -1,3 +1,4 @@
+import { snapshotJsonObject } from "@voidtrace/contracts";
 import { type ExperimentOutcome, runResolvedComparison } from "@voidtrace/experiments";
 import {
   type EvaluationOutcome,
@@ -23,6 +24,8 @@ export type SdkExperimentRequest = {
 
 export type SdkExperimentOutcome = ExperimentOutcome;
 
+const SDK_EXPERIMENT_REQUEST_KEYS = ["catalog", "experiment", "scenarios"] as const;
+
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== "object") {
     return value;
@@ -31,6 +34,16 @@ function deepFreeze<T>(value: T): T {
     deepFreeze(child);
   }
   return Object.freeze(value);
+}
+
+function invalidExperimentRequest(message: string): SdkExperimentOutcome {
+  return deepFreeze({
+    ok: false,
+    error: {
+      code: "experiment-invalid",
+      message,
+    },
+  });
 }
 
 export function describeCapabilities(): CapabilityManifest {
@@ -49,11 +62,34 @@ export async function evaluateScenario(
 }
 
 export async function runExperiment(request: SdkExperimentRequest): Promise<SdkExperimentOutcome> {
+  let requestSnapshot: ReturnType<typeof snapshotJsonObject>;
+  try {
+    requestSnapshot = snapshotJsonObject(request);
+  } catch {
+    return invalidExperimentRequest("Experiment request must be a plain JSON value");
+  }
+  const requestKeys = Object.keys(requestSnapshot).toSorted();
+  if (
+    requestKeys.length !== SDK_EXPERIMENT_REQUEST_KEYS.length ||
+    !requestKeys.every((key, index) => key === SDK_EXPERIMENT_REQUEST_KEYS[index])
+  ) {
+    return invalidExperimentRequest("Experiment request has an invalid field set");
+  }
+  if (!Array.isArray(requestSnapshot.scenarios)) {
+    return deepFreeze({
+      ok: false,
+      error: {
+        code: "scenario-set-mismatch",
+        message: "scenarios must be an array",
+        path: "/scenarios",
+      },
+    });
+  }
   const ruleset = await loadCoreRuleset();
   return runResolvedComparison({
-    experiment: request.experiment,
-    scenarios: request.scenarios,
-    catalog: request.catalog,
+    experiment: requestSnapshot.experiment,
+    scenarios: requestSnapshot.scenarios,
+    catalog: requestSnapshot.catalog,
     ruleset: ruleset.snapshot,
   });
 }

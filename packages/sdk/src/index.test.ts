@@ -213,4 +213,76 @@ describe("VoidTrace SDK", () => {
       },
     });
   });
+
+  it("snapshots Experiment inputs before the first asynchronous Ruleset load", async () => {
+    const experiment = await comparisonExperiment();
+    const request = structuredClone({
+      experiment,
+      scenarios: [radialScenarioFixture, scenarioFixture, probabilityScenarioFixture],
+      catalog: catalogFixture,
+    });
+
+    const pending = runExperiment(request);
+    (request.experiment as Record<string, unknown>).id = "experiment.mutated-after-call";
+    request.scenarios.reverse();
+    (request.scenarios[0] as Record<string, unknown>).contentHash = `sha256:${"f".repeat(64)}`;
+    const outcome = await pending;
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    expect(outcome.comparison.experimentRef.id).toBe("experiment.sdk-resolved-comparison");
+    expect(outcome.base.scenario.id).toBe(scenarioFixture.id);
+    expect(outcome.variants.map(({ scenario }) => scenario.id)).toEqual([
+      probabilityScenarioFixture.id,
+      radialScenarioFixture.id,
+    ]);
+  });
+
+  it("rejects accessors without invoking them or leaking their exception", async () => {
+    const secret = "PRIVATE SDK getter exception";
+    let accessorReads = 0;
+    const request: Record<string, unknown> = {
+      scenarios: [scenarioFixture, probabilityScenarioFixture, radialScenarioFixture],
+      catalog: catalogFixture,
+    };
+    Object.defineProperty(request, "experiment", {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        throw new Error(secret);
+      },
+    });
+
+    const outcome = await runExperiment(request as never);
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: {
+        code: "experiment-invalid",
+        message: "Experiment request must be a plain JSON value",
+      },
+    });
+    expect(accessorReads).toBe(0);
+    expect(JSON.stringify(outcome)).not.toContain(secret);
+    expect(allObjectsAreFrozen(outcome)).toBe(true);
+  });
+
+  it("rejects extra SDK Experiment request fields instead of silently dropping them", async () => {
+    const outcome = await runExperiment({
+      experiment: await comparisonExperiment(),
+      scenarios: [scenarioFixture, probabilityScenarioFixture, radialScenarioFixture],
+      catalog: catalogFixture,
+      unexpected: true,
+    } as never);
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: {
+        code: "experiment-invalid",
+        message: "Experiment request has an invalid field set",
+      },
+    });
+  });
 });
