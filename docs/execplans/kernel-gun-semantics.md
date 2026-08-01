@@ -129,7 +129,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 14:17:45Z) Node 26.0.0でformat、lint、typecheck、architecture boundary、27生成ファイルfreshness、58 Clauses、11 Contracts、30テストファイル528件を含む全`just check`を通した。
 - [x] (2026-08-01 14:20:36Z) 独立runtime／security reviewはactionable findingなしで完了した。trackedかつHEAD同一のfixtureだけを使うfinite Sweep goldenと全operator smokeがexit 0になり、機能を`70f6c0e`としてコミットした。
 - [x] (2026-08-01 14:20:36Z) Node 24.18.0でもformat、lint、typecheck、architecture boundary、freshness、30テストファイル528件を含む全`check`を通した。
-- [ ] 検証記録をコミットし、public mainへpushしてGitHub Actions成功を確認する。
+- [x] (2026-08-01 14:23:41Z) 調査`70d409e`、機能`70f6c0e`、検証記録`c6438ae`をpublic mainへpushし、GitHub Actions `Check` run `30703615879`がhead `c6438ae`に対して1分25秒で成功した。
 
 ## Surprises & Discoveries
 
@@ -991,6 +991,8 @@ Patch-backed Experimentマイルストーンのローカル受け入れ結果は
     formal CLI: unchanged (`describe` / `run` / `trace`)
     investigation commit: 70d409e
     feature commit: 70f6c0e
+    validation record commit: c6438ae
+    public GitHub Check: run 30703615879 for c6438ae succeeded in 1m25s
 
 ## Interfaces and Dependencies
 
