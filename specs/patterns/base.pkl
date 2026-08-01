@@ -189,6 +189,12 @@ class ResolvedExperimentComparison extends Clause {
   area = "experiments"
 }
 
+class PatchBackedExperimentResolution extends Clause {
+  pattern = "patch_backed_experiment_resolution"
+  guarantee = "property-tested"
+  area = "experiments"
+}
+
 class ScenarioPatchIsolation extends Clause {
   pattern = "patch_isolation"
   guarantee = "property-tested"

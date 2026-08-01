@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect synthetic Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, ordered punch-through, ricochet, or chain fixtures, the resolved Scenario comparison, and the finite content-addressed Scenario Patch slice. Use for checked-in Scenario execution, fixed-tier variation, comparison or Patch inspection, and explicit capability or unsupported-boundary reporting. The skill may report an unsupported request, but must not execute, approximate, or answer it as supported, including current Warframe claims or build advice, arbitrary JSON Patch, Sweep, Breakpoint, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect synthetic Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, ordered punch-through, ricochet, or chain fixtures, resolved or Patch-backed Scenario comparison, and finite content-addressed Scenario Patch materialization. Use for checked-in Scenario execution, fixed-tier variation, comparison or Patch inspection, and explicit capability or unsupported-boundary reporting. The skill may report an unsupported request, but must not execute, approximate, or answer it as supported, including current Warframe claims or build advice, arbitrary JSON Patch, Patch chains, Sweep, Breakpoint, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -78,20 +78,26 @@ checked-in three-target Direct-plus-Radial impact Scenarios:
 - the checked-in resolved Experiment comparison, which evaluates one base Scenario followed by two
   declared variant Scenario revisions under the same synthetic Catalog and Ruleset, then reports
   `damage.health.total` and the signed `variant - base` delta in a content-addressed Comparison;
+- the checked-in Patch-backed Experiment comparison, which validates one exact base Scenario and
+  one exact ScenarioPatch, materializes the declared tier-2 Scenario before evaluation, then
+  reports base 100, variant 150, and signed delta +50 for `damage.health.total`;
 - the finite Scenario Patch materializer, including the checked-in Critical-tier 1→2 Patch, which
   verifies an exact content-addressed base Scenario, applies 1 to 64 unique ordered replace-only
   same-kind non-null scalar changes at the Contract allowlisted existing paths, assigns the declared new
   identity and exact `createdFrom`, then validates and hashes a normal Scenario before optional
   SDK evaluation.
 
-The comparison helper accepts only the checked-in Experiment and its exact three Scenario
-revisions. It does not apply Scenario Patch, synthesize a variant, sort the declared variants,
-change Catalog or Ruleset, infer whether a larger metric is better, or run Sweep, Breakpoint,
-ruleset branches, Monte Carlo, ratios, ranking, or statistical uncertainty. If a requested
-comparison needs any of those behaviors, state that it is unsupported and stop without replacing
-it with the checked-in comparison. After refusing, you may mention the exact checked-in comparison
-as a distinct available example, but do not run it or present it as satisfying the request. You may
-instead offer separately authorized Pkl-first implementation work.
+The resolved comparison helper accepts only the checked-in Experiment and its exact three Scenario
+revisions. The Patch-backed comparison helper accepts only its checked-in Experiment, exact base
+Scenario, and exact ScenarioPatch. It materializes every declared Patch before the SDK evaluates
+the base and variants; it does not chain Patches or accept caller-selected members. Neither helper
+synthesizes a variant, sorts declaration order, changes Catalog or Ruleset, infers whether a larger
+metric is better, or runs Sweep, Breakpoint, ruleset branches, Monte Carlo, ratios, ranking, or
+statistical uncertainty. If a requested comparison needs any of those behaviors, state that it is
+unsupported and stop without replacing it with a checked-in comparison. After refusing, you may
+mention an exact checked-in comparison as a distinct available example, but do not run it or present
+it as satisfying the request. You may instead offer separately authorized Pkl-first implementation
+work.
 
 The Scenario Patch helper accepts a Contract-valid, content-addressed Patch and its exact
 content-addressed base Scenario. It never edits either input, silently repairs or rehashes stale
@@ -101,8 +107,8 @@ resolved Target Graph relation fields, initial state, action parameters, simulat
 or an existing metric entry. Duplicate normalized paths, no-ops, scalar-kind changes, stale base
 references, and reuse of the exact base identity fail atomically without a partial Scenario.
 `add`, `remove`, `test`, `move`, `copy`, root or structural replacement, null, object, or array values,
-Patch-aware Experiment, Sweep, Breakpoint, ruleset branches, generated operations, and formal CLI
-Patch commands remain unsupported.
+Patch chaining, arbitrary Patch-backed Experiment inputs, Sweep, Breakpoint, ruleset branches,
+generated operations, and formal CLI Patch or Experiment commands remain unsupported.
 
 Before running a Direct-plus-Radial request, require checked-in resolved impact relations and one
 supported explicit Critical resolution. Use the shared-mode Golden when no separate mode or tier
@@ -266,6 +272,15 @@ node .agents/skills/voidtrace/scripts/run-comparison.ts --pretty
 node .agents/skills/voidtrace/scripts/run-comparison.ts --check-golden
 ```
 
+Run the checked-in Patch-backed comparison through the same SDK Experiment facade. This uses one
+exact base Scenario and the checked-in Critical-tier 1→2 Patch; it is not a Sweep:
+
+```bash
+node .agents/skills/voidtrace/scripts/run-patch-comparison.ts
+node .agents/skills/voidtrace/scripts/run-patch-comparison.ts --pretty
+node .agents/skills/voidtrace/scripts/run-patch-comparison.ts --check-golden
+```
+
 Materialize the checked-in Scenario Patch, optionally evaluate the resulting normal Scenario, or
 apply another already-valid Patch to its exact base:
 
@@ -310,8 +325,10 @@ for another agent or script. `--help` lists the finite adapter options.
 ## Interpreting output
 
 - Exit `0` with `ok: true` means a contract-valid Result and Trace passed cross-Artifact integrity.
-- Comparison helper exit `0` means every declared Scenario produced an integrity-checked Result
-  and Trace and the content-addressed Comparison matched the Experiment order. Its
+- Comparison helper exit `0` means every declared or materialized Scenario produced an
+  integrity-checked Result and Trace and the content-addressed Comparison matched the Experiment
+  order. Patch-backed success additionally means the exact Patch set was validated and all derived
+  Scenarios were materialized before the first evaluation. Its
   `deltaFromBase` is signed `variant - base`; do not take an absolute value or interpret its sign
   as a winner without metric-direction semantics.
 - Scenario Patch helper exit `0` means the exact base reference and both input hashes passed, all

@@ -1,0 +1,11 @@
+/// Verification obligation for atomic ScenarioPatch-backed Experiment comparison.
+module voidtrace.experiments.`patch-backed-comparison`
+
+import "../patterns/base.pkl"
+
+resolution: base.PatchBackedExperimentResolution = new {
+  id = "EXP-003"
+  desc =
+    "Experiment 0.2.0のPatch-backed modeは、一つの完全なbase ScenarioRefと宣言順を持つ1以上15以下の一様な{id, patchRef} variant、一つのprimary metricを保持する。caller-owned request graphを最初のawait前に一度property value getterを実行しないdescriptor snapshotへ取り、そのsnapshot由来のExperiment、Catalog、Ruleset、唯一供給されたbase Scenario、供給された全ScenarioPatchだけをContract、content hash、完全参照、game build検査へ渡す。供給Patch集合は宣言集合と過不足なく一致し、variant ID、Patch id/revision、Patchが宣言するresult Scenario id/revisionはそれぞれ一意、全PatchのbaseScenarioRefはExperimentのbaseScenarioRefと一致しなければならない。全Patchを既存SCN-001でvariant宣言順にmaterializeし、全派生ScenarioのContract、hash、createdFrom、CatalogRef、RulesetRef、game build、primary metric membership、非Monte Carloを独立に検査した後だけ、base、次にvariant宣言順で既存の単一Scenario evaluatorへ一度ずつ渡し、EXP-002のComparisonを生成する。一件でもPatch検証、materialization、Scenario検証、評価、metric、算術、Artifact integrityに失敗すればComparison、部分evaluation列、部分materialized Scenario列を返さず、caller入力を変更しない。resolved Scenario variantとPatch variantの混在、Patch chain、Sweep、range展開、複数軸、Breakpoint、ruleset branch、Monte Carlo、winner、tie、ranking、ratio、interpolation、並列実行を暗黙に行わない"
+  maturity = "active"
+}

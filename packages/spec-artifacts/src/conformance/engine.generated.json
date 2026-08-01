@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:0dfc28bd9a4828bc3c116b5d9161737cc346fa449e11b81bf1f480d8c52ab1a5",
+  "sourceFingerprint": "sha256:4dfd30f116b7cca5905e361a6c121124b2c82ea72e5d0a5f0669d948fca93ea8",
   "activeClauses": [
     {
       "id": "BEM-001",
@@ -142,7 +142,7 @@
     {
       "id": "EXP-001",
       "pattern": "resolved_experiment_membership",
-      "desc": "Experimentは一つのCatalogRefとRulesetRef、一つのbase ScenarioRef、宣言順を持つ1以上15以下のvariant ScenarioRef、一つのprimary metricを保持する。評価前にExperiment、Catalog、Ruleset、供給された全Scenarioを一度だけsnapshot、Contract、content hash、完全参照で検査し、供給Scenario集合は宣言集合と過不足なく一致しなければならない。baseとvariantは同じgame build、Catalog revision、Ruleset revisionを参照し、variant IDとScenario id/revisionは一意、primary metricは各Scenario metricsに厳密に一度だけ存在し、Monte Carloではないことを要求する。検証済みsnapshotをbase、次にvariant宣言順で既存の単一Scenario evaluatorへ一度ずつ渡し、callerの入力Artifactを変更しない。未解決参照、JSON Patch、Sweep、Breakpoint、ruleset branch、Monte Carloを暗黙に補完または実行しない",
+      "desc": "Experiment 0.2.0のresolved modeは一つのCatalogRefとRulesetRef、一つのbase ScenarioRef、宣言順を持つ1以上15以下の一様な{id, scenarioRef} variant、一つのprimary metricを保持する。評価前にExperiment、Catalog、Ruleset、供給された全Scenarioを一度だけsnapshot、Contract、content hash、完全参照で検査し、供給Scenario集合は宣言集合と過不足なく一致しなければならない。baseとvariantは同じgame build、Catalog revision、Ruleset revisionを参照し、variant IDとScenario id/revisionは一意、primary metricは各Scenario metricsに厳密に一度だけ存在し、Monte Carloではないことを要求する。検証済みsnapshotをbase、次にvariant宣言順で既存の単一Scenario evaluatorへ一度ずつ渡し、callerの入力Artifactを変更しない。Patch variantとの混在、Sweep、Breakpoint、ruleset branch、Monte Carloを暗黙に補完または実行しない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "experiments"
@@ -151,6 +151,14 @@
       "id": "EXP-002",
       "pattern": "resolved_experiment_comparison",
       "desc": "解決済みExperiment比較はbaseを最初に、variantを宣言順に一度ずつ単一Scenario evaluatorへ渡し、各Result／Traceを対応Scenarioへ完全性検査してからprimary metricを直接読み、各variantについて有限な符号付き差variant-baseだけを生成する。Comparisonはidをcomparison.<experiment.id>、revisionとgameBuildをExperimentと同値、createdFromなしとし、Experiment、Scenario、Resultの完全ArtifactRef、metricValue、baseのdelta 0、variant宣言順のdeltaを保持する。一つでも評価失敗、metric欠落、非有限delta、参照不整合があればComparisonも部分evaluation列も返さない。負の0は0へ正規化し、丸め、比率、優劣方向、tie、ranking、統計量は導出しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "experiments"
+    },
+    {
+      "id": "EXP-003",
+      "pattern": "patch_backed_experiment_resolution",
+      "desc": "Experiment 0.2.0のPatch-backed modeは、一つの完全なbase ScenarioRefと宣言順を持つ1以上15以下の一様な{id, patchRef} variant、一つのprimary metricを保持する。caller-owned request graphを最初のawait前に一度property value getterを実行しないdescriptor snapshotへ取り、そのsnapshot由来のExperiment、Catalog、Ruleset、唯一供給されたbase Scenario、供給された全ScenarioPatchだけをContract、content hash、完全参照、game build検査へ渡す。供給Patch集合は宣言集合と過不足なく一致し、variant ID、Patch id/revision、Patchが宣言するresult Scenario id/revisionはそれぞれ一意、全PatchのbaseScenarioRefはExperimentのbaseScenarioRefと一致しなければならない。全Patchを既存SCN-001でvariant宣言順にmaterializeし、全派生ScenarioのContract、hash、createdFrom、CatalogRef、RulesetRef、game build、primary metric membership、非Monte Carloを独立に検査した後だけ、base、次にvariant宣言順で既存の単一Scenario evaluatorへ一度ずつ渡し、EXP-002のComparisonを生成する。一件でもPatch検証、materialization、Scenario検証、評価、metric、算術、Artifact integrityに失敗すればComparison、部分evaluation列、部分materialized Scenario列を返さず、caller入力を変更しない。resolved Scenario variantとPatch variantの混在、Patch chain、Sweep、range展開、複数軸、Breakpoint、ruleset branch、Monte Carlo、winner、tie、ranking、ratio、interpolation、並列実行を暗黙に行わない",
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "experiments"

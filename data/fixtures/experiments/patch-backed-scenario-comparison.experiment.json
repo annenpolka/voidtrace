@@ -2,9 +2,9 @@
   "$schema": "urn:voidtrace:schema:experiment:0.2.0",
   "kind": "voidtrace.experiment",
   "schemaVersion": "0.2.0",
-  "id": "experiment.golden-resolved-comparison",
+  "id": "experiment.golden-patch-backed-comparison",
   "revision": 0,
-  "contentHash": "sha256:f8ad64e1d0ee1fbca3023b82dbd9d83097c95c8eb7c9f4072a6b62c1f75a03ff",
+  "contentHash": "sha256:8a9043b2971c277c750927d17b70c232dae5d9fad457e5dce95b1c0dc9c71a3d",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",
@@ -32,24 +32,13 @@
   },
   "variants": [
     {
-      "id": "variant.explicit-roll",
-      "scenarioRef": {
-        "kind": "voidtrace.scenario",
-        "schemaVersion": "0.3.0",
-        "id": "scenario.golden-probability-critical-armor",
-        "revision": 1,
-        "contentHash": "sha256:7c7d3f9d0efbf2f9c0758dac810709795e05eb8b50ce89fb89efd8d7633191b0",
-        "gameBuild": "synthetic-fixture-0"
-      }
-    },
-    {
-      "id": "variant.radial",
-      "scenarioRef": {
-        "kind": "voidtrace.scenario",
-        "schemaVersion": "0.3.0",
-        "id": "scenario.golden-radial-critical-armor",
+      "id": "variant.critical-tier-2",
+      "patchRef": {
+        "kind": "voidtrace.scenario-patch",
+        "schemaVersion": "0.1.0",
+        "id": "scenario-patch.golden-critical-tier-2",
         "revision": 0,
-        "contentHash": "sha256:322d71b66fc3272d4acbd90727850519c84e27b7e765312c177d039d3cad0da3",
+        "contentHash": "sha256:e37fcbd363744825ef6e11f122780e3775c2e3b1af6e7e6125e0e0106e81c3f3",
         "gameBuild": "synthetic-fixture-0"
       }
     }

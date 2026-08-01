@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:experiment:0.1.0",
+  "$id": "urn:voidtrace:schema:experiment:0.2.0",
   "title": "Experiment",
-  "description": "Immutable bounded comparison of already resolved Scenario revisions under one Catalog and Ruleset.",
+  "description": "Immutable bounded comparison using either already resolved Scenario revisions or exact ScenarioPatch revisions under one Catalog and Ruleset.",
   "type": "object",
   "properties": {
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:experiment:0.1.0"
+      "const": "urn:voidtrace:schema:experiment:0.2.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.1.0"
+      "const": "0.2.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -119,45 +119,89 @@
       ]
     },
     "variants": {
-      "description": "Ordered non-empty finite list of already resolved Scenario variants.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "description": "Experiment-local stable identity of this resolved variant.",
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
-          },
-          "scenarioRef": {
-            "description": "Exact immutable Scenario revision evaluated for this variant.",
-            "allOf": [
-              {
-                "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+      "description": "Ordered non-empty finite list whose members are all resolved Scenario variants or all ScenarioPatch-backed variants; mixed source modes are unsupported.",
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "description": "Experiment-local stable identity of this resolved variant.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
               },
-              {
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "const": "voidtrace.scenario"
+              "scenarioRef": {
+                "description": "Exact immutable Scenario revision evaluated for this variant.",
+                "allOf": [
+                  {
+                    "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "voidtrace.scenario"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
                   }
-                },
-                "required": [
-                  "kind"
                 ]
               }
-            ]
-          }
+            },
+            "required": [
+              "id",
+              "scenarioRef"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 15
         },
-        "required": [
-          "id",
-          "scenarioRef"
-        ],
-        "additionalProperties": false
-      },
-      "minItems": 1,
-      "maxItems": 15
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "description": "Experiment-local stable identity of this Patch-backed variant.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "patchRef": {
+                "description": "Exact immutable ScenarioPatch revision materialized for this variant.",
+                "allOf": [
+                  {
+                    "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "voidtrace.scenario-patch"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "patchRef"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 15
+        }
+      ]
     },
     "primaryMetric": {
       "description": "Metric identifier that must exist in every evaluated Result.",

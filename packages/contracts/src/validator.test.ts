@@ -181,9 +181,9 @@ const trace = {
 } as const;
 
 const experiment = {
-  $schema: "urn:voidtrace:schema:experiment:0.1.0",
+  $schema: "urn:voidtrace:schema:experiment:0.2.0",
   kind: "voidtrace.experiment",
-  schemaVersion: "0.1.0",
+  schemaVersion: "0.2.0",
   id: "experiment.example",
   revision: 0,
   contentHash: HASH,
@@ -318,6 +318,48 @@ describe("generated Contract validation", () => {
       validateContract("comparison", {
         ...comparison,
         variants: [{ ...comparison.variants[0], extra: true }],
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("accepts Patch-backed Experiment variants and rejects mixed source modes", () => {
+    const patchVariant = {
+      id: "variant.patch",
+      patchRef: artifactRef("voidtrace.scenario-patch", "scenario-patch.variant"),
+    } as const;
+
+    expect(
+      validateContract("experiment", {
+        ...experiment,
+        variants: [patchVariant],
+      }).ok,
+    ).toBe(true);
+    expect(
+      validateContract("experiment", {
+        ...experiment,
+        variants: [experiment.variants[0], patchVariant],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("experiment", {
+        ...experiment,
+        variants: [
+          {
+            ...patchVariant,
+            patchRef: artifactRef("voidtrace.scenario", "scenario.variant"),
+          },
+        ],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateContract("experiment", {
+        ...experiment,
+        variants: [
+          {
+            ...patchVariant,
+            scenarioRef: artifactRef("voidtrace.scenario", "scenario.variant"),
+          },
+        ],
       }).ok,
     ).toBe(false);
   });

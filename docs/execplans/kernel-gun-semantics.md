@@ -113,6 +113,13 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 09:41:00Z) 独立仕様reviewを反映し、成功不能だった`null` operationをContractから除外し、result identityを`(id, revision)` pairとして明文化して片側変更の成功回帰を追加し、3 literal fixtureをSDK regression gateへ接続した。
 - [x] (2026-08-01 09:51:29Z) 独立runtime／security reviewを反映し、descriptor snapshotのProxy trap境界を正確化して構造trap例外非漏洩を回帰化し、Patch hashをgoldenへpinし、helperのexit 0／1／2 subprocess testを追加した。skill validation／smokeとNode 26.0.0／24.18.0の双方で27生成ファイル、56 Clauses、11 Contracts、26テストファイル480件を含む全`check`を通した。修正後targeted re-reviewにactionable findingは残らなかった。
 - [x] (2026-08-01 09:54:29Z) Scenario Patch実装 `09ce13a` とreview強化 `69803b9` をpublic mainへpushし、GitHub Actions `Check` run `30694606897` がhead `69803b9` に対して1分23秒で成功した。
+- [x] (2026-08-01 10:02:00Z) Scenario Patch最終文書 `083c0f8` をpublic mainへpushし、GitHub Actions `Check` run `30694696206` が同headに対して1分10秒で成功した。
+- [x] (2026-08-01 13:01:02Z) Scenario Patch後の候補についてcodebase-investigatorの6段階静的調査を完了し、`docs/investigations/patch-backed-experiment-slice.md`へ順序、現行flow、security、矛盾、採用境界、独立oracle条件を記録した。
+- [x] (2026-08-01 13:01:02Z) 次の縦切りを、同じexact baseへ束縛された1〜15件のScenarioPatchを全件materializeしてから既存比較を開始するall-or-nothing Patch-backed Experimentへ固定した。次段は単一軸有限Sweep、その後をBreakpointとする。
+- [x] (2026-08-01 13:22:55Z) Experiment Contractを`0.2.0`へ上げ、homogeneous resolved配列またはPatch-backed配列のunionと`EXP-003`をPklで規定した。27生成ファイルの逆翻訳は57 active／0 planned、11 Contracts、`experiments.resolved-comparison` supportedを示す。
+- [x] (2026-08-01 13:22:55Z) exact baseと1〜15件のexact Patchを全件materialize後に比較するrunner、SDK facade、literal fixture、repository-local helper、独立property／敵対／SDK／subprocessテストを実装した。checked-in例はbase 100、variant 150、delta +50を返す。
+- [x] (2026-08-01 13:22:55Z) Node 26.0.0で27生成ファイルのfreshness、57 Clauses、11 Contracts、28テストファイル504件を含む`just check`を通した。
+- [ ] Node 24の全gate、feature commit後のempirical skill評価、独立review、public push／CI確認を完了する。
 
 ## Surprises & Discoveries
 
@@ -247,6 +254,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: `SCN-001`の「指定Path外は不変」を派生Scenarioへそのまま適用すると、必須の`id`、`revision`、`createdFrom`、`contentHash`変更と矛盾する。
   Evidence: Artifact envelopeは派生identityとhashをContract化している。Patch isolation oracleではこの四fieldだけをmaterialization差分として除外し、それ以外のcanonical差分を宣言pathへ厳密に束縛する必要がある。
+
+- Observation: Scenario Patch後の順序は規範仕様にもExecPlanにも固定されておらず、元計画にはPatch-backed variant、Sweep、Breakpointの粒度が混在する。
+  Evidence: P0-Bと後半のpackage構成はvariant PatchをSweepより前、SweepをBreakpointより前に置く。現行Pklには完成Scenario比較と単体Patch materializationだけがあり、Sweep／BreakpointのContract、Clause pattern、capabilityは存在しない。
+
+- Observation: Sweepを先に実装すると、現在分離しているPatch materializationとComparisonの原子性、exact membership、派生Scenario identity、failure topologyをSweep固有に再定義する必要がある。
+  Evidence: 現行runnerは完全Scenario集合を要求し、materializerはExperimentを開始しない。Patch-backed Experimentを先に合成すれば、次の単一軸Sweepは同じ有限orchestrationへordered Patch pointsを供給するだけに狭められる。
 
 ## Decision Log
 
@@ -445,6 +458,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: 最初のPatchは1〜64件の`replace`だけを受理し、既存allowlist pathのsame-type non-null scalar leafだけを変更する。完全なbase ArtifactRefをstale-base preconditionとし、出力`(id, revision)` pairはPatchが宣言、`createdFrom`はbase完全参照、`contentHash`は再計算する。
   Rationale: 現行有限Contract IRで表現でき、Critical tier、Armor、Health、resolved falloff／relation値、時間上限など実用的な合成variationを扱える。`add/remove/test/move/copy`、object／array値、構造変更を同時に入れると再帰JSON値、index shift、conflict、provenanceの意味論が必要になる。
   Date/Author: 2026-08-01 09:06:47Z / Codex
+
+- Decision: Scenario Patch後の次の縦切りはPatch-backed Experimentとし、その後に単一軸有限Sweep、さらに後にBreakpointを置く。
+  Rationale: 元計画はExperimentがScenarioをPatchで展開してからparameter Sweepへ進む。現行の単体Patchと完成Scenario比較を先にall-or-nothingで合成すれば、Sweepが別のmaterialization／comparison意味論を持たず、BreakpointもSweepの明示的な点列とfailure semanticsを前提に設計できる。
+  Date/Author: 2026-08-01 13:01:02Z / Codex
+
+- Decision: `Experiment`を`0.2.0`へ上げ、variant sourceは既存の全resolved `{ id, scenarioRef }` または全Patch-backed `{ id, patchRef }` のどちらか一方とする。Patch modeはexact base Scenarioとexact Patch集合を全件検査・materializeしてからbase、variant宣言順で評価し、既存`Comparison 0.1.0`へ通常Scenario／Result参照を残す。
+  Rationale: wire shape変更を`0.1.0`へ黙って追加せず、既存resolved modeを維持できる。混在source、部分materialization、Sweep、Breakpointを除外すると、最大15 variantsと各Patch最大64 operationsの有限境界でPatch provenanceとComparison integrityを一つのExperiment参照から再現できる。
+  Date/Author: 2026-08-01 13:01:02Z / Codex
 
 ## Outcomes & Retrospective
 

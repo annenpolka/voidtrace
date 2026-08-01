@@ -2,7 +2,7 @@ import { snapshotJsonObject } from "@voidtrace/contracts";
 import {
   type ExperimentOutcome,
   materializeScenarioPatch as materializeExperimentScenarioPatch,
-  runResolvedComparison,
+  runExperimentComparison,
   type ScenarioPatchOutcome,
 } from "@voidtrace/experiments";
 import {
@@ -21,11 +21,21 @@ export type SdkEvaluationRequest = {
 
 export type SdkEvaluationOutcome = EvaluationOutcome;
 
-export type SdkExperimentRequest = {
+type SdkExperimentRequestBase = {
   readonly experiment: unknown;
   readonly scenarios: ReadonlyArray<unknown>;
   readonly catalog: unknown;
 };
+
+export type SdkResolvedExperimentRequest = SdkExperimentRequestBase & {
+  readonly patches?: never;
+};
+
+export type SdkPatchBackedExperimentRequest = SdkExperimentRequestBase & {
+  readonly patches: ReadonlyArray<unknown>;
+};
+
+export type SdkExperimentRequest = SdkResolvedExperimentRequest | SdkPatchBackedExperimentRequest;
 
 export type SdkExperimentOutcome = ExperimentOutcome;
 
@@ -36,7 +46,7 @@ export type SdkScenarioPatchRequest = {
 
 export type SdkScenarioPatchOutcome = ScenarioPatchOutcome;
 
-const SDK_EXPERIMENT_REQUEST_KEYS = ["catalog", "experiment", "scenarios"] as const;
+const SDK_EXPERIMENT_REQUEST_KEYS = ["catalog", "experiment", "patches", "scenarios"] as const;
 
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== "object") {
@@ -82,8 +92,11 @@ export async function runExperiment(request: SdkExperimentRequest): Promise<SdkE
   }
   const requestKeys = Object.keys(requestSnapshot).toSorted();
   if (
-    requestKeys.length !== SDK_EXPERIMENT_REQUEST_KEYS.length ||
-    !requestKeys.every((key, index) => key === SDK_EXPERIMENT_REQUEST_KEYS[index])
+    requestKeys.some(
+      (key) =>
+        !SDK_EXPERIMENT_REQUEST_KEYS.includes(key as (typeof SDK_EXPERIMENT_REQUEST_KEYS)[number]),
+    ) ||
+    !["catalog", "experiment", "scenarios"].every((key) => Object.hasOwn(requestSnapshot, key))
   ) {
     return invalidExperimentRequest("Experiment request has an invalid field set");
   }
@@ -97,13 +110,27 @@ export async function runExperiment(request: SdkExperimentRequest): Promise<SdkE
       },
     });
   }
+  const patches = requestSnapshot.patches;
+  if (Object.hasOwn(requestSnapshot, "patches") && !Array.isArray(patches)) {
+    return deepFreeze({
+      ok: false,
+      error: {
+        code: "patch-set-mismatch",
+        message: "patches must be an array",
+        path: "/patches",
+      },
+    });
+  }
   const ruleset = await loadCoreRuleset();
-  return runResolvedComparison({
+  const common = {
     experiment: requestSnapshot.experiment,
     scenarios: requestSnapshot.scenarios,
     catalog: requestSnapshot.catalog,
     ruleset: ruleset.snapshot,
-  });
+  } as const;
+  return Array.isArray(patches)
+    ? runExperimentComparison({ ...common, patches })
+    : runExperimentComparison(common);
 }
 
 export async function materializeScenarioPatch(

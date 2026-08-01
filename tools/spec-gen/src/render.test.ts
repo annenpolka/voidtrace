@@ -198,6 +198,35 @@ describe("renderGeneratedFiles", () => {
     });
   });
 
+  it("publishes Patch-backed resolution in the Experiment comparison capability", () => {
+    const generated = renderGeneratedFiles({
+      ...spec,
+      clauses: [
+        {
+          id: "EXP-003",
+          pattern: "patch_backed_experiment_resolution",
+          desc: "materialize exact Patch variants before comparison",
+          guarantee: "property-tested",
+          maturity: "active",
+          area: "experiments",
+        },
+      ],
+    });
+    const capabilities = generated.find(
+      (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
+    );
+
+    const parsed = JSON.parse(capabilities?.contents ?? "{}") as {
+      capabilities: unknown[];
+    };
+    expect(parsed.capabilities).toContainEqual({
+      id: "experiments.resolved-comparison",
+      status: "supported",
+      activeClauseRefs: ["EXP-003"],
+      plannedClauseRefs: [],
+    });
+  });
+
   it("publishes Scenario Patch separately from resolved Experiment comparison", () => {
     const generated = renderGeneratedFiles({
       ...spec,

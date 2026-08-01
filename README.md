@@ -6,7 +6,7 @@ VoidTrace is being built as two layers:
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
 The implemented boundary is synthetic, experimental Kernel Engine `0.19.0`, backed by generated
-Ruleset `0.18.0` revision `1`, eleven versioned public contracts, and 56 normative Clauses. It
+Ruleset `0.18.0` revision `1`, eleven versioned public contracts, and 57 normative Clauses. It
 currently supports:
 
 - Direct Hit through base Damage, fixed or explicit-roll Critical, Armor, and terminal Health;
@@ -31,31 +31,34 @@ complete target-specific Pellet allocation. It does not infer geometry, collisio
 reflection, target selection, Spread, or hit probability. Other non-empty Target Graphs are
 rejected without partial Artifacts.
 
-The resolved Experiment comparison slice adds Experiment and Comparison Contract `0.1.0`. One
-Experiment names one Catalog, one Ruleset, one base Scenario, 1–15 ordered variant Scenarios, and
-one primary metric. The Experiment runner validates exact content-addressed references before
-evaluation, evaluates the base and then each variant once, verifies every Result and Trace, and
-emits a content-addressed Comparison containing each metric value and the finite signed difference
-`variant - base`. This surface is available through `@voidtrace/sdk` and the repository-local skill.
-The formal CLI remains limited to `describe`, `run`, and `trace`; it has no comparison command.
+Experiment Contract `0.2.0` accepts one Catalog, one Ruleset, one base Scenario, one primary metric,
+and either 1–15 ordered resolved Scenario variants or 1–15 ordered ScenarioPatch variants. The two
+variant source modes cannot be mixed. Resolved mode validates the exact Scenario set. Patch-backed
+mode validates the exact base and Patch set, materializes every derived Scenario before evaluation,
+then evaluates the base and variants in declaration order. Both modes verify every Result and Trace
+and emit Comparison Contract `0.1.0` with each metric value and finite signed difference
+`variant - base`; any failure returns no partial rows. This surface is available through
+`@voidtrace/sdk` and the repository-local skill. The formal CLI remains limited to `describe`,
+`run`, and `trace`; it has no comparison command.
 
 ScenarioPatch Contract `0.1.0` adds a finite pre-materialization slice. A Patch names one exact
 content-addressed base Scenario, a distinct result identity pair, and 1–64 ordered replace
 operations against existing allowlisted non-null scalar leaves. The materializer snapshots both inputs, validates
 their Contracts, hashes, game build, and exact base reference, applies unique same-kind non-no-op
 changes to an isolated clone, then emits a newly hashed normal Scenario with exact `createdFrom`.
-Any failure returns no partial Scenario. The SDK and repository-local skill expose this surface;
-the Kernel, resolved Experiment runner, and formal CLI remain unchanged.
+Any failure returns no partial Scenario. The SDK and repository-local skill expose standalone
+materialization as well as the bounded Patch-backed Experiment composition; the Kernel and formal
+CLI remain unchanged.
 
 These capabilities are not verified statements of current Warframe mechanics. Raw Catalog data is
 evidence input, while every implemented runtime Rule retains `experimental` evidence status.
 Generated randomness, Monte Carlo, probabilistic Multishot or pellets, per-hit rolls, physical
 Projectile or geometry derivation, current-game-derived Radial or Beam formulas, real Status
 application/formulas, and unsupported composition remain explicit non-features. Experiment does
-not accept Patch variants or implement Sweep, Breakpoint, Ruleset branching, ratios, winner
-selection, ranking, tie semantics, statistics, or expected-value synthesis. Scenario Patch is not
-full RFC 6902: `add`, `remove`, `test`, `move`, `copy`, null or structural values, generated operations,
-and Patch-aware Experiment execution remain unsupported.
+not mix resolved and Patch variants, chain Patches, or implement Sweep, Breakpoint, Ruleset
+branching, ratios, winner selection, ranking, tie semantics, statistics, or expected-value
+synthesis. Scenario Patch is not full RFC 6902: `add`, `remove`, `test`, `move`, `copy`, null or
+structural values, and generated operations remain unsupported.
 
 `VoidTrace計画.md` is design input and discussion history. Normative behavior lives only under
 `specs/`.
@@ -124,29 +127,31 @@ run Experiments.
 
 ## SDK and repository-local skill
 
-`@voidtrace/sdk` exposes single-Scenario evaluation, the resolved Experiment facade, and finite
-Scenario Patch materialization. The skill
+`@voidtrace/sdk` exposes single-Scenario evaluation, resolved or Patch-backed Experiment comparison,
+and finite Scenario Patch materialization. The skill
 at `.agents/skills/voidtrace/SKILL.md` provides fixed-tier/expected fixture variation, formal-CLI
-golden inspection, one checked-in resolved Scenario comparison, and one checked-in Patch example:
+golden inspection, checked-in resolved and Patch-backed comparisons, and one checked-in Patch
+example:
 
 ```bash
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts --critical-tier 4 --armor 0 --health 1000
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts --expected
 node .agents/skills/voidtrace/scripts/run-comparison.ts --pretty
 node .agents/skills/voidtrace/scripts/run-comparison.ts --check-golden
+node .agents/skills/voidtrace/scripts/run-patch-comparison.ts --check-golden
 node .agents/skills/voidtrace/scripts/apply-scenario-patch.ts --evaluate --check-golden
 .agents/skills/voidtrace/scripts/smoke.sh
 ```
 
-The skill is an operator surface, not a second public CLI. Its comparison helper accepts only the
-checked-in Experiment and exact referenced Scenario set. It does not synthesize variants, mutate
-fixtures, infer whether a larger metric is better, or substitute a nearby supported comparison for
-an unsupported request. Its Patch helper accepts only already-valid content-addressed Patch and
-base inputs; it does not repair, rehash, or synthesize either Artifact.
+The skill is an operator surface, not a second public CLI. Its comparison helpers accept only the
+checked-in Experiments and their exact resolved Scenario set or exact base-plus-Patch set. They do
+not synthesize variants, mutate fixtures, infer whether a larger metric is better, or substitute a
+nearby supported comparison for an unsupported request. Its Patch helper accepts only already-valid
+content-addressed Patch and base inputs; it does not repair, rehash, or synthesize either Artifact.
 
 ## Specification maturity
 
-All 56 Clauses are `active`; no planned Clause remains. The generated coverage view reports 30
+All 57 Clauses are `active`; no planned Clause remains. The generated coverage view reports 31
 property-tested, 25 example-tested, and one manual Clause.
 Machine-verified active Clauses use independent oracles exercised by `just check`. All runtime
 Rules remain synthetic and retain `experimental` evidence status.

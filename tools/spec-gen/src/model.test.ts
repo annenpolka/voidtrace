@@ -168,6 +168,21 @@ describe("validateSpecDocument", () => {
         ],
       }).clauses[0]?.maturity,
     ).toBe("active");
+
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            id: "EXP-003",
+            pattern: "patch_backed_experiment_resolution",
+            maturity: "active",
+            area: "experiments",
+          },
+        ],
+      }).clauses[0]?.maturity,
+    ).toBe("active");
   });
 
   it("accepts the generalized Critical tier roll and scale operations", () => {

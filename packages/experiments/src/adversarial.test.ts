@@ -116,9 +116,9 @@ async function makeFixture(options: { readonly sameScenarioId?: boolean } = {}):
     revision: 1,
   });
   const experiment = (await attachArtifactContentHash({
-    $schema: "urn:voidtrace:schema:experiment:0.1.0",
+    $schema: "urn:voidtrace:schema:experiment:0.2.0",
     kind: "voidtrace.experiment",
-    schemaVersion: "0.1.0",
+    schemaVersion: "0.2.0",
     id: "experiment.adversarial",
     revision: 0,
     gameBuild: catalog.gameBuild,
@@ -156,9 +156,9 @@ async function makePropertyFixture(variantCount: number): Promise<PropertyFixtur
     revision: 99,
   });
   const experiment = (await attachArtifactContentHash({
-    $schema: "urn:voidtrace:schema:experiment:0.1.0",
+    $schema: "urn:voidtrace:schema:experiment:0.2.0",
     kind: "voidtrace.experiment",
-    schemaVersion: "0.1.0",
+    schemaVersion: "0.2.0",
     id: "experiment.property",
     revision: 0,
     gameBuild: catalog.gameBuild,

@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:0dfc28bd9a4828bc3c116b5d9161737cc346fa449e11b81bf1f480d8c52ab1a5",
+  "sourceFingerprint": "sha256:4dfd30f116b7cca5905e361a6c121124b2c82ea72e5d0a5f0669d948fca93ea8",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -169,7 +169,8 @@
       "status": "supported",
       "activeClauseRefs": [
         "EXP-001",
-        "EXP-002"
+        "EXP-002",
+        "EXP-003"
       ],
       "plannedClauseRefs": []
     },

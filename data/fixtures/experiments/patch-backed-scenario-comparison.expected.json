@@ -1,0 +1,18 @@
+{
+  "experimentId": "experiment.golden-patch-backed-comparison",
+  "comparisonId": "comparison.experiment.golden-patch-backed-comparison",
+  "primaryMetric": "damage.health.total",
+  "base": {
+    "scenarioId": "scenario.golden-direct-critical-armor",
+    "metricValue": 100,
+    "deltaFromBase": 0
+  },
+  "variants": [
+    {
+      "id": "variant.critical-tier-2",
+      "scenarioId": "scenario.golden-patched-critical-tier-2",
+      "metricValue": 150,
+      "deltaFromBase": 50
+    }
+  ]
+}

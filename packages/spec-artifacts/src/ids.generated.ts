@@ -20,6 +20,7 @@ export const CLAUSE_IDS = [
   "ENG-002",
   "EXP-001",
   "EXP-002",
+  "EXP-003",
   "GOL-001",
   "GOL-002",
   "GOL-003",

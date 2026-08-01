@@ -9,6 +9,7 @@ import {
   type Result,
   type Ruleset,
   type Scenario,
+  type ScenarioPatch,
   snapshotJsonValue,
   type Trace,
   validateContract,
@@ -20,6 +21,7 @@ import {
   type EvaluationRequest,
   evaluateScenario as evaluateKernelScenario,
 } from "@voidtrace/kernel";
+import { materializeScenarioPatch } from "./scenario-patch.ts";
 
 export type ExperimentErrorCode =
   | "experiment-invalid"
@@ -29,6 +31,9 @@ export type ExperimentErrorCode =
   | "ruleset-reference-mismatch"
   | "scenario-set-mismatch"
   | "scenario-reference-mismatch"
+  | "patch-set-mismatch"
+  | "patch-reference-mismatch"
+  | "scenario-patch-materialization-failed"
   | "unsupported-experiment-scenario"
   | "scenario-evaluation-failed"
   | "comparison-metric-missing"
@@ -44,13 +49,23 @@ export type ExperimentError = {
   readonly causeCode?: string;
 };
 
-export type RunResolvedComparisonRequest = {
+type ExperimentRequestBase = {
   readonly experiment: unknown;
   readonly scenarios: ReadonlyArray<unknown>;
   readonly catalog: unknown;
   readonly ruleset: unknown;
   readonly productVersion?: string;
 };
+
+export type RunResolvedComparisonRequest = ExperimentRequestBase & {
+  readonly patches?: never;
+};
+
+export type RunPatchBackedComparisonRequest = ExperimentRequestBase & {
+  readonly patches: ReadonlyArray<unknown>;
+};
+
+export type RunExperimentRequest = RunResolvedComparisonRequest | RunPatchBackedComparisonRequest;
 
 export type ExperimentEvaluationRow = {
   readonly scenario: Scenario;
@@ -84,14 +99,37 @@ export type ExperimentRunnerDependencies = {
 
 type JsonRecord = Record<string, unknown>;
 
-type DeclaredMember = {
+type ScenarioMemberContext = {
   readonly id: string | null;
   readonly pointer: string;
+};
+
+type DeclaredMember = ScenarioMemberContext & {
   readonly reference: ArtifactRef & { readonly kind: "voidtrace.scenario" };
 };
 
-type ResolvedMember = DeclaredMember & {
+type ResolvedMember = ScenarioMemberContext & {
   readonly scenario: Scenario;
+};
+
+type ResolvedExperimentVariant = Extract<
+  Experiment["variants"][number],
+  { readonly scenarioRef: ArtifactRef }
+>;
+
+type PatchExperimentVariant = Extract<
+  Experiment["variants"][number],
+  { readonly patchRef: ArtifactRef }
+>;
+
+type DeclaredPatchMember = {
+  readonly id: string;
+  readonly pointer: string;
+  readonly reference: ArtifactRef & { readonly kind: "voidtrace.scenario-patch" };
+};
+
+type ResolvedPatchMember = DeclaredPatchMember & {
+  readonly patch: ScenarioPatch;
 };
 
 type Preflight = {
@@ -103,7 +141,14 @@ type Preflight = {
   readonly productVersion?: string;
 };
 
-const REQUEST_KEYS = ["catalog", "experiment", "productVersion", "ruleset", "scenarios"] as const;
+const REQUEST_KEYS = [
+  "catalog",
+  "experiment",
+  "patches",
+  "productVersion",
+  "ruleset",
+  "scenarios",
+] as const;
 const SUCCESS_KEYS = ["ok", "result", "trace"] as const;
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -147,7 +192,7 @@ function failure(
 }
 
 function isExperimentFailure(
-  value: ExperimentFailure | Preflight | ExperimentEvaluationRow,
+  value: ExperimentFailure | Preflight | ResolvedMember | ExperimentEvaluationRow,
 ): value is ExperimentFailure {
   return "ok" in value && value.ok === false;
 }
@@ -187,6 +232,80 @@ function referencesEqual(left: ArtifactRef, right: ArtifactRef): boolean {
 
 function normalizeZero(value: number): number {
   return Object.is(value, -0) ? 0 : value;
+}
+
+function isResolvedExperimentVariant(
+  variant: Experiment["variants"][number],
+): variant is ResolvedExperimentVariant {
+  return "scenarioRef" in variant;
+}
+
+function isPatchExperimentVariant(
+  variant: Experiment["variants"][number],
+): variant is PatchExperimentVariant {
+  return "patchRef" in variant;
+}
+
+async function bindDeclaredScenarioRef(
+  member: DeclaredMember,
+  scenario: Scenario,
+): Promise<ResolvedMember | ExperimentFailure> {
+  if (!(await artifactMatchesRef(member.reference, scenario))) {
+    return failure(
+      "scenario-reference-mismatch",
+      "Scenario does not match its declared reference",
+      {
+        path: member.pointer,
+        ...(member.id === null ? {} : { memberId: member.id }),
+      },
+    );
+  }
+  return deepFreeze({ id: member.id, pointer: member.pointer, scenario });
+}
+
+function verifyScenarioAgainstExperiment(
+  experiment: Experiment,
+  member: ScenarioMemberContext,
+  scenario: Scenario,
+): ExperimentFailure | undefined {
+  if (
+    scenario.gameBuild !== experiment.gameBuild ||
+    !referencesEqual(scenario.catalogRef, experiment.catalogRef) ||
+    !referencesEqual(scenario.rulesetRef, experiment.rulesetRef)
+  ) {
+    return failure(
+      "scenario-reference-mismatch",
+      "Scenario provenance does not match the Experiment Catalog, Ruleset, and game build",
+      {
+        path: member.pointer,
+        ...(member.id === null ? {} : { memberId: member.id }),
+        causeCode: "provenance-mismatch",
+      },
+    );
+  }
+  if (scenario.simulation.mode === "monte-carlo") {
+    return failure(
+      "unsupported-experiment-scenario",
+      "Experiment comparison does not support Monte Carlo Scenarios",
+      {
+        path: member.pointer,
+        ...(member.id === null ? {} : { memberId: member.id }),
+        causeCode: "unsupported-monte-carlo",
+      },
+    );
+  }
+  if (scenario.metrics.filter((metric) => metric === experiment.primaryMetric).length !== 1) {
+    return failure(
+      "comparison-metric-missing",
+      "primaryMetric must occur exactly once in every Scenario metrics list",
+      {
+        path: member.pointer,
+        ...(member.id === null ? {} : { memberId: member.id }),
+        causeCode: "scenario-metric-membership",
+      },
+    );
+  }
+  return undefined;
 }
 
 async function preflight(request: unknown): Promise<Preflight | ExperimentFailure> {
@@ -286,14 +405,55 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
     );
   }
 
+  const variantIds = new Set<string>();
+  for (const [index, variant] of experiment.variants.entries()) {
+    if (variantIds.has(variant.id)) {
+      return failure("experiment-invalid", "Experiment variant IDs must be unique", {
+        path: `/variants/${index}/id`,
+        memberId: variant.id,
+        causeCode: "duplicate-variant-id",
+      });
+    }
+    variantIds.add(variant.id);
+  }
+
+  const resolvedMode = experiment.variants.every(isResolvedExperimentVariant);
+  const patchMode = experiment.variants.every(isPatchExperimentVariant);
+  if (!resolvedMode && !patchMode) {
+    return failure("experiment-invalid", "Experiment variant source modes cannot be mixed", {
+      path: "/experiment/variants",
+      causeCode: "mixed-variant-source",
+    });
+  }
+  const hasPatches = Object.hasOwn(requestSnapshot, "patches");
+  if (resolvedMode && hasPatches) {
+    return failure("patch-set-mismatch", "Resolved Experiment mode does not accept Patch inputs", {
+      path: "/patches",
+      causeCode: "unexpected-patch-set",
+    });
+  }
+  if (patchMode && !hasPatches) {
+    return failure("patch-set-mismatch", "Patch-backed Experiment mode requires Patch inputs", {
+      path: "/patches",
+      causeCode: "missing-patch-set",
+    });
+  }
+
   if (!Array.isArray(requestSnapshot.scenarios)) {
     return failure("scenario-set-mismatch", "scenarios must be an array", {
       path: "/scenarios",
     });
   }
-  const scenarioInputs = requestSnapshot.scenarios;
+  const expectedScenarioCount = resolvedMode ? experiment.variants.length + 1 : 1;
+  if (requestSnapshot.scenarios.length !== expectedScenarioCount) {
+    return failure(
+      "scenario-set-mismatch",
+      "Supplied Scenario count does not match the Experiment declaration",
+      { path: "/scenarios" },
+    );
+  }
   const validatedScenarios: Scenario[] = [];
-  for (const [index, input] of scenarioInputs.entries()) {
+  for (const [index, input] of requestSnapshot.scenarios.entries()) {
     const validation = validateContract("scenario", input);
     if (!validation.ok) {
       return failure("scenario-reference-mismatch", "Scenario Contract validation failed", {
@@ -314,31 +474,23 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
     validatedScenarios.push(scenario);
   }
 
+  const resolvedVariants = resolvedMode
+    ? (experiment.variants as ReadonlyArray<ResolvedExperimentVariant>)
+    : [];
   const members: DeclaredMember[] = [
     {
       id: null,
       pointer: "/baseScenarioRef",
       reference: experiment.baseScenarioRef,
     },
-    ...experiment.variants.map((variant, index) => ({
+    ...resolvedVariants.map((variant, index) => ({
       id: variant.id,
       pointer: `/variants/${index}/scenarioRef`,
       reference: variant.scenarioRef,
     })),
   ];
-  const variantIds = new Set<string>();
   const declaredScenarioIdentities = new Set<string>();
   for (const member of members) {
-    if (member.id !== null) {
-      if (variantIds.has(member.id)) {
-        return failure("experiment-invalid", "Experiment variant IDs must be unique", {
-          path: member.pointer.replace(/scenarioRef$/, "id"),
-          memberId: member.id,
-          causeCode: "duplicate-variant-id",
-        });
-      }
-      variantIds.add(member.id);
-    }
     const identity = scenarioIdentity(member.reference);
     if (declaredScenarioIdentities.has(identity)) {
       return failure("scenario-set-mismatch", "Declared Scenario identities must be unique", {
@@ -349,18 +501,10 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
     }
     declaredScenarioIdentities.add(identity);
   }
-
-  if (validatedScenarios.length !== members.length) {
-    return failure(
-      "scenario-set-mismatch",
-      "Supplied Scenario count does not match the Experiment declaration",
-      { path: "/scenarios" },
-    );
-  }
-  const suppliedByIdentity = new Map<string, Scenario>();
+  const suppliedScenariosByIdentity = new Map<string, Scenario>();
   for (const [index, scenario] of validatedScenarios.entries()) {
     const identity = scenarioIdentity(scenario);
-    if (suppliedByIdentity.has(identity)) {
+    if (suppliedScenariosByIdentity.has(identity)) {
       return failure("scenario-set-mismatch", "Supplied Scenario identities must be unique", {
         path: `/scenarios/${index}`,
         causeCode: "duplicate-scenario-identity",
@@ -370,18 +514,15 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
       return failure(
         "scenario-set-mismatch",
         "Supplied Scenario is not declared by the Experiment",
-        {
-          path: `/scenarios/${index}`,
-          causeCode: "unexpected-scenario",
-        },
+        { path: `/scenarios/${index}`, causeCode: "unexpected-scenario" },
       );
     }
-    suppliedByIdentity.set(identity, scenario);
+    suppliedScenariosByIdentity.set(identity, scenario);
   }
 
   const resolvedMembers: ResolvedMember[] = [];
   for (const member of members) {
-    const scenario = suppliedByIdentity.get(scenarioIdentity(member.reference));
+    const scenario = suppliedScenariosByIdentity.get(scenarioIdentity(member.reference));
     if (scenario === undefined) {
       return failure("scenario-set-mismatch", "A declared Scenario was not supplied", {
         path: member.pointer,
@@ -389,66 +530,205 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
         causeCode: "missing-scenario",
       });
     }
-    if (!(await artifactMatchesRef(member.reference, scenario))) {
-      return failure(
-        "scenario-reference-mismatch",
-        "Scenario does not match its declared reference",
-        {
-          path: member.pointer,
-          ...(member.id === null ? {} : { memberId: member.id }),
-        },
-      );
+    const resolved = await bindDeclaredScenarioRef(member, scenario);
+    if (isExperimentFailure(resolved)) {
+      return resolved;
     }
-    if (
-      scenario.gameBuild !== experiment.gameBuild ||
-      !referencesEqual(scenario.catalogRef, experiment.catalogRef) ||
-      !referencesEqual(scenario.rulesetRef, experiment.rulesetRef)
-    ) {
-      return failure(
-        "scenario-reference-mismatch",
-        "Scenario provenance does not match the Experiment Catalog, Ruleset, and game build",
-        {
-          path: member.pointer,
-          ...(member.id === null ? {} : { memberId: member.id }),
-          causeCode: "provenance-mismatch",
-        },
-      );
+    const scenarioFailure = verifyScenarioAgainstExperiment(experiment, member, scenario);
+    if (scenarioFailure !== undefined) {
+      return scenarioFailure;
     }
-    if (scenario.simulation.mode === "monte-carlo") {
-      return failure(
-        "unsupported-experiment-scenario",
-        "Resolved comparison does not support Monte Carlo Scenarios",
-        {
-          path: member.pointer,
-          ...(member.id === null ? {} : { memberId: member.id }),
-          causeCode: "unsupported-monte-carlo",
-        },
-      );
-    }
-    if (scenario.metrics.filter((metric) => metric === experiment.primaryMetric).length !== 1) {
-      return failure(
-        "comparison-metric-missing",
-        "primaryMetric must occur exactly once in every Scenario metrics list",
-        {
-          path: member.pointer,
-          ...(member.id === null ? {} : { memberId: member.id }),
-          causeCode: "scenario-metric-membership",
-        },
-      );
-    }
-    resolvedMembers.push(deepFreeze({ ...member, scenario }));
+    resolvedMembers.push(resolved);
   }
-
   const base = resolvedMembers[0];
   if (base === undefined) {
     return failure("scenario-set-mismatch", "Experiment has no base Scenario");
   }
-  const variants = resolvedMembers.slice(1).map((member) => {
-    if (member.id === null) {
-      throw new TypeError("Variant member has no ID");
+
+  let variants: ReadonlyArray<ResolvedMember & { readonly id: string }>;
+  if (resolvedMode) {
+    variants = resolvedMembers.slice(1).map((member) => {
+      if (member.id === null) {
+        throw new TypeError("Variant member has no ID");
+      }
+      return deepFreeze({ ...member, id: member.id });
+    });
+  } else {
+    if (!Array.isArray(requestSnapshot.patches)) {
+      return failure("patch-set-mismatch", "patches must be an array", { path: "/patches" });
     }
-    return deepFreeze({ ...member, id: member.id });
-  });
+    if (requestSnapshot.patches.length !== experiment.variants.length) {
+      return failure(
+        "patch-set-mismatch",
+        "Supplied Patch count does not match the Experiment declaration",
+        { path: "/patches" },
+      );
+    }
+    const validatedPatches: ScenarioPatch[] = [];
+    for (const [index, input] of requestSnapshot.patches.entries()) {
+      const validation = validateContract("scenario-patch", input);
+      if (!validation.ok) {
+        return failure("patch-reference-mismatch", "ScenarioPatch Contract validation failed", {
+          path: `/patches/${index}${firstIssuePath(validation) ?? ""}`,
+        });
+      }
+      const scenarioPatch = deepFreeze(validation.value);
+      if (!(await verifyArtifactContentHash(scenarioPatch))) {
+        return failure(
+          "patch-reference-mismatch",
+          "ScenarioPatch contentHash does not match its content",
+          {
+            path: `/patches/${index}/contentHash`,
+            causeCode: "content-hash-mismatch",
+          },
+        );
+      }
+      validatedPatches.push(scenarioPatch);
+    }
+
+    const patchVariants = experiment.variants as ReadonlyArray<PatchExperimentVariant>;
+    const patchMembers: DeclaredPatchMember[] = patchVariants.map((variant, index) => ({
+      id: variant.id,
+      pointer: `/variants/${index}/patchRef`,
+      reference: variant.patchRef,
+    }));
+    const declaredPatchIdentities = new Set<string>();
+    for (const member of patchMembers) {
+      const identity = scenarioIdentity(member.reference);
+      if (declaredPatchIdentities.has(identity)) {
+        return failure("patch-set-mismatch", "Declared Patch identities must be unique", {
+          path: member.pointer,
+          memberId: member.id,
+          causeCode: "duplicate-patch-identity",
+        });
+      }
+      declaredPatchIdentities.add(identity);
+    }
+    const suppliedPatchesByIdentity = new Map<string, ScenarioPatch>();
+    for (const [index, scenarioPatch] of validatedPatches.entries()) {
+      const identity = scenarioIdentity(scenarioPatch);
+      if (suppliedPatchesByIdentity.has(identity)) {
+        return failure("patch-set-mismatch", "Supplied Patch identities must be unique", {
+          path: `/patches/${index}`,
+          causeCode: "duplicate-patch-identity",
+        });
+      }
+      if (!declaredPatchIdentities.has(identity)) {
+        return failure("patch-set-mismatch", "Supplied Patch is not declared by the Experiment", {
+          path: `/patches/${index}`,
+          causeCode: "unexpected-patch",
+        });
+      }
+      suppliedPatchesByIdentity.set(identity, scenarioPatch);
+    }
+
+    const resultScenarioIdentities = new Set<string>([scenarioIdentity(base.scenario)]);
+    const resolvedPatches: ResolvedPatchMember[] = [];
+    for (const member of patchMembers) {
+      const scenarioPatch = suppliedPatchesByIdentity.get(scenarioIdentity(member.reference));
+      if (scenarioPatch === undefined) {
+        return failure("patch-set-mismatch", "A declared Patch was not supplied", {
+          path: member.pointer,
+          memberId: member.id,
+          causeCode: "missing-patch",
+        });
+      }
+      if (!(await artifactMatchesRef(member.reference, scenarioPatch))) {
+        return failure(
+          "patch-reference-mismatch",
+          "ScenarioPatch does not match its declared reference",
+          { path: member.pointer, memberId: member.id },
+        );
+      }
+      if (
+        scenarioPatch.gameBuild !== experiment.gameBuild ||
+        !referencesEqual(scenarioPatch.baseScenarioRef, experiment.baseScenarioRef)
+      ) {
+        return failure(
+          "patch-reference-mismatch",
+          "ScenarioPatch provenance does not match the Experiment base Scenario and game build",
+          {
+            path: member.pointer,
+            memberId: member.id,
+            causeCode: "provenance-mismatch",
+          },
+        );
+      }
+      const resultIdentity = scenarioIdentity(scenarioPatch.resultScenario);
+      if (resultScenarioIdentities.has(resultIdentity)) {
+        return failure(
+          "patch-set-mismatch",
+          "Patch result Scenario identities must be unique and distinct from the base",
+          {
+            path: member.pointer,
+            memberId: member.id,
+            causeCode: "duplicate-result-scenario-identity",
+          },
+        );
+      }
+      resultScenarioIdentities.add(resultIdentity);
+      resolvedPatches.push(deepFreeze({ ...member, patch: scenarioPatch }));
+    }
+
+    const materializedVariants: Array<ResolvedMember & { readonly id: string }> = [];
+    for (const member of resolvedPatches) {
+      const outcome = await materializeScenarioPatch({
+        patch: member.patch,
+        scenario: base.scenario,
+      });
+      if (!outcome.ok) {
+        return failure(
+          "scenario-patch-materialization-failed",
+          "ScenarioPatch materialization failed",
+          {
+            path: member.pointer,
+            memberId: member.id,
+            causeCode: outcome.error.code,
+          },
+        );
+      }
+      const scenarioValidation = validateContract("scenario", outcome.scenario);
+      if (!scenarioValidation.ok) {
+        return failure("integrity-check-failed", "Materialized Scenario Contract is invalid", {
+          path: member.pointer,
+          memberId: member.id,
+          causeCode: "materialized-scenario-invalid",
+        });
+      }
+      const scenario = deepFreeze(scenarioValidation.value);
+      if (!(await verifyArtifactContentHash(scenario))) {
+        return failure("integrity-check-failed", "Materialized Scenario hash is invalid", {
+          path: member.pointer,
+          memberId: member.id,
+          causeCode: "materialized-scenario-content-hash",
+        });
+      }
+      if (
+        scenario.id !== member.patch.resultScenario.id ||
+        scenario.revision !== member.patch.resultScenario.revision ||
+        scenario.createdFrom === undefined ||
+        !referencesEqual(scenario.createdFrom, experiment.baseScenarioRef)
+      ) {
+        return failure("integrity-check-failed", "Materialized Scenario provenance is invalid", {
+          path: member.pointer,
+          memberId: member.id,
+          causeCode: "materialized-scenario-provenance",
+        });
+      }
+      const scenarioContext = { id: member.id, pointer: member.pointer } as const;
+      const scenarioFailure = verifyScenarioAgainstExperiment(
+        experiment,
+        scenarioContext,
+        scenario,
+      );
+      if (scenarioFailure !== undefined) {
+        return scenarioFailure;
+      }
+      materializedVariants.push(deepFreeze({ ...scenarioContext, scenario }));
+    }
+    variants = deepFreeze(materializedVariants);
+  }
+
   return deepFreeze({
     experiment,
     catalog,
@@ -620,12 +900,12 @@ async function comparisonMatches(
 
 export function createExperimentRunner(
   dependencies: ExperimentRunnerDependencies,
-): (request: RunResolvedComparisonRequest) => Promise<ExperimentOutcome> {
+): (request: RunExperimentRequest) => Promise<ExperimentOutcome> {
   const evaluator = dependencies.evaluateScenario;
   if (typeof evaluator !== "function") {
     throw new TypeError("createExperimentRunner requires a Scenario evaluator");
   }
-  return async (request: RunResolvedComparisonRequest): Promise<ExperimentOutcome> => {
+  return async (request: RunExperimentRequest): Promise<ExperimentOutcome> => {
     const preflighted = await preflight(request);
     if (isExperimentFailure(preflighted)) {
       return preflighted;
@@ -724,9 +1004,13 @@ export function createExperimentRunner(
   };
 }
 
-export const runResolvedComparison = createExperimentRunner({
+export const runExperimentComparison = createExperimentRunner({
   evaluateScenario: evaluateKernelScenario,
 });
+
+export const runResolvedComparison = (
+  request: RunResolvedComparisonRequest,
+): Promise<ExperimentOutcome> => runExperimentComparison(request);
 
 export {
   type MaterializeScenarioPatchRequest,

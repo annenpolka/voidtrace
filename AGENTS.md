@@ -82,16 +82,18 @@ geometry, collision, wall penetration, attenuation, reflection angles, chain can
 branching, distance, revisit behavior, target selection, or rolls. Every other non-empty Target
 Graph is rejected without partial Artifacts.
 
-Experiment Contract `0.1.0` separately accepts one exact Catalog and Ruleset reference, one base
-Scenario reference, 1 to 15 ordered variant Scenario references, and one primary metric. The
-resolved comparison runner requires the supplied Scenario set to match those references exactly,
-evaluates the base and then each variant once through the existing single-Scenario Kernel,
-integrity-checks every Result and Trace, and returns one content-addressed Comparison Contract
-`0.1.0` with finite metric values and signed `variant - base` deltas. A failure returns no partial
-Comparison or evaluation rows. It does not apply Scenario Patch, synthesize variants, run Sweep,
-Breakpoint, Ruleset branches, Monte Carlo, ratios, winner or ranking semantics, or statistical
-uncertainty. This slice is exposed through `@voidtrace/sdk` and the repository-local operator
-skill; the formal CLI has no Experiment command.
+Experiment Contract `0.2.0` separately accepts one exact Catalog and Ruleset reference, one base
+Scenario reference, one primary metric, and either 1 to 15 ordered resolved Scenario references or
+1 to 15 ordered ScenarioPatch references. The source modes cannot be mixed. Resolved mode requires
+the supplied Scenario set to match exactly. Patch-backed mode requires exactly the base Scenario
+and complete Patch set, validates and materializes every Patch before evaluation, then evaluates
+the base and each variant once through the existing single-Scenario Kernel. Both modes
+integrity-check every Result and Trace and return Comparison Contract `0.1.0` with finite metric
+values and signed `variant - base` deltas. A failure returns no partial Comparison, materialized
+Scenario rows, or evaluation rows. Patch chains, Sweep, Breakpoint, Ruleset branches, Monte Carlo,
+ratios, winner or ranking semantics, and statistical uncertainty remain unsupported. This slice is
+exposed through `@voidtrace/sdk` and the repository-local operator skill; the formal CLI has no
+Experiment command.
 
 ScenarioPatch Contract `0.1.0` separately accepts one exact base Scenario reference, one explicit
 result Scenario identity pair, and 1 to 64 ordered replace-only operations over allowlisted
@@ -100,14 +102,14 @@ content hashes plus the exact base reference and game build, rejects duplicate p
 non-scalar leaves, kind changes, no-ops, and reuse of the exact base identity, then emits a normal
 Scenario with the declared identity, exact base `createdFrom`, and a new verified content hash.
 Failure is atomic and returns no partial Scenario. It does not add or remove fields, replace null,
-objects, or arrays, implement full RFC 6902, evaluate Damage, synthesize or rehash input, compose
-with Experiment, or run Sweep, Breakpoint, or Ruleset branches. This slice is exposed through
-`@voidtrace/sdk` and the repository-local operator skill; Kernel, runtime-node, and the formal CLI
-remain unchanged.
+objects, or arrays, implement full RFC 6902, evaluate Damage, synthesize or rehash input, chain
+Patch outputs, or run Sweep, Breakpoint, or Ruleset branches. This slice is exposed standalone and
+through the bounded Patch-backed Experiment in `@voidtrace/sdk` and the repository-local operator
+skill; Kernel, runtime-node, and the formal CLI remain unchanged.
 
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
-repository-local analytic expected preset plus the exact resolved Scenario comparison and finite
-Scenario Patch materialization; it is not
+repository-local analytic expected preset plus exact resolved and Patch-backed Scenario comparisons
+and finite Scenario Patch materialization; it is not
 the formal CLI boundary and does not synthesize Critical chance, rolls, Multishot counts, pellet
 counts, comparison members, variant inputs, Patch operations, or Patch content hashes. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,

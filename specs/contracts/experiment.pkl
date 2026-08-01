@@ -4,9 +4,10 @@ module voidtrace.contracts.experiment
 import "artifact.pkl"
 import "model.pkl"
 
-local experimentSchemaIdentifier = "urn:voidtrace:schema:experiment:0.1.0"
+local experimentSchemaIdentifier = "urn:voidtrace:schema:experiment:0.2.0"
 local comparisonSchemaIdentifier = "urn:voidtrace:schema:comparison:0.1.0"
-local contractVersion = "0.1.0"
+local experimentContractVersion = "0.2.0"
+local comparisonContractVersion = "0.1.0"
 local maximumVariants = 15
 
 function artifactReference(expectedKindValue: String): model.RefNode = new model.RefNode {
@@ -14,7 +15,7 @@ function artifactReference(expectedKindValue: String): model.RefNode = new model
   expectedKind = expectedKindValue
 }
 
-function experimentVariant(): model.ObjectNode = new model.ObjectNode {
+function resolvedExperimentVariant(): model.ObjectNode = new model.ObjectNode {
   fields = new {
     new model.Field {
       name = "id"
@@ -27,6 +28,38 @@ function experimentVariant(): model.ObjectNode = new model.ObjectNode {
       description = "Exact immutable Scenario revision evaluated for this variant."
       required = true
       schema = artifactReference("voidtrace.scenario")
+    }
+  }
+}
+
+function patchExperimentVariant(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Experiment-local stable identity of this Patch-backed variant."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "patchRef"
+      description = "Exact immutable ScenarioPatch revision materialized for this variant."
+      required = true
+      schema = artifactReference("voidtrace.scenario-patch")
+    }
+  }
+}
+
+function experimentVariants(): model.UnionNode = new model.UnionNode {
+  variants = new {
+    new model.ArrayNode {
+      items = resolvedExperimentVariant()
+      minItems = 1
+      maxItems = maximumVariants
+    }
+    new model.ArrayNode {
+      items = patchExperimentVariant()
+      minItems = 1
+      maxItems = maximumVariants
     }
   }
 }
@@ -101,15 +134,15 @@ experiment: model.Contract = new {
   id = "experiment"
   typeName = "Experiment"
   schemaId = experimentSchemaIdentifier
-  version = contractVersion
+  version = experimentContractVersion
   description =
-    "Immutable bounded comparison of already resolved Scenario revisions under one Catalog and Ruleset."
+    "Immutable bounded comparison using either already resolved Scenario revisions or exact ScenarioPatch revisions under one Catalog and Ruleset."
   root = new model.ObjectNode {
     fields = (
       artifact.envelopeFields(
         experimentSchemaIdentifier,
         "voidtrace.experiment",
-        contractVersion,
+        experimentContractVersion,
       )
     ) {
       new model.Field {
@@ -132,13 +165,10 @@ experiment: model.Contract = new {
       }
       new model.Field {
         name = "variants"
-        description = "Ordered non-empty finite list of already resolved Scenario variants."
+        description =
+          "Ordered non-empty finite list whose members are all resolved Scenario variants or all ScenarioPatch-backed variants; mixed source modes are unsupported."
         required = true
-        schema = new model.ArrayNode {
-          items = experimentVariant()
-          minItems = 1
-          maxItems = maximumVariants
-        }
+        schema = experimentVariants()
       }
       new model.Field {
         name = "primaryMetric"
@@ -154,7 +184,7 @@ comparison: model.Contract = new {
   id = "comparison"
   typeName = "Comparison"
   schemaId = comparisonSchemaIdentifier
-  version = contractVersion
+  version = comparisonContractVersion
   description =
     "Content-addressed primary-metric projections from one complete resolved Experiment."
   root = new model.ObjectNode {
@@ -162,7 +192,7 @@ comparison: model.Contract = new {
       artifact.envelopeFields(
         comparisonSchemaIdentifier,
         "voidtrace.comparison",
-        contractVersion,
+        comparisonContractVersion,
       )
     ) {
       new model.Field {

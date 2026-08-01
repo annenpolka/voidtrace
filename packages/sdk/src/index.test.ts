@@ -93,9 +93,9 @@ async function comparisonExperiment(
   catalogRef: ArtifactIdentity = scenarioFixture.catalogRef,
 ): Promise<object> {
   return withContentHash({
-    $schema: "urn:voidtrace:schema:experiment:0.1.0",
+    $schema: "urn:voidtrace:schema:experiment:0.2.0",
     kind: "voidtrace.experiment",
-    schemaVersion: "0.1.0",
+    schemaVersion: "0.2.0",
     id: "experiment.sdk-resolved-comparison",
     revision: 0,
     gameBuild: scenarioFixture.gameBuild,
@@ -110,6 +110,27 @@ async function comparisonExperiment(
       {
         id: "radial-falloff",
         scenarioRef: artifactRef(radialScenarioFixture),
+      },
+    ],
+    primaryMetric: "damage.health.total",
+  });
+}
+
+async function patchBackedExperiment(): Promise<object> {
+  return withContentHash({
+    $schema: "urn:voidtrace:schema:experiment:0.2.0",
+    kind: "voidtrace.experiment",
+    schemaVersion: "0.2.0",
+    id: "experiment.sdk-patch-backed-comparison",
+    revision: 0,
+    gameBuild: scenarioFixture.gameBuild,
+    catalogRef: scenarioFixture.catalogRef,
+    rulesetRef: scenarioFixture.rulesetRef,
+    baseScenarioRef: artifactRef(scenarioFixture),
+    variants: [
+      {
+        id: "critical-tier-2",
+        patchRef: artifactRef(scenarioPatchFixture),
       },
     ],
     primaryMetric: "damage.health.total",
@@ -275,6 +296,98 @@ describe("VoidTrace SDK", () => {
       probabilityScenarioFixture.id,
       radialScenarioFixture.id,
     ]);
+  });
+
+  it("runs a Patch-backed Experiment through the public SDK boundary", async () => {
+    const request = {
+      experiment: await patchBackedExperiment(),
+      scenarios: [scenarioFixture],
+      patches: [scenarioPatchFixture],
+      catalog: catalogFixture,
+    };
+
+    const first = await runExperiment(structuredClone(request));
+    const second = await runExperiment(structuredClone(request));
+
+    expect(first.ok).toBe(true);
+    expect(second).toEqual(first);
+    if (!first.ok) {
+      throw new Error(first.error.message);
+    }
+    expect(first.base.scenario.id).toBe(scenarioFixture.id);
+    expect(first.variants).toHaveLength(1);
+    expect(first.variants[0]?.id).toBe("critical-tier-2");
+    expect(first.variants[0]?.scenario).toEqual(scenarioPatchExpectedScenarioFixture);
+    expect(first.comparison).toMatchObject({
+      primaryMetric: "damage.health.total",
+      base: {
+        metricValue: 100,
+        deltaFromBase: 0,
+      },
+      variants: [
+        {
+          id: "critical-tier-2",
+          scenarioRef: artifactRef(scenarioPatchExpectedScenarioFixture),
+          metricValue: 150,
+          deltaFromBase: 50,
+        },
+      ],
+    });
+    expect(await contentHashIsValid(first.comparison)).toBe(true);
+  });
+
+  it("snapshots the Patch set and bodies before the first asynchronous Ruleset load", async () => {
+    const request = structuredClone({
+      experiment: await patchBackedExperiment(),
+      scenarios: [scenarioFixture],
+      patches: [scenarioPatchFixture],
+      catalog: catalogFixture,
+    });
+    const pending = runExperiment(request);
+    const patch = request.patches[0] as unknown as {
+      contentHash: string;
+      operations: Array<{ value: number }>;
+    };
+    patch.contentHash = `sha256:${"f".repeat(64)}`;
+    const operation = patch.operations[0];
+    if (operation === undefined) {
+      throw new Error("Expected the checked-in Patch to contain one operation");
+    }
+    operation.value = 63;
+    request.patches.length = 0;
+
+    const outcome = await pending;
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    expect(outcome.variants[0]?.scenario).toEqual(scenarioPatchExpectedScenarioFixture);
+    expect(outcome.comparison.variants).toMatchObject([
+      {
+        id: "critical-tier-2",
+        metricValue: 150,
+        deltaFromBase: 50,
+      },
+    ]);
+  });
+
+  it("rejects a Patch-backed Experiment when the SDK request omits patches", async () => {
+    const outcome = await runExperiment({
+      experiment: await patchBackedExperiment(),
+      scenarios: [scenarioFixture],
+      catalog: catalogFixture,
+    });
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: {
+        code: "patch-set-mismatch",
+        message: "Patch-backed Experiment mode requires Patch inputs",
+        path: "/patches",
+        causeCode: "missing-patch-set",
+      },
+    });
   });
 
   it("rejects accessors without invoking them or leaking their exception", async () => {

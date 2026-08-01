@@ -13,6 +13,7 @@ import "contracts/scenario-patch.pkl" as scenarioPatchContract
 import "contracts/scenario.pkl"
 import "contracts/trace.pkl"
 import "experiments/comparison.pkl"
+import "experiments/patch-backed-comparison.pkl" as patchBackedComparison
 import "experiments/scenario-patch.pkl" as scenarioPatch
 import "golden/direct-critical-armor.pkl"
 import "golden/expected-critical-armor.pkl"
@@ -111,6 +112,7 @@ clauses: Listing<base.Clause> = new {
   cliSurface.inputSurface
   comparison.resolvedMembership
   comparison.comparisonIntegrity
+  patchBackedComparison.resolution
   scenarioPatch.isolation
 }
 
