@@ -2,7 +2,7 @@
   "kind": "voidtrace.spec-manifest",
   "schemaVersion": "0.1.0",
   "source": "specs/main.pkl",
-  "sourceFingerprint": "sha256:53ee89d208ed4ce52d82c9f4c41146f6c91c5fb1fff949dd8bc790ccc5d3d822",
+  "sourceFingerprint": "sha256:cdc2f564c1768ecd8d669f6e9acc812c5835ae21e16162580fa85aa9da83d7ef",
   "clauses": [
     {
       "id": "BEM-001",
@@ -11,6 +11,14 @@
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "mechanics"
+    },
+    {
+      "id": "BRK-001",
+      "pattern": "finite_breakpoint_analysis",
+      "desc": "FiniteBreakpointAnalysis 0.1.0はcaller宣言の一意なid／revision、一つの共通Catalogと生成Ruleset、leftとrightの二つの完全なfinite Sweep requestを受ける。最初のawait前に入力graph全体を一度だけsnapshotし、両側のExperiment、base Scenario、完全なexact Patch集合を検査して全派生Scenarioをmaterializeした後だけ、同じCatalogRef、RulesetRef、game build、primary metric、Sweep path、point数、同じ宣言順の有限numeric coordinateを要求する。coordinateは宣言順で狭義単調増加でなければならず、string／boolean／降順／無順序軸をsortまたは変換しない。leftのbaseとpoint、次にrightのbaseとpointを既存finite Sweep evaluatorで順次評価し、両方の完全なComparisonとResult／Trace integrityを通過した後だけ、全Result fingerprintのproductVersion、engineVersion、scenarioSchemaVersion完全一致を要求する。各coordinateについてleft absolute primary metric minus right absolute primary metricを有限算術で計算して負の0を0へ正規化し、全sampleを走査する。exact zero sampleと隣接するnon-zero differenceの符号反転を重複なく候補として数え、候補が一つならexact-equalityまたはsampled-sign-reversal、零ならno-observed-candidateを生成し、二つ以上ならambiguousとしてArtifactを返さない。Artifactはmethod finite-scan、両Experiment／Comparison完全Ref、metric、path、共通version、全coordinate、両variant identity、Scenario／Result完全Ref、両metric値、signed difference、唯一のfindingを保持し、content hash、Contract、独立integrityを再検査する。一件でもsnapshot、preflight、materialization、compatibility、evaluation、fingerprint、算術、candidate uniqueness、Artifact integrityに失敗すればAnalysis、部分sample、Comparison、materialized Scenario、evaluation列を返さずcaller入力を変更しない。符号判定に乗算を使わず、連続crossover、root、interpolation、tolerance、binary search、range／step生成、sort／dedup、monotonicity、winner／ranking／tie policy、複数候補列挙、Monte Carlo、current-game mechanicsを導出または主張しない",
+      "guarantee": "property-tested",
+      "maturity": "active",
+      "area": "experiments"
     },
     {
       "id": "CHN-001",
@@ -498,6 +506,12 @@
       "id": "fingerprint",
       "typeName": "Fingerprint",
       "schemaId": "urn:voidtrace:schema:fingerprint:0.1.0",
+      "version": "0.1.0"
+    },
+    {
+      "id": "finite-breakpoint-analysis",
+      "typeName": "FiniteBreakpointAnalysis",
+      "schemaId": "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0",
       "version": "0.1.0"
     },
     {

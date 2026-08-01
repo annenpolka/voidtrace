@@ -5,6 +5,7 @@ import catalogSnapshotSchema from "./schemas/catalog-snapshot.schema.json" with 
 import comparisonSchema from "./schemas/comparison.schema.json" with { type: "json" };
 import experimentSchema from "./schemas/experiment.schema.json" with { type: "json" };
 import fingerprintSchema from "./schemas/fingerprint.schema.json" with { type: "json" };
+import finiteBreakpointAnalysisSchema from "./schemas/finite-breakpoint-analysis.schema.json" with { type: "json" };
 import problemSchema from "./schemas/problem.schema.json" with { type: "json" };
 import resultSchema from "./schemas/result.schema.json" with { type: "json" };
 import rulesetSchema from "./schemas/ruleset.schema.json" with { type: "json" };
@@ -18,6 +19,7 @@ export const CONTRACT_SCHEMAS = {
   "comparison": comparisonSchema,
   "experiment": experimentSchema,
   "fingerprint": fingerprintSchema,
+  "finite-breakpoint-analysis": finiteBreakpointAnalysisSchema,
   "problem": problemSchema,
   "result": resultSchema,
   "ruleset": rulesetSchema,
@@ -32,6 +34,7 @@ export const CONTRACT_SCHEMA_IDS = {
   "comparison": "urn:voidtrace:schema:comparison:0.1.0",
   "experiment": "urn:voidtrace:schema:experiment:0.3.0",
   "fingerprint": "urn:voidtrace:schema:fingerprint:0.1.0",
+  "finite-breakpoint-analysis": "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0",
   "problem": "urn:voidtrace:schema:problem:0.1.0",
   "result": "urn:voidtrace:schema:result:0.2.0",
   "ruleset": "urn:voidtrace:schema:ruleset:0.18.0",

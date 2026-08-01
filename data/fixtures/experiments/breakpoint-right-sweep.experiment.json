@@ -1,0 +1,81 @@
+{
+  "$schema": "urn:voidtrace:schema:experiment:0.3.0",
+  "kind": "voidtrace.experiment",
+  "schemaVersion": "0.3.0",
+  "id": "experiment.golden-breakpoint-right-sweep",
+  "revision": 0,
+  "contentHash": "sha256:08eefde4db2d23c66ffb4f57d270e5d44617983907b450b4e65b36f62d152078",
+  "gameBuild": "synthetic-fixture-0",
+  "catalogRef": {
+    "kind": "catalog-snapshot",
+    "schemaVersion": "0.1.0",
+    "id": "catalog.synthetic-mini",
+    "revision": 0,
+    "contentHash": "sha256:006b3b5671b11df87c1b1a905ba99c0c925c468bf090197f9c2de6a1c4130437",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "rulesetRef": {
+    "kind": "ruleset",
+    "schemaVersion": "0.18.0",
+    "id": "ruleset.synthetic-core",
+    "revision": 1,
+    "contentHash": "sha256:30813f8a72f38145f911657da72f7117495b1000fdf5ea68e10975e79c26a00b",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "baseScenarioRef": {
+    "kind": "voidtrace.scenario",
+    "schemaVersion": "0.3.0",
+    "id": "scenario.golden-breakpoint-right",
+    "revision": 0,
+    "contentHash": "sha256:20a2fda5b4925fd52cdcc54a799830984fc8a8966cb0d54ccb0519238fefbb67",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "variants": [
+    {
+      "id": "breakpoint-right.critical-tier-0",
+      "patchRef": {
+        "kind": "voidtrace.scenario-patch",
+        "schemaVersion": "0.1.0",
+        "id": "scenario-patch.golden-breakpoint-right-critical-tier-0",
+        "revision": 0,
+        "contentHash": "sha256:7564f7511bf3f1acd033f758b3edd6a4b04223a0aefbaba90f0ceb938fb3232d",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "sweepPoint": {
+        "path": "/actionPlan/0/parameters/criticalTier",
+        "value": 0
+      }
+    },
+    {
+      "id": "breakpoint-right.critical-tier-2",
+      "patchRef": {
+        "kind": "voidtrace.scenario-patch",
+        "schemaVersion": "0.1.0",
+        "id": "scenario-patch.golden-breakpoint-right-critical-tier-2",
+        "revision": 0,
+        "contentHash": "sha256:ca7d92f53ccc8b7f2f823ca33589d48259db9ccf6ae2335102515a106210d8c4",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "sweepPoint": {
+        "path": "/actionPlan/0/parameters/criticalTier",
+        "value": 2
+      }
+    },
+    {
+      "id": "breakpoint-right.critical-tier-3",
+      "patchRef": {
+        "kind": "voidtrace.scenario-patch",
+        "schemaVersion": "0.1.0",
+        "id": "scenario-patch.golden-breakpoint-right-critical-tier-3",
+        "revision": 0,
+        "contentHash": "sha256:780aebf5df12ddfa677383d4dd86370eadd82add4e1b0d394de13cdc172a614f",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "sweepPoint": {
+        "path": "/actionPlan/0/parameters/criticalTier",
+        "value": 3
+      }
+    }
+  ],
+  "primaryMetric": "target.health.remaining"
+}

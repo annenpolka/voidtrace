@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0",
+  "title": "FiniteBreakpointAnalysis",
+  "description": "Content-addressed exact equality, sampled sign reversal, or absence finding from two complete aligned finite Sweep evaluations.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Schema identifier used to validate this Artifact.",
+      "type": "string",
+      "const": "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0"
+    },
+    "kind": {
+      "description": "Stable discriminator for this Artifact kind.",
+      "type": "string",
+      "const": "voidtrace.finite-breakpoint-analysis"
+    },
+    "schemaVersion": {
+      "description": "Version of this Artifact contract.",
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "id": {
+      "description": "Stable identity of this Artifact.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "revision": {
+      "description": "Non-negative immutable revision of this Artifact.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdFrom": {
+      "description": "Optional Artifact revision from which this Artifact was derived.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.finite-breakpoint-analysis"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "contentHash": {
+      "description": "SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field.",
+      "type": "string",
+      "minLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "gameBuild": {
+      "description": "Game build against which this Artifact is defined.",
+      "type": "string",
+      "minLength": 1
+    },
+    "method": {
+      "description": "Finite observational analysis method; no interpolation or root finding is implied.",
+      "type": "string",
+      "const": "finite-scan"
+    },
+    "leftExperimentRef": {
+      "description": "Exact left finite Sweep Experiment revision evaluated for this analysis.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.experiment"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "rightExperimentRef": {
+      "description": "Exact right finite Sweep Experiment revision evaluated for this analysis.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.experiment"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "leftComparisonRef": {
+      "description": "Exact complete left Comparison produced by the left Experiment evaluation.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.comparison"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "rightComparisonRef": {
+      "description": "Exact complete right Comparison produced by the right Experiment evaluation.",
+      "allOf": [
+        {
+          "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "voidtrace.comparison"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "primaryMetric": {
+      "description": "Common primary metric read from both aligned finite Sweep evaluations.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "sweepPath": {
+      "description": "Common allowlisted Scenario scalar path varied by both finite Sweeps.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^/(?:attacker/configuration/(?:[^~/]|~0|~1)+|targets/(?:0|[1-9][0-9]*)/configuration/(?:[^~/]|~0|~1)+|targetGraph/relations/(?:0|[1-9][0-9]*)/(?:resolvedDistanceMeters|lineOfSightClear|resolvedHitCount)|initialState/(?:[^~/]|~0|~1)+|actionPlan/(?:0|[1-9][0-9]*)/parameters/(?:[^~/]|~0|~1)+|simulation/timeLimitMs|metrics/(?:0|[1-9][0-9]*))$"
+    },
+    "productVersion": {
+      "description": "Common product version recorded by every Result used in the analysis.",
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "engineVersion": {
+      "description": "Common Engine version recorded by every Result used in the analysis.",
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "scenarioSchemaVersion": {
+      "description": "Common Scenario schema version recorded by every Result used in the analysis.",
+      "type": "string",
+      "minLength": 5,
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "samples": {
+      "description": "One to 15 auditable aligned finite samples in strict increasing coordinate order.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "description": "Finite numeric Sweep coordinate shared by the aligned left and right samples.",
+            "type": "number"
+          },
+          "leftVariantId": {
+            "description": "Experiment-local identity of the left Sweep variant at this coordinate.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "rightVariantId": {
+            "description": "Experiment-local identity of the right Sweep variant at this coordinate.",
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+          },
+          "leftScenarioRef": {
+            "description": "Exact left Scenario revision evaluated at this coordinate.",
+            "allOf": [
+              {
+                "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "voidtrace.scenario"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          },
+          "rightScenarioRef": {
+            "description": "Exact right Scenario revision evaluated at this coordinate.",
+            "allOf": [
+              {
+                "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "voidtrace.scenario"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          },
+          "leftResultRef": {
+            "description": "Exact left Result revision from which the primary metric was read.",
+            "allOf": [
+              {
+                "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "voidtrace.result"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          },
+          "rightResultRef": {
+            "description": "Exact right Result revision from which the primary metric was read.",
+            "allOf": [
+              {
+                "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "const": "voidtrace.result"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          },
+          "leftMetricValue": {
+            "description": "Finite absolute primary metric value of the left sample.",
+            "type": "number"
+          },
+          "rightMetricValue": {
+            "description": "Finite absolute primary metric value of the right sample.",
+            "type": "number"
+          },
+          "signedDifference": {
+            "description": "Finite normalized difference: left metric value minus right metric value.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "leftVariantId",
+          "rightVariantId",
+          "leftScenarioRef",
+          "rightScenarioRef",
+          "leftResultRef",
+          "rightResultRef",
+          "leftMetricValue",
+          "rightMetricValue",
+          "signedDifference"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 15
+    },
+    "finding": {
+      "description": "Unique finite observational finding, including explicit absence within the samples.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "Finding discriminator for one exact equality at a declared sample.",
+              "type": "string",
+              "const": "exact-equality"
+            },
+            "sampleIndex": {
+              "description": "Zero-based index of the unique sample whose signed difference is exactly zero.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 14
+            }
+          },
+          "required": [
+            "type",
+            "sampleIndex"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "Finding discriminator for one adjacent non-zero sampled sign reversal.",
+              "type": "string",
+              "const": "sampled-sign-reversal"
+            },
+            "lowerSampleIndex": {
+              "description": "Zero-based index of the lower-coordinate sample in the adjacent pair.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 14
+            },
+            "upperSampleIndex": {
+              "description": "Zero-based index of the higher-coordinate sample in the adjacent pair.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 14
+            }
+          },
+          "required": [
+            "type",
+            "lowerSampleIndex",
+            "upperSampleIndex"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "Finding discriminator when the supplied finite samples contain no candidate.",
+              "type": "string",
+              "const": "no-observed-candidate"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "$schema",
+    "kind",
+    "schemaVersion",
+    "id",
+    "revision",
+    "contentHash",
+    "gameBuild",
+    "method",
+    "leftExperimentRef",
+    "rightExperimentRef",
+    "leftComparisonRef",
+    "rightComparisonRef",
+    "primaryMetric",
+    "sweepPath",
+    "productVersion",
+    "engineVersion",
+    "scenarioSchemaVersion",
+    "samples",
+    "finding"
+  ],
+  "additionalProperties": false
+}

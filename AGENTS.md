@@ -25,8 +25,8 @@
 4. Implement the handwritten code or oracle.
 5. Run `just check`.
 
-The generated specification boundary currently contains 58 active Clauses and 11 versioned public
-Contracts. Its coverage is 32 property-tested, 25 example-tested, and one manual Clause.
+The generated specification boundary currently contains 59 active Clauses and 12 versioned public
+Contracts. Its coverage is 33 property-tested, 25 example-tested, and one manual Clause.
 
 The current implemented boundary ends at the synthetic Direct Hit / generalized fixed, explicit
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
@@ -101,10 +101,25 @@ no-op Patch rule. Every mode integrity-checks every Result and Trace and returns
 Comparison, point list, materialized Scenario rows, or evaluation rows. Sweep never derives Patch
 operations, result Scenario identities, revisions, or hashes from values. Range or step generation,
 value sorting or deduplication, multiple axes or Cartesian products, mixed modes, Patch chains,
-Breakpoint, Ruleset branches, generated randomness, Monte Carlo, ratios, interpolation, parallel
-execution, winner or ranking semantics, and statistical uncertainty remain unsupported. This slice
-is exposed through `@voidtrace/sdk` and the repository-local operator skill; the formal CLI has no
-Experiment command.
+Ruleset branches, generated randomness, Monte Carlo, ratios, interpolation, parallel execution,
+winner or ranking semantics, and statistical uncertainty remain unsupported. This slice is exposed
+through `@voidtrace/sdk` and the repository-local operator skill; the formal CLI has no Experiment
+command.
+
+FiniteBreakpointAnalysis Contract `0.1.0` composes exactly two complete finite Sweep requests in
+one call. Both sides share one Catalog, generated Ruleset, game build, primary metric, allowlisted
+Sweep path, point count, and declaration-ordered strictly increasing finite numeric coordinates.
+The runtime snapshots the whole request before its first await, preflights and materializes both
+sides before any evaluation, evaluates the complete left Sweep and then the complete right Sweep,
+and verifies every Comparison, Result, Trace, and common Result fingerprint. It records absolute
+left and right metric values and finite `left - right` differences for every declared point. A
+unique zero sample yields `exact-equality`, one adjacent non-zero sign change yields
+`sampled-sign-reversal`, and no such observation yields `no-observed-candidate`; more than one
+candidate fails without an Analysis Artifact. This finite scan does not prove a continuous root or
+crossover and does not interpolate, apply tolerance, search or generate points, sort or deduplicate,
+infer monotonicity, or assign winner, ranking, or tie semantics. It is exposed only through
+`@voidtrace/sdk` and the repository-local operator skill; Kernel, runtime-node, and the formal CLI
+remain unchanged.
 
 ScenarioPatch Contract `0.1.0` separately accepts one exact base Scenario reference, one explicit
 result Scenario identity pair, and 1 to 64 ordered replace-only operations over allowlisted
@@ -121,10 +136,11 @@ remain unchanged.
 
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
 repository-local analytic expected preset plus exact resolved and ordinary Patch-backed Scenario
-comparisons, the checked-in one-axis Critical-tier Sweep points `0`, `2`, and `3`, and finite
-Scenario Patch materialization; it is not the formal CLI boundary and does not synthesize Critical
-chance, rolls, Multishot counts, pellet counts, comparison members, variant inputs, Sweep paths or
-values, Patch operations, or Patch content hashes. The formal CLI can run the
+comparisons, the checked-in one-axis Critical-tier Sweep points `0`, `2`, and `3`, the checked-in
+two-Sweep finite Breakpoint analysis over those coordinates, and finite Scenario Patch
+materialization; it is not the formal CLI boundary and does not synthesize Critical chance, rolls,
+Multishot counts, pellet counts, comparison members, variant inputs, Sweep paths or values,
+Breakpoint inputs, Patch operations, or Patch content hashes. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
 resolved Pellet allocation, resolved Direct-plus-Radial impact, resolved Status tick, and resolved
 Beam tick fixtures.

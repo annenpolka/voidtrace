@@ -6,7 +6,7 @@ VoidTrace is being built as two layers:
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
 The implemented boundary is synthetic, experimental Kernel Engine `0.19.0`, backed by generated
-Ruleset `0.18.0` revision `1`, eleven versioned public contracts, and 58 normative Clauses. It
+Ruleset `0.18.0` revision `1`, twelve versioned public contracts, and 59 normative Clauses. It
 currently supports:
 
 - Direct Hit through base Damage, fixed or explicit-roll Critical, Armor, and terminal Health;
@@ -44,6 +44,17 @@ finite signed difference `variant - base`; any failure returns no partial rows. 
 available through `@voidtrace/sdk` and the repository-local skill. The formal CLI remains limited
 to `describe`, `run`, and `trace`; it has no comparison command.
 
+FiniteBreakpointAnalysis Contract `0.1.0` accepts two complete finite Sweep requests under one
+Catalog and generated Ruleset. The two Sweeps must share game build, primary metric, allowlisted
+path, point count, and the same declaration-ordered strictly increasing finite numeric coordinates.
+Both sides are fully preflighted and materialized before evaluation; the complete left Sweep is
+then evaluated before the complete right Sweep. The resulting content-addressed Analysis records
+both Experiment and Comparison references, each point's Scenario and Result references, absolute
+metric values, and finite `left - right` differences. It reports only one exact sampled equality,
+one adjacent non-zero sampled sign reversal, or no observed candidate. Multiple candidates fail
+atomically. This is a finite observation, not a continuous root, interpolated crossover, winner, or
+ranking. The SDK and repository-local skill expose the fixed slice; the formal CLI is unchanged.
+
 ScenarioPatch Contract `0.1.0` adds a finite pre-materialization slice. A Patch names one exact
 content-addressed base Scenario, a distinct result identity pair, and 1–64 ordered replace
 operations against existing allowlisted non-null scalar leaves. The materializer snapshots both inputs, validates
@@ -59,10 +70,11 @@ Generated randomness, Monte Carlo, probabilistic Multishot or pellets, per-hit r
 Projectile or geometry derivation, current-game-derived Radial or Beam formulas, real Status
 application/formulas, and unsupported composition remain explicit non-features. Experiment does
 not mix its three variant modes or generate Sweep ranges/steps, sort or deduplicate point values,
-run multiple axes or Cartesian products, chain Patches, or implement Breakpoint, Ruleset branching,
-Monte Carlo, ratios, winner selection, ranking, tie semantics, statistics, interpolation, parallel
-execution, or expected-value synthesis. It never generates randomness, Patches, result Scenario
-identities, revisions, or hashes from Sweep values. Scenario Patch is not full RFC 6902: `add`,
+run multiple axes or Cartesian products, chain Patches, or implement adaptive or continuous
+Breakpoint search, Ruleset branching, Monte Carlo, ratios, winner selection, ranking, tie semantics,
+statistics, interpolation, parallel execution, or expected-value synthesis. It never generates
+randomness, Patches, result Scenario identities, revisions, or hashes from Sweep values. Scenario
+Patch is not full RFC 6902: `add`,
 `remove`, `test`, `move`, `copy`, null or structural values, and generated operations remain
 unsupported.
 
@@ -98,14 +110,15 @@ Pkl under `specs/contracts/` is the sole contract source. It generates:
 - Draft 2020-12 JSON Schemas and TypeScript projections under `packages/spec-artifacts/`
 - Human-readable contract documentation under `docs/generated/`
 
-The generated boundary currently contains eleven schemas: ArtifactRef, CatalogSnapshot,
-Comparison, Experiment, Fingerprint, Problem, Result, Ruleset, Scenario, ScenarioPatch, and Trace. The handwritten
+The generated boundary currently contains twelve schemas: ArtifactRef, CatalogSnapshot,
+Comparison, Experiment, Fingerprint, FiniteBreakpointAnalysis, Problem, Result, Ruleset, Scenario,
+ScenarioPatch, and Trace. The handwritten
 `@voidtrace/contracts` package registers them with Ajv in strict mode. It validates without
 coercion or default insertion and provides RFC 8785 canonical JSON, SHA-256 Artifact fingerprints,
 stable ID checks, and cross-Artifact integrity checks. `Fingerprint.resultHash` identifies
-canonical execution inputs; Result, Trace, Experiment, Comparison, and ScenarioPatch content
-hashes independently identify their complete stored payloads. The package contains no game
-mechanics.
+canonical execution inputs; Result, Trace, Experiment, Comparison, FiniteBreakpointAnalysis, and
+ScenarioPatch content hashes independently identify their complete stored payloads. The package
+contains no game mechanics.
 
 ## CLI
 
@@ -134,10 +147,12 @@ run Experiments.
 ## SDK and repository-local skill
 
 `@voidtrace/sdk` exposes single-Scenario evaluation, resolved, ordinary Patch-backed, or finite
-one-axis Sweep Experiment comparison, and finite Scenario Patch materialization. The skill
+one-axis Sweep Experiment comparison, finite two-Sweep Breakpoint analysis, and finite Scenario
+Patch materialization. The skill
 at `.agents/skills/voidtrace/SKILL.md` provides fixed-tier/expected fixture variation, formal-CLI
 golden inspection, checked-in resolved and ordinary Patch-backed comparisons, a checked-in
-Critical-tier Sweep over the explicit points `0`, `2`, and `3`, and one checked-in Patch example:
+Critical-tier Sweep over the explicit points `0`, `2`, and `3`, a checked-in finite Breakpoint
+analysis over the same coordinates, and one checked-in Patch example:
 
 ```bash
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts --critical-tier 4 --armor 0 --health 1000
@@ -146,6 +161,7 @@ node .agents/skills/voidtrace/scripts/run-comparison.ts --pretty
 node .agents/skills/voidtrace/scripts/run-comparison.ts --check-golden
 node .agents/skills/voidtrace/scripts/run-patch-comparison.ts --check-golden
 node .agents/skills/voidtrace/scripts/run-sweep.ts --check-golden
+node .agents/skills/voidtrace/scripts/run-breakpoint.ts --check-golden
 node .agents/skills/voidtrace/scripts/apply-scenario-patch.ts --evaluate --check-golden
 .agents/skills/voidtrace/scripts/smoke.sh
 ```
@@ -157,10 +173,13 @@ points or generate ranges, steps, axes, products, Patches, or Breakpoints. These
 synthesize variants, mutate fixtures, infer whether a larger metric is better, or substitute a
 nearby supported comparison for an unsupported request. The Patch helper accepts only already-valid
 content-addressed Patch and base inputs; it does not repair, rehash, or synthesize either Artifact.
+The Breakpoint helper accepts only the checked-in aligned left and right Sweeps at coordinates
+`0`, `2`, and `3`. It reports their finite sampled finding and does not accept custom inputs,
+generate points, search continuously, interpolate, infer monotonicity, or declare a winner.
 
 ## Specification maturity
 
-All 58 Clauses are `active`; no planned Clause remains. The generated coverage view reports 32
+All 59 Clauses are `active`; no planned Clause remains. The generated coverage view reports 33
 property-tested, 25 example-tested, and one manual Clause.
 Machine-verified active Clauses use independent oracles exercised by `just check`. All runtime
 Rules remain synthetic and retain `experimental` evidence status.

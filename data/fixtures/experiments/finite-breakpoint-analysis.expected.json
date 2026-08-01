@@ -1,0 +1,174 @@
+{
+  "$schema": "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0",
+  "kind": "voidtrace.finite-breakpoint-analysis",
+  "schemaVersion": "0.1.0",
+  "id": "analysis.golden-finite-breakpoint",
+  "revision": 0,
+  "gameBuild": "synthetic-fixture-0",
+  "method": "finite-scan",
+  "leftExperimentRef": {
+    "kind": "voidtrace.experiment",
+    "schemaVersion": "0.3.0",
+    "id": "experiment.golden-breakpoint-left-sweep",
+    "revision": 0,
+    "contentHash": "sha256:8940e153e6295a45a16b02694336c686694000d9e9c3df379577937686ccab6e",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "rightExperimentRef": {
+    "kind": "voidtrace.experiment",
+    "schemaVersion": "0.3.0",
+    "id": "experiment.golden-breakpoint-right-sweep",
+    "revision": 0,
+    "contentHash": "sha256:08eefde4db2d23c66ffb4f57d270e5d44617983907b450b4e65b36f62d152078",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "leftComparisonRef": {
+    "kind": "voidtrace.comparison",
+    "schemaVersion": "0.1.0",
+    "id": "comparison.experiment.golden-breakpoint-left-sweep",
+    "revision": 0,
+    "contentHash": "sha256:2f266603e14b8614f6a304991905b5c79727cfa995ff0166528407de5f0cd004",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "rightComparisonRef": {
+    "kind": "voidtrace.comparison",
+    "schemaVersion": "0.1.0",
+    "id": "comparison.experiment.golden-breakpoint-right-sweep",
+    "revision": 0,
+    "contentHash": "sha256:9854684213892bb5e1cc328c9c66cd29f7b4a7b5dcb0ca56811d6fad6a3cfe52",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "primaryMetric": "target.health.remaining",
+  "sweepPath": "/actionPlan/0/parameters/criticalTier",
+  "productVersion": "0.0.0",
+  "engineVersion": "0.19.0",
+  "scenarioSchemaVersion": "0.3.0",
+  "samples": [
+    {
+      "value": 0,
+      "leftVariantId": "breakpoint-left.critical-tier-0",
+      "rightVariantId": "breakpoint-right.critical-tier-0",
+      "leftScenarioRef": {
+        "kind": "voidtrace.scenario",
+        "schemaVersion": "0.3.0",
+        "id": "scenario.golden-sweep-critical-tier-0",
+        "revision": 0,
+        "contentHash": "sha256:28fcce489ffc689747353e7267e06b2ed196ac284d7541db40de1dab328e7d34",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "rightScenarioRef": {
+        "kind": "voidtrace.scenario",
+        "schemaVersion": "0.3.0",
+        "id": "scenario.golden-breakpoint-right-critical-tier-0",
+        "revision": 0,
+        "contentHash": "sha256:4022db1140438bc14c5f5ffd8d292ff8c763d6162de50d4cfde27a680920a29d",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "leftResultRef": {
+        "kind": "voidtrace.result",
+        "schemaVersion": "0.2.0",
+        "id": "result.scenario.golden-sweep-critical-tier-0",
+        "revision": 0,
+        "contentHash": "sha256:0088a5340b70898b1368b3f6578a6c3898c6d491aa4230c1be6be61ff558e893",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "rightResultRef": {
+        "kind": "voidtrace.result",
+        "schemaVersion": "0.2.0",
+        "id": "result.scenario.golden-breakpoint-right-critical-tier-0",
+        "revision": 0,
+        "contentHash": "sha256:992abb6c5c2d71f68e2b226a849b8391e6428e7cebbd326511d7c21ec79efdc7",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "leftMetricValue": 950,
+      "rightMetricValue": 1000,
+      "signedDifference": -50
+    },
+    {
+      "value": 2,
+      "leftVariantId": "breakpoint-left.critical-tier-2",
+      "rightVariantId": "breakpoint-right.critical-tier-2",
+      "leftScenarioRef": {
+        "kind": "voidtrace.scenario",
+        "schemaVersion": "0.3.0",
+        "id": "scenario.golden-sweep-critical-tier-2",
+        "revision": 0,
+        "contentHash": "sha256:4d22b21aa1f54e23d6d505366420833d1129d5a9afde084fdd9ad4de55807740",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "rightScenarioRef": {
+        "kind": "voidtrace.scenario",
+        "schemaVersion": "0.3.0",
+        "id": "scenario.golden-breakpoint-right-critical-tier-2",
+        "revision": 0,
+        "contentHash": "sha256:86878c63598c5240f81c01d70dc2929af5c1810df9b73ad04b9e9bef24684983",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "leftResultRef": {
+        "kind": "voidtrace.result",
+        "schemaVersion": "0.2.0",
+        "id": "result.scenario.golden-sweep-critical-tier-2",
+        "revision": 0,
+        "contentHash": "sha256:e784da705a319a57831d5883293aabb54e0628b09a56366843739e6dbb328c72",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "rightResultRef": {
+        "kind": "voidtrace.result",
+        "schemaVersion": "0.2.0",
+        "id": "result.scenario.golden-breakpoint-right-critical-tier-2",
+        "revision": 0,
+        "contentHash": "sha256:2a0c29ef3d897341f4e8def6863c9db5db8a9f080506114c9dc0abb534606937",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "leftMetricValue": 850,
+      "rightMetricValue": 800,
+      "signedDifference": 50
+    },
+    {
+      "value": 3,
+      "leftVariantId": "breakpoint-left.critical-tier-3",
+      "rightVariantId": "breakpoint-right.critical-tier-3",
+      "leftScenarioRef": {
+        "kind": "voidtrace.scenario",
+        "schemaVersion": "0.3.0",
+        "id": "scenario.golden-sweep-critical-tier-3",
+        "revision": 0,
+        "contentHash": "sha256:0ead5c6dfb87f7192f62747e750f567155edb6e4669a9ceda994fe05bfa424a6",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "rightScenarioRef": {
+        "kind": "voidtrace.scenario",
+        "schemaVersion": "0.3.0",
+        "id": "scenario.golden-breakpoint-right-critical-tier-3",
+        "revision": 0,
+        "contentHash": "sha256:1e06b7716cefc9bdbdfb8428780c620e9a6dfc958a859665737f4b3b1bebfc86",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "leftResultRef": {
+        "kind": "voidtrace.result",
+        "schemaVersion": "0.2.0",
+        "id": "result.scenario.golden-sweep-critical-tier-3",
+        "revision": 0,
+        "contentHash": "sha256:fb0a9fb7ef45bbd9c9b03bbbb5144e3520b054a9c001972e9f5619ff478ec679",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "rightResultRef": {
+        "kind": "voidtrace.result",
+        "schemaVersion": "0.2.0",
+        "id": "result.scenario.golden-breakpoint-right-critical-tier-3",
+        "revision": 0,
+        "contentHash": "sha256:ee4a127a34b8fda083efc6bc93c30e07389002f17ccb1633f43d9db2b9b3769f",
+        "gameBuild": "synthetic-fixture-0"
+      },
+      "leftMetricValue": 800,
+      "rightMetricValue": 700,
+      "signedDifference": 100
+    }
+  ],
+  "finding": {
+    "type": "sampled-sign-reversal",
+    "lowerSampleIndex": 0,
+    "upperSampleIndex": 1
+  },
+  "contentHash": "sha256:5e2f736b8436a985cd56d6c883debda30460760fef8c971d9fe929eeed86ffc4"
+}

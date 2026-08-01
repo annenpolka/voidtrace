@@ -1,6 +1,27 @@
 import generatedCapabilities from "@voidtrace/spec-artifacts/capabilities" with { type: "json" };
 import { describe, expect, it } from "vitest";
 import catalogFixture from "../../../data/fixtures/catalog-mini/catalog.json" with { type: "json" };
+import breakpointLeftSweepExperimentFixture from "../../../data/fixtures/experiments/breakpoint-left-sweep.experiment.json" with {
+  type: "json",
+};
+import breakpointRightScenarioFixture from "../../../data/fixtures/experiments/breakpoint-right.scenario.json" with {
+  type: "json",
+};
+import breakpointRightSweepExperimentFixture from "../../../data/fixtures/experiments/breakpoint-right-sweep.experiment.json" with {
+  type: "json",
+};
+import breakpointRightSweep0PatchFixture from "../../../data/fixtures/experiments/breakpoint-right-sweep-0.scenario-patch.json" with {
+  type: "json",
+};
+import breakpointRightSweep2PatchFixture from "../../../data/fixtures/experiments/breakpoint-right-sweep-2.scenario-patch.json" with {
+  type: "json",
+};
+import breakpointRightSweep3PatchFixture from "../../../data/fixtures/experiments/breakpoint-right-sweep-3.scenario-patch.json" with {
+  type: "json",
+};
+import criticalTierSweepExperimentFixture from "../../../data/fixtures/experiments/critical-tier-sweep.experiment.json" with {
+  type: "json",
+};
 import criticalTierSweep0PatchFixture from "../../../data/fixtures/experiments/critical-tier-sweep-0.scenario-patch.json" with {
   type: "json",
 };
@@ -8,9 +29,6 @@ import criticalTierSweep2PatchFixture from "../../../data/fixtures/experiments/c
   type: "json",
 };
 import criticalTierSweep3PatchFixture from "../../../data/fixtures/experiments/critical-tier-sweep-3.scenario-patch.json" with {
-  type: "json",
-};
-import criticalTierSweepExperimentFixture from "../../../data/fixtures/experiments/critical-tier-sweep.experiment.json" with {
   type: "json",
 };
 import scenarioPatchExpectedProjectionFixture from "../../../data/fixtures/experiments/direct-critical-tier-2.expected.json" with {
@@ -34,6 +52,7 @@ import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical
 import {
   describeCapabilities,
   evaluateScenario,
+  findFiniteBreakpoint,
   materializeScenarioPatch,
   runExperiment,
 } from "./index.ts";
@@ -170,6 +189,32 @@ async function criticalTierScenarioPatch(): Promise<object> {
       },
     ],
   });
+}
+
+function finiteBreakpointRequest() {
+  return {
+    analysisId: "finite-breakpoint-analysis.sdk-critical-tier",
+    analysisRevision: 0,
+    catalog: catalogFixture,
+    left: {
+      experiment: breakpointLeftSweepExperimentFixture,
+      scenarios: [scenarioFixture],
+      patches: [
+        criticalTierSweep0PatchFixture,
+        criticalTierSweep2PatchFixture,
+        criticalTierSweep3PatchFixture,
+      ],
+    },
+    right: {
+      experiment: breakpointRightSweepExperimentFixture,
+      scenarios: [breakpointRightScenarioFixture],
+      patches: [
+        breakpointRightSweep0PatchFixture,
+        breakpointRightSweep2PatchFixture,
+        breakpointRightSweep3PatchFixture,
+      ],
+    },
+  };
 }
 
 function allObjectsAreFrozen(value: unknown): boolean {
@@ -393,6 +438,141 @@ describe("VoidTrace SDK", () => {
       ],
     });
     expect(await contentHashIsValid(first.comparison)).toBe(true);
+  });
+
+  it("finds a finite sampled Breakpoint through one public SDK request", async () => {
+    const request = finiteBreakpointRequest();
+
+    const first = await findFiniteBreakpoint(structuredClone(request));
+    const second = await findFiniteBreakpoint(structuredClone(request));
+
+    expect(first.ok).toBe(true);
+    expect(second).toEqual(first);
+    if (!first.ok) {
+      throw new Error(first.error.message);
+    }
+    expect(first.analysis).toMatchObject({
+      $schema: "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0",
+      kind: "voidtrace.finite-breakpoint-analysis",
+      schemaVersion: "0.1.0",
+      id: "finite-breakpoint-analysis.sdk-critical-tier",
+      revision: 0,
+      method: "finite-scan",
+      primaryMetric: "target.health.remaining",
+      sweepPath: "/actionPlan/0/parameters/criticalTier",
+      samples: [
+        {
+          value: 0,
+          leftMetricValue: 950,
+          rightMetricValue: 1000,
+          signedDifference: -50,
+        },
+        {
+          value: 2,
+          leftMetricValue: 850,
+          rightMetricValue: 800,
+          signedDifference: 50,
+        },
+        {
+          value: 3,
+          leftMetricValue: 800,
+          rightMetricValue: 700,
+          signedDifference: 100,
+        },
+      ],
+      finding: {
+        type: "sampled-sign-reversal",
+        lowerSampleIndex: 0,
+        upperSampleIndex: 1,
+      },
+    });
+    expect(await contentHashIsValid(first.analysis)).toBe(true);
+    expect(allObjectsAreFrozen(first)).toBe(true);
+  });
+
+  it("snapshots the complete finite Breakpoint request before loading the Ruleset", async () => {
+    const request = structuredClone(finiteBreakpointRequest());
+
+    const pending = findFiniteBreakpoint(request);
+    request.analysisId = "finite-breakpoint-analysis.mutated-after-call";
+    request.left.patches.reverse();
+    request.right.patches.length = 0;
+    const rightScenario = request.right.scenarios[0];
+    const rightTarget = rightScenario?.targets[0];
+    if (rightTarget === undefined) {
+      throw new Error("Expected the finite Breakpoint fixture to contain one right target");
+    }
+    rightTarget.configuration.resolvedHealth = 1;
+    const outcome = await pending;
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    expect(outcome.analysis.id).toBe("finite-breakpoint-analysis.sdk-critical-tier");
+    expect(outcome.analysis.samples.map(({ value }) => value)).toEqual([0, 2, 3]);
+    expect(outcome.analysis.samples.map(({ rightMetricValue }) => rightMetricValue)).toEqual([
+      1000, 800, 700,
+    ]);
+  });
+
+  it("rejects finite Breakpoint accessors without invoking or exposing them", async () => {
+    const secret = "PRIVATE SDK breakpoint getter exception";
+    let accessorReads = 0;
+    const request = finiteBreakpointRequest();
+    Object.defineProperty(request.left, "experiment", {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        throw new Error(secret);
+      },
+    });
+
+    const outcome = await findFiniteBreakpoint(request as never);
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: {
+        code: "breakpoint-request-invalid",
+        message: "Finite Breakpoint request must be a plain JSON value",
+      },
+    });
+    expect(accessorReads).toBe(0);
+    expect(JSON.stringify(outcome)).not.toContain(secret);
+    expect(allObjectsAreFrozen(outcome)).toBe(true);
+  });
+
+  it("rejects extra finite Breakpoint envelope and side fields", async () => {
+    const extraEnvelope = await findFiniteBreakpoint({
+      ...finiteBreakpointRequest(),
+      unexpected: true,
+    } as never);
+    const request = finiteBreakpointRequest();
+    const extraSide = await findFiniteBreakpoint({
+      ...request,
+      right: {
+        ...request.right,
+        unexpected: true,
+      },
+    } as never);
+
+    expect(extraEnvelope).toEqual({
+      ok: false,
+      error: {
+        code: "breakpoint-request-invalid",
+        message: "Finite Breakpoint request has an invalid field set",
+      },
+    });
+    expect(extraSide).toEqual({
+      ok: false,
+      error: {
+        code: "breakpoint-request-invalid",
+        message:
+          "Each finite Breakpoint side must contain exactly experiment, scenarios, and patches",
+        path: "/right",
+        side: "right",
+      },
+    });
   });
 
   it("snapshots the Patch set and bodies before the first asynchronous Ruleset load", async () => {

@@ -4,8 +4,9 @@ export type {
   Comparison,
   ContractById,
   ContractId,
-  Fingerprint,
   Experiment,
+  Fingerprint,
+  FiniteBreakpointAnalysis,
   Problem,
   Result,
   Ruleset,
@@ -24,13 +25,13 @@ export {
   snapshotJsonValue,
 } from "./canonical-json.ts";
 export {
-  attachResultHash,
   attachArtifactContentHash,
+  attachResultHash,
+  type ContentHashedArtifact,
   computeArtifactContentHash,
   computeResultHash,
-  sha256CanonicalJson,
-  type ContentHashedArtifact,
   type ResultHashInput,
+  sha256CanonicalJson,
   verifyArtifactContentHash,
   verifyResultHash,
   verifyResultIntegrity,
@@ -40,7 +41,7 @@ export {
 export { assertStableId, isStableId } from "./stable-id.ts";
 export {
   assertContractSchemasReady,
-  validateContract,
   type ValidationIssue,
   type ValidationResult,
+  validateContract,
 } from "./validator.ts";

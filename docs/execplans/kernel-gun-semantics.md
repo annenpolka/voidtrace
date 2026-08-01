@@ -132,6 +132,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 14:23:41Z) 調査`70d409e`、機能`70f6c0e`、検証記録`c6438ae`をpublic mainへpushし、GitHub Actions `Check` run `30703615879`がhead `c6438ae`に対して1分25秒で成功した。
 - [x] (2026-08-01 14:52:38Z) 次のBreakpointについてcodebase-investigatorの6段階静的調査と合成in-memory probeを完了し、`docs/investigations/finite-breakpoint-slice.md`へ現行flow、provenance gap、有限点の反証、採用境界、受け入れ条件を記録した。
 - [x] (2026-08-01 14:52:38Z) 最初のBreakpointを、同じ数値軸・metric・Catalog・Rulesetを持つ左右2本の有限Sweepを一呼び出し内で完全preflight／評価し、`exact-equality`、`sampled-sign-reversal`、`no-observed-candidate`だけを返す有限観測analysisへ固定した。連続root、補間、winner、二分探索は主張しない。
+- [x] (2026-08-01 15:17:53Z) `BRK-001`とFiniteBreakpointAnalysis Contract `0.1.0`をPklから28生成ファイルへ反映した。逆翻訳は59 active／0 planned、12 Contracts、33 property-testedを示し、Ruleset `0.18.0` revision `1`とKernel Engine `0.19.0`は不変である。
+- [x] (2026-08-01 15:17:53Z) 左右finite Sweepのcomplete preflight barrier、strict numeric axis、fingerprint照合、有限`left - right`算術、三findingとambiguous failure、content-addressed Analysisをexperiments／SDKへ実装した。固定fixtureは座標0、2、3、差-50、+50、+100からsampled sign reversalを返し、repository-local helperはSDKへ一度だけ委譲する。
+- [x] (2026-08-01 15:17:53Z) Node 26.0.0でformat、lint、typecheck、architecture boundary、28生成ファイルfreshness、59 Clauses、12 Contracts、32テストファイル563件を含む全`just check`を通した。独立Pkl／generated reviewはactionable findingなしだった。
 
 ## Surprises & Discoveries
 

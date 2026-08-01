@@ -216,6 +216,86 @@ export type Fingerprint = {
   readonly "resultHash": string;
 };
 
+/** Content-addressed exact equality, sampled sign reversal, or absence finding from two complete aligned finite Sweep evaluations. */
+export type FiniteBreakpointAnalysis = {
+  /** Schema identifier used to validate this Artifact. */
+  readonly "$schema": "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0";
+  /** Stable discriminator for this Artifact kind. */
+  readonly "kind": "voidtrace.finite-breakpoint-analysis";
+  /** Version of this Artifact contract. */
+  readonly "schemaVersion": "0.1.0";
+  /** Stable identity of this Artifact. */
+  readonly "id": string;
+  /** Non-negative immutable revision of this Artifact. */
+  readonly "revision": number;
+  /** Optional Artifact revision from which this Artifact was derived. */
+  readonly "createdFrom"?: ArtifactRef & { readonly "kind": "voidtrace.finite-breakpoint-analysis" };
+  /** SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. */
+  readonly "contentHash": string;
+  /** Game build against which this Artifact is defined. */
+  readonly "gameBuild": string;
+  /** Finite observational analysis method; no interpolation or root finding is implied. */
+  readonly "method": "finite-scan";
+  /** Exact left finite Sweep Experiment revision evaluated for this analysis. */
+  readonly "leftExperimentRef": ArtifactRef & { readonly "kind": "voidtrace.experiment" };
+  /** Exact right finite Sweep Experiment revision evaluated for this analysis. */
+  readonly "rightExperimentRef": ArtifactRef & { readonly "kind": "voidtrace.experiment" };
+  /** Exact complete left Comparison produced by the left Experiment evaluation. */
+  readonly "leftComparisonRef": ArtifactRef & { readonly "kind": "voidtrace.comparison" };
+  /** Exact complete right Comparison produced by the right Experiment evaluation. */
+  readonly "rightComparisonRef": ArtifactRef & { readonly "kind": "voidtrace.comparison" };
+  /** Common primary metric read from both aligned finite Sweep evaluations. */
+  readonly "primaryMetric": string;
+  /** Common allowlisted Scenario scalar path varied by both finite Sweeps. */
+  readonly "sweepPath": string;
+  /** Common product version recorded by every Result used in the analysis. */
+  readonly "productVersion": string;
+  /** Common Engine version recorded by every Result used in the analysis. */
+  readonly "engineVersion": string;
+  /** Common Scenario schema version recorded by every Result used in the analysis. */
+  readonly "scenarioSchemaVersion": string;
+  /** One to 15 auditable aligned finite samples in strict increasing coordinate order. */
+  readonly "samples": ReadonlyArray<{
+    /** Finite numeric Sweep coordinate shared by the aligned left and right samples. */
+    readonly "value": number;
+    /** Experiment-local identity of the left Sweep variant at this coordinate. */
+    readonly "leftVariantId": string;
+    /** Experiment-local identity of the right Sweep variant at this coordinate. */
+    readonly "rightVariantId": string;
+    /** Exact left Scenario revision evaluated at this coordinate. */
+    readonly "leftScenarioRef": ArtifactRef & { readonly "kind": "voidtrace.scenario" };
+    /** Exact right Scenario revision evaluated at this coordinate. */
+    readonly "rightScenarioRef": ArtifactRef & { readonly "kind": "voidtrace.scenario" };
+    /** Exact left Result revision from which the primary metric was read. */
+    readonly "leftResultRef": ArtifactRef & { readonly "kind": "voidtrace.result" };
+    /** Exact right Result revision from which the primary metric was read. */
+    readonly "rightResultRef": ArtifactRef & { readonly "kind": "voidtrace.result" };
+    /** Finite absolute primary metric value of the left sample. */
+    readonly "leftMetricValue": number;
+    /** Finite absolute primary metric value of the right sample. */
+    readonly "rightMetricValue": number;
+    /** Finite normalized difference: left metric value minus right metric value. */
+    readonly "signedDifference": number;
+  }>;
+  /** Unique finite observational finding, including explicit absence within the samples. */
+  readonly "finding": {
+    /** Finding discriminator for one exact equality at a declared sample. */
+    readonly "type": "exact-equality";
+    /** Zero-based index of the unique sample whose signed difference is exactly zero. */
+    readonly "sampleIndex": number;
+  } | {
+    /** Finding discriminator for one adjacent non-zero sampled sign reversal. */
+    readonly "type": "sampled-sign-reversal";
+    /** Zero-based index of the lower-coordinate sample in the adjacent pair. */
+    readonly "lowerSampleIndex": number;
+    /** Zero-based index of the higher-coordinate sample in the adjacent pair. */
+    readonly "upperSampleIndex": number;
+  } | {
+    /** Finding discriminator when the supplied finite samples contain no candidate. */
+    readonly "type": "no-observed-candidate";
+  };
+};
+
 /** Structured application failure whose stable classification determines the process exit status. */
 export type Problem = {
   /** Stable discriminator for a VoidTrace application failure. */
@@ -774,7 +854,7 @@ export type Trace = {
     readonly "matched": true;
   }>;
 };
-export type ContractId = "artifact-ref" | "catalog-snapshot" | "comparison" | "experiment" | "fingerprint" | "problem" | "result" | "ruleset" | "scenario" | "scenario-patch" | "trace";
+export type ContractId = "artifact-ref" | "catalog-snapshot" | "comparison" | "experiment" | "fingerprint" | "finite-breakpoint-analysis" | "problem" | "result" | "ruleset" | "scenario" | "scenario-patch" | "trace";
 
 export type ContractById = {
   readonly "artifact-ref": ArtifactRef;
@@ -782,6 +862,7 @@ export type ContractById = {
   readonly "comparison": Comparison;
   readonly "experiment": Experiment;
   readonly "fingerprint": Fingerprint;
+  readonly "finite-breakpoint-analysis": FiniteBreakpointAnalysis;
   readonly "problem": Problem;
   readonly "result": Result;
   readonly "ruleset": Ruleset;

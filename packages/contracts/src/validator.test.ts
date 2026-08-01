@@ -1,4 +1,4 @@
-import type { ArtifactRef } from "@voidtrace/spec-artifacts/contracts";
+import type { ArtifactRef, FiniteBreakpointAnalysis } from "@voidtrace/spec-artifacts/contracts";
 import { describe, expect, it } from "vitest";
 import { artifactMatchesRef } from "./artifact-ref.ts";
 import { canonicalizeJson } from "./canonical-json.ts";
@@ -227,6 +227,57 @@ const comparison = {
   ],
 } as const;
 
+function typedArtifactRef<const K extends string>(
+  kind: K,
+  id: string,
+): ArtifactRef & { readonly kind: K } {
+  return artifactRef(kind, id) as ArtifactRef & { readonly kind: K };
+}
+
+function finiteBreakpointSample(index: number, signedDifference: number) {
+  return {
+    value: index,
+    leftVariantId: `left.variant-${index}`,
+    rightVariantId: `right.variant-${index}`,
+    leftScenarioRef: typedArtifactRef("voidtrace.scenario", `scenario.left-variant-${index}`),
+    rightScenarioRef: typedArtifactRef("voidtrace.scenario", `scenario.right-variant-${index}`),
+    leftResultRef: typedArtifactRef("voidtrace.result", `result.left-variant-${index}`),
+    rightResultRef: typedArtifactRef("voidtrace.result", `result.right-variant-${index}`),
+    leftMetricValue: 10 + index,
+    rightMetricValue: 10 + index - signedDifference,
+    signedDifference,
+  };
+}
+
+const finiteBreakpointAnalysis = {
+  $schema: "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0",
+  kind: "voidtrace.finite-breakpoint-analysis",
+  schemaVersion: "0.1.0",
+  id: "finite-breakpoint-analysis.example",
+  revision: 0,
+  contentHash: HASH,
+  gameBuild: "43.0.0",
+  method: "finite-scan",
+  leftExperimentRef: typedArtifactRef("voidtrace.experiment", "experiment.left"),
+  rightExperimentRef: typedArtifactRef("voidtrace.experiment", "experiment.right"),
+  leftComparisonRef: typedArtifactRef("voidtrace.comparison", "comparison.left"),
+  rightComparisonRef: typedArtifactRef("voidtrace.comparison", "comparison.right"),
+  primaryMetric: "metric.total-damage",
+  sweepPath: "/actionPlan/0/parameters/criticalTier",
+  productVersion: "0.1.0",
+  engineVersion: "0.1.0",
+  scenarioSchemaVersion: "0.3.0",
+  samples: [
+    finiteBreakpointSample(0, -2),
+    finiteBreakpointSample(1, 0),
+    finiteBreakpointSample(2, 2),
+  ],
+  finding: {
+    type: "exact-equality",
+    sampleIndex: 1,
+  },
+} as const satisfies FiniteBreakpointAnalysis;
+
 function experimentVariant(index: number) {
   return {
     id: `variant.${index}`,
@@ -255,6 +306,119 @@ describe("generated Contract validation", () => {
     expect(validateContract("trace", trace).ok).toBe(true);
     expect(validateContract("experiment", experiment).ok).toBe(true);
     expect(validateContract("comparison", comparison).ok).toBe(true);
+    expect(validateContract("finite-breakpoint-analysis", finiteBreakpointAnalysis).ok).toBe(true);
+  });
+
+  it("accepts every finite Breakpoint finding union member", () => {
+    for (const finding of [
+      {
+        type: "exact-equality",
+        sampleIndex: 1,
+      },
+      {
+        type: "sampled-sign-reversal",
+        lowerSampleIndex: 0,
+        upperSampleIndex: 1,
+      },
+      {
+        type: "no-observed-candidate",
+      },
+    ] as const satisfies ReadonlyArray<FiniteBreakpointAnalysis["finding"]>) {
+      expect(
+        validateContract("finite-breakpoint-analysis", {
+          ...finiteBreakpointAnalysis,
+          finding,
+        }).ok,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects malformed finite Breakpoint unions, indexes, references, samples, and values", () => {
+    const { leftMetricValue: _leftMetricValue, ...sampleWithoutMetric } =
+      finiteBreakpointAnalysis.samples[0];
+    const invalidAnalyses = [
+      {
+        ...finiteBreakpointAnalysis,
+        finding: {
+          type: "exact-equality",
+          sampleIndex: 1,
+          lowerSampleIndex: 0,
+        },
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        finding: {
+          type: "sampled-sign-reversal",
+          lowerSampleIndex: 0,
+          upperSampleIndex: 15,
+        },
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        finding: {
+          type: "exact-equality",
+          sampleIndex: -1,
+        },
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        leftExperimentRef: artifactRef("voidtrace.scenario", "experiment.left"),
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        samples: [
+          {
+            ...finiteBreakpointAnalysis.samples[0],
+            rightResultRef: artifactRef("ruleset", "result.right-variant-0"),
+          },
+        ],
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        samples: [],
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        samples: Array.from({ length: 16 }, (_, index) => finiteBreakpointSample(index, 1)),
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        samples: [sampleWithoutMetric],
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        samples: [{ ...finiteBreakpointAnalysis.samples[0], value: "0" }],
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        samples: [
+          {
+            ...finiteBreakpointAnalysis.samples[0],
+            signedDifference: Number.POSITIVE_INFINITY,
+          },
+        ],
+      },
+    ];
+
+    for (const analysis of invalidAnalyses) {
+      expect(validateContract("finite-breakpoint-analysis", analysis).ok).toBe(false);
+    }
+  });
+
+  it("rejects extra finite Breakpoint fields at every closed object boundary", () => {
+    for (const analysis of [
+      { ...finiteBreakpointAnalysis, extra: true },
+      {
+        ...finiteBreakpointAnalysis,
+        samples: [{ ...finiteBreakpointAnalysis.samples[0], extra: true }],
+      },
+      {
+        ...finiteBreakpointAnalysis,
+        finding: { ...finiteBreakpointAnalysis.finding, extra: true },
+      },
+    ]) {
+      expect(validateContract("finite-breakpoint-analysis", analysis).ok).toBe(false);
+    }
   });
 
   it("enforces the one-to-fifteen resolved Experiment variant boundary", () => {

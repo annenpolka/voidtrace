@@ -1,0 +1,255 @@
+/// Content-addressed observational finding from two fully evaluated, aligned finite Sweeps.
+module voidtrace.contracts.`finite-breakpoint-analysis`
+
+import "artifact.pkl"
+import "model.pkl"
+import "scenario-patch.pkl" as scenarioPatch
+
+local schemaIdentifier = "urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0"
+local contractVersion = "0.1.0"
+local maximumSamples = 15
+
+function artifactReference(expectedKindValue: String): model.RefNode = new model.RefNode {
+  target = "artifact-ref"
+  expectedKind = expectedKindValue
+}
+
+function sample(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "value"
+      description = "Finite numeric Sweep coordinate shared by the aligned left and right samples."
+      required = true
+      schema = new model.NumberNode {}
+    }
+    new model.Field {
+      name = "leftVariantId"
+      description = "Experiment-local identity of the left Sweep variant at this coordinate."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "rightVariantId"
+      description = "Experiment-local identity of the right Sweep variant at this coordinate."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "leftScenarioRef"
+      description = "Exact left Scenario revision evaluated at this coordinate."
+      required = true
+      schema = artifactReference("voidtrace.scenario")
+    }
+    new model.Field {
+      name = "rightScenarioRef"
+      description = "Exact right Scenario revision evaluated at this coordinate."
+      required = true
+      schema = artifactReference("voidtrace.scenario")
+    }
+    new model.Field {
+      name = "leftResultRef"
+      description = "Exact left Result revision from which the primary metric was read."
+      required = true
+      schema = artifactReference("voidtrace.result")
+    }
+    new model.Field {
+      name = "rightResultRef"
+      description = "Exact right Result revision from which the primary metric was read."
+      required = true
+      schema = artifactReference("voidtrace.result")
+    }
+    new model.Field {
+      name = "leftMetricValue"
+      description = "Finite absolute primary metric value of the left sample."
+      required = true
+      schema = new model.NumberNode {}
+    }
+    new model.Field {
+      name = "rightMetricValue"
+      description = "Finite absolute primary metric value of the right sample."
+      required = true
+      schema = new model.NumberNode {}
+    }
+    new model.Field {
+      name = "signedDifference"
+      description = "Finite normalized difference: left metric value minus right metric value."
+      required = true
+      schema = new model.NumberNode {}
+    }
+  }
+}
+
+function exactEqualityFinding(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "type"
+      description = "Finding discriminator for one exact equality at a declared sample."
+      required = true
+      schema = new model.LiteralNode {
+        value = "exact-equality"
+      }
+    }
+    new model.Field {
+      name = "sampleIndex"
+      description = "Zero-based index of the unique sample whose signed difference is exactly zero."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 0
+        maximum = maximumSamples - 1
+      }
+    }
+  }
+}
+
+function sampledSignReversalFinding(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "type"
+      description = "Finding discriminator for one adjacent non-zero sampled sign reversal."
+      required = true
+      schema = new model.LiteralNode {
+        value = "sampled-sign-reversal"
+      }
+    }
+    new model.Field {
+      name = "lowerSampleIndex"
+      description = "Zero-based index of the lower-coordinate sample in the adjacent pair."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 0
+        maximum = maximumSamples - 1
+      }
+    }
+    new model.Field {
+      name = "upperSampleIndex"
+      description = "Zero-based index of the higher-coordinate sample in the adjacent pair."
+      required = true
+      schema = new model.IntegerNode {
+        minimum = 0
+        maximum = maximumSamples - 1
+      }
+    }
+  }
+}
+
+function noObservedCandidateFinding(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "type"
+      description = "Finding discriminator when the supplied finite samples contain no candidate."
+      required = true
+      schema = new model.LiteralNode {
+        value = "no-observed-candidate"
+      }
+    }
+  }
+}
+
+function finding(): model.UnionNode = new model.UnionNode {
+  variants = new {
+    exactEqualityFinding()
+    sampledSignReversalFinding()
+    noObservedCandidateFinding()
+  }
+}
+
+finiteBreakpointAnalysis: model.Contract = new {
+  id = "finite-breakpoint-analysis"
+  typeName = "FiniteBreakpointAnalysis"
+  schemaId = schemaIdentifier
+  version = contractVersion
+  description =
+    "Content-addressed exact equality, sampled sign reversal, or absence finding from two complete aligned finite Sweep evaluations."
+  root = new model.ObjectNode {
+    fields = (
+      artifact.envelopeFields(
+        schemaIdentifier,
+        "voidtrace.finite-breakpoint-analysis",
+        contractVersion,
+      )
+    ) {
+      new model.Field {
+        name = "method"
+        description =
+          "Finite observational analysis method; no interpolation or root finding is implied."
+        required = true
+        schema = new model.LiteralNode {
+          value = "finite-scan"
+        }
+      }
+      new model.Field {
+        name = "leftExperimentRef"
+        description = "Exact left finite Sweep Experiment revision evaluated for this analysis."
+        required = true
+        schema = artifactReference("voidtrace.experiment")
+      }
+      new model.Field {
+        name = "rightExperimentRef"
+        description = "Exact right finite Sweep Experiment revision evaluated for this analysis."
+        required = true
+        schema = artifactReference("voidtrace.experiment")
+      }
+      new model.Field {
+        name = "leftComparisonRef"
+        description = "Exact complete left Comparison produced by the left Experiment evaluation."
+        required = true
+        schema = artifactReference("voidtrace.comparison")
+      }
+      new model.Field {
+        name = "rightComparisonRef"
+        description = "Exact complete right Comparison produced by the right Experiment evaluation."
+        required = true
+        schema = artifactReference("voidtrace.comparison")
+      }
+      new model.Field {
+        name = "primaryMetric"
+        description = "Common primary metric read from both aligned finite Sweep evaluations."
+        required = true
+        schema = artifact.stableId()
+      }
+      new model.Field {
+        name = "sweepPath"
+        description = "Common allowlisted Scenario scalar path varied by both finite Sweeps."
+        required = true
+        schema = scenarioPatch.allowedScenarioPath()
+      }
+      new model.Field {
+        name = "productVersion"
+        description = "Common product version recorded by every Result used in the analysis."
+        required = true
+        schema = artifact.semanticVersion()
+      }
+      new model.Field {
+        name = "engineVersion"
+        description = "Common Engine version recorded by every Result used in the analysis."
+        required = true
+        schema = artifact.semanticVersion()
+      }
+      new model.Field {
+        name = "scenarioSchemaVersion"
+        description =
+          "Common Scenario schema version recorded by every Result used in the analysis."
+        required = true
+        schema = artifact.semanticVersion()
+      }
+      new model.Field {
+        name = "samples"
+        description =
+          "One to 15 auditable aligned finite samples in strict increasing coordinate order."
+        required = true
+        schema = new model.ArrayNode {
+          items = sample()
+          minItems = 1
+          maxItems = maximumSamples
+        }
+      }
+      new model.Field {
+        name = "finding"
+        description =
+          "Unique finite observational finding, including explicit absence within the samples."
+        required = true
+        schema = finding()
+      }
+    }
+  }
+}

@@ -142,6 +142,22 @@ describe("validateSpecDocument", () => {
     ).toBe("planned");
   });
 
+  it("accepts a planned finite Breakpoint analysis without an independent oracle", () => {
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            id: "BRK-001",
+            pattern: "finite_breakpoint_analysis",
+            area: "experiments",
+          },
+        ],
+      }).clauses[0]?.maturity,
+    ).toBe("planned");
+  });
+
   it("accepts active machine-verified Clauses with registered independent oracles", () => {
     expect(
       validateSpecDocument({
@@ -208,6 +224,21 @@ describe("validateSpecDocument", () => {
             ...validClause,
             id: "SWP-001",
             pattern: "finite_parameter_sweep",
+            maturity: "active",
+            area: "experiments",
+          },
+        ],
+      }).clauses[0]?.maturity,
+    ).toBe("active");
+
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            id: "BRK-001",
+            pattern: "finite_breakpoint_analysis",
             maturity: "active",
             area: "experiments",
           },

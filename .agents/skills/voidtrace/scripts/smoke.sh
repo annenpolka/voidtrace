@@ -6,4 +6,5 @@ node "${script_dir}/evaluate-slice.ts" --check-golden
 node "${script_dir}/run-comparison.ts" --check-golden
 node "${script_dir}/run-patch-comparison.ts" --check-golden
 node "${script_dir}/run-sweep.ts" --check-golden
+node "${script_dir}/run-breakpoint.ts" --check-golden
 exec node "${script_dir}/apply-scenario-patch.ts" --evaluate --check-golden

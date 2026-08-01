@@ -4,8 +4,8 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:53ee89d208ed4ce52d82c9f4c41146f6c91c5fb1fff949dd8bc790ccc5d3d822`
-- Generated contracts: 11 (see [CONTRACTS.md](./CONTRACTS.md))
+- Source fingerprint: `sha256:cdc2f564c1768ecd8d669f6e9acc812c5835ae21e16162580fa85aa9da83d7ef`
+- Generated contracts: 12 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
 
@@ -19,6 +19,7 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | ID | Area | Pattern | Guarantee | Maturity | Normative statement |
 | --- | --- | --- | --- | --- | --- |
 | `BEM-001` | `mechanics` | `resolved_beam_ticks` | `property-tested` | `active` | action.resolved-beam-ticksはdelivery beamのattack mode、固定非負safe-integer Critical tier、1以上64以下の明示tickCount、正のsafe-integer tickIntervalMsを受理し、index iの安定したBeam tick childを(i+1)*tickIntervalMsへscheduleする。最後tickはScenario timeLimitMs以下でなければならない。各tickはattack modeのbase Damageをcopyし、共通固定Critical tier、resolved Armor、直前tickのHealthの順で評価し、全tickのDamageと終端Healthを集約する。held durationからのtick数導出、Beam ramp、Fire Rate、Magazine、Ammo、Reload、Chain Beam、tick別CriticalまたはStatus roll、Status付与、expected分岐、生成乱数、現行WarframeのBeam式は導出しない |
+| `BRK-001` | `experiments` | `finite_breakpoint_analysis` | `property-tested` | `active` | FiniteBreakpointAnalysis 0.1.0はcaller宣言の一意なid／revision、一つの共通Catalogと生成Ruleset、leftとrightの二つの完全なfinite Sweep requestを受ける。最初のawait前に入力graph全体を一度だけsnapshotし、両側のExperiment、base Scenario、完全なexact Patch集合を検査して全派生Scenarioをmaterializeした後だけ、同じCatalogRef、RulesetRef、game build、primary metric、Sweep path、point数、同じ宣言順の有限numeric coordinateを要求する。coordinateは宣言順で狭義単調増加でなければならず、string／boolean／降順／無順序軸をsortまたは変換しない。leftのbaseとpoint、次にrightのbaseとpointを既存finite Sweep evaluatorで順次評価し、両方の完全なComparisonとResult／Trace integrityを通過した後だけ、全Result fingerprintのproductVersion、engineVersion、scenarioSchemaVersion完全一致を要求する。各coordinateについてleft absolute primary metric minus right absolute primary metricを有限算術で計算して負の0を0へ正規化し、全sampleを走査する。exact zero sampleと隣接するnon-zero differenceの符号反転を重複なく候補として数え、候補が一つならexact-equalityまたはsampled-sign-reversal、零ならno-observed-candidateを生成し、二つ以上ならambiguousとしてArtifactを返さない。Artifactはmethod finite-scan、両Experiment／Comparison完全Ref、metric、path、共通version、全coordinate、両variant identity、Scenario／Result完全Ref、両metric値、signed difference、唯一のfindingを保持し、content hash、Contract、独立integrityを再検査する。一件でもsnapshot、preflight、materialization、compatibility、evaluation、fingerprint、算術、candidate uniqueness、Artifact integrityに失敗すればAnalysis、部分sample、Comparison、materialized Scenario、evaluation列を返さずcaller入力を変更しない。符号判定に乗算を使わず、連続crossover、root、interpolation、tolerance、binary search、range／step生成、sort／dedup、monotonicity、winner／ranking／tie policy、複数候補列挙、Monte Carlo、current-game mechanicsを導出または主張しない |
 | `CHN-001` | `mechanics` | `resolved_chain_path` | `property-tested` | `active` | action.resolved-chain-direct-hitsは一つのpathKind chain ordered-path relationをtargetPathRelationIdで参照し、その1以上64以下のtargetIdsを順番どおり一度ずつ固定Critical Direct Hitとして評価する。各targetは自身のresolved ArmorとHealthを読み、target別World Stateへcommitする。候補探索、branch、距離、target選択、減衰、再訪、暗黙rollは生成しない |
 | `CLI-001` | `cli` | `cli_command_output_selection` | `example-tested` | `active` | helpメタデータ要求を除き、describe実行成功時はCapability Manifest、run実行成功時はResult、trace実行成功時はTraceだけをstdoutへ出力する |
 | `CLI-002` | `cli` | `cli_deterministic_json` | `example-tested` | `active` | 同一のコマンド引数とArtifact入力は同一のcanonical単一行JSONを生成し、pretty表示はJSON値を変更しない |

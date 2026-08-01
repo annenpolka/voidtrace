@@ -2,6 +2,7 @@
 
 export const CLAUSE_IDS = [
   "BEM-001",
+  "BRK-001",
   "CHN-001",
   "CLI-001",
   "CLI-002",

@@ -6,6 +6,7 @@ import {
   type Comparison,
   canonicalizeJson,
   type Experiment,
+  isStableId,
   type Result,
   type Ruleset,
   type Scenario,
@@ -21,6 +22,16 @@ import {
   type EvaluationRequest,
   evaluateScenario as evaluateKernelScenario,
 } from "@voidtrace/kernel";
+import {
+  buildFiniteBreakpointAnalysis,
+  type FiniteBreakpointError,
+  type FiniteBreakpointErrorCode,
+  type FiniteBreakpointFailure,
+  type FiniteBreakpointOutcome,
+  type FiniteBreakpointSuccess,
+  finiteBreakpointFailure,
+  prepareFiniteBreakpoint,
+} from "./finite-breakpoint.ts";
 import { materializeScenarioPatch } from "./scenario-patch.ts";
 
 export type ExperimentErrorCode =
@@ -92,6 +103,30 @@ export type ExperimentFailure = {
 
 export type ExperimentOutcome = ExperimentSuccess | ExperimentFailure;
 
+export type FiniteBreakpointSideRequest = {
+  readonly experiment: unknown;
+  readonly scenarios: ReadonlyArray<unknown>;
+  readonly patches: ReadonlyArray<unknown>;
+};
+
+export type RunFiniteBreakpointAnalysisRequest = {
+  readonly analysisId: string;
+  readonly analysisRevision: number;
+  readonly left: FiniteBreakpointSideRequest;
+  readonly right: FiniteBreakpointSideRequest;
+  readonly catalog: unknown;
+  readonly ruleset: unknown;
+  readonly productVersion?: string;
+};
+
+export type {
+  FiniteBreakpointError,
+  FiniteBreakpointErrorCode,
+  FiniteBreakpointFailure,
+  FiniteBreakpointOutcome,
+  FiniteBreakpointSuccess,
+};
+
 export type ScenarioEvaluator = (request: EvaluationRequest) => Promise<EvaluationOutcome>;
 
 export type ExperimentRunnerDependencies = {
@@ -160,6 +195,16 @@ const REQUEST_KEYS = [
   "scenarios",
 ] as const;
 const SUCCESS_KEYS = ["ok", "result", "trace"] as const;
+const BREAKPOINT_REQUEST_KEYS = [
+  "analysisId",
+  "analysisRevision",
+  "catalog",
+  "left",
+  "productVersion",
+  "right",
+  "ruleset",
+] as const;
+const BREAKPOINT_SIDE_KEYS = ["experiment", "patches", "scenarios"] as const;
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -996,6 +1041,98 @@ async function comparisonMatches(
   return true;
 }
 
+async function runPreflightedExperiment(
+  evaluator: ScenarioEvaluator,
+  preflighted: Preflight,
+): Promise<ExperimentOutcome> {
+  const base = await evaluateMember(evaluator, preflighted, preflighted.base);
+  if (isExperimentFailure(base)) {
+    return base;
+  }
+  const variants: ExperimentVariantEvaluationRow[] = [];
+  for (const member of preflighted.variants) {
+    const row = await evaluateMember(evaluator, preflighted, member);
+    if (isExperimentFailure(row)) {
+      return row;
+    }
+    variants.push(deepFreeze({ id: member.id, ...row }));
+  }
+
+  const baseMetricValue = base.result.metrics[preflighted.experiment.primaryMetric];
+  if (typeof baseMetricValue !== "number" || !Number.isFinite(baseMetricValue)) {
+    return failure("comparison-metric-missing", "Base Result primaryMetric is unavailable");
+  }
+  const variantProjections: Comparison["variants"][number][] = [];
+  for (const row of variants) {
+    const metricValue = row.result.metrics[preflighted.experiment.primaryMetric];
+    if (typeof metricValue !== "number" || !Number.isFinite(metricValue)) {
+      return failure("comparison-metric-missing", "Variant Result primaryMetric is unavailable", {
+        memberId: row.id,
+      });
+    }
+    const deltaFromBase = normalizeZero(metricValue - baseMetricValue);
+    if (!Number.isFinite(deltaFromBase)) {
+      return failure(
+        "comparison-arithmetic-failed",
+        "Signed variant-minus-base delta is not finite",
+        { memberId: row.id, causeCode: "non-finite-delta" },
+      );
+    }
+    variantProjections.push(
+      deepFreeze({
+        id: row.id,
+        scenarioRef: artifactRef(row.scenario),
+        resultRef: artifactRef(row.result),
+        metricValue,
+        deltaFromBase,
+      }),
+    );
+  }
+
+  let comparison: Comparison;
+  try {
+    const withHash = await attachArtifactContentHash({
+      $schema: "urn:voidtrace:schema:comparison:0.1.0",
+      kind: "voidtrace.comparison",
+      schemaVersion: "0.1.0",
+      id: `comparison.${preflighted.experiment.id}`,
+      revision: preflighted.experiment.revision,
+      gameBuild: preflighted.experiment.gameBuild,
+      experimentRef: artifactRef(preflighted.experiment),
+      primaryMetric: preflighted.experiment.primaryMetric,
+      base: {
+        scenarioRef: artifactRef(base.scenario),
+        resultRef: artifactRef(base.result),
+        metricValue: baseMetricValue,
+        deltaFromBase: 0,
+      },
+      variants: variantProjections,
+    } as const);
+    const validation = validateContract("comparison", withHash);
+    if (!validation.ok) {
+      const path = firstIssuePath(validation);
+      return failure("artifact-construction-failed", "Constructed Comparison is invalid", {
+        ...(path === undefined ? {} : { path }),
+      });
+    }
+    comparison = deepFreeze(validation.value);
+  } catch {
+    return failure("artifact-construction-failed", "Comparison construction failed");
+  }
+
+  if (!(await comparisonMatches(comparison, preflighted, base, variants))) {
+    return failure("integrity-check-failed", "Comparison failed cross-Artifact integrity checks", {
+      causeCode: "comparison-integrity",
+    });
+  }
+  return deepFreeze({
+    ok: true,
+    comparison,
+    base,
+    variants,
+  });
+}
+
 export function createExperimentRunner(
   dependencies: ExperimentRunnerDependencies,
 ): (request: RunExperimentRequest) => Promise<ExperimentOutcome> {
@@ -1008,101 +1145,179 @@ export function createExperimentRunner(
     if (isExperimentFailure(preflighted)) {
       return preflighted;
     }
+    return runPreflightedExperiment(evaluator, preflighted);
+  };
+}
 
-    const base = await evaluateMember(evaluator, preflighted, preflighted.base);
-    if (isExperimentFailure(base)) {
-      return base;
-    }
-    const variants: ExperimentVariantEvaluationRow[] = [];
-    for (const member of preflighted.variants) {
-      const row = await evaluateMember(evaluator, preflighted, member);
-      if (isExperimentFailure(row)) {
-        return row;
-      }
-      variants.push(deepFreeze({ id: member.id, ...row }));
-    }
+type FiniteBreakpointSideSnapshot = {
+  readonly experiment: unknown;
+  readonly scenarios: ReadonlyArray<unknown>;
+  readonly patches: ReadonlyArray<unknown>;
+};
 
-    const baseMetricValue = base.result.metrics[preflighted.experiment.primaryMetric];
-    if (typeof baseMetricValue !== "number" || !Number.isFinite(baseMetricValue)) {
-      return failure("comparison-metric-missing", "Base Result primaryMetric is unavailable");
-    }
-    const variantProjections: Comparison["variants"][number][] = [];
-    for (const row of variants) {
-      const metricValue = row.result.metrics[preflighted.experiment.primaryMetric];
-      if (typeof metricValue !== "number" || !Number.isFinite(metricValue)) {
-        return failure("comparison-metric-missing", "Variant Result primaryMetric is unavailable", {
-          memberId: row.id,
-        });
-      }
-      const deltaFromBase = normalizeZero(metricValue - baseMetricValue);
-      if (!Number.isFinite(deltaFromBase)) {
-        return failure(
-          "comparison-arithmetic-failed",
-          "Signed variant-minus-base delta is not finite",
-          { memberId: row.id, causeCode: "non-finite-delta" },
-        );
-      }
-      variantProjections.push(
-        deepFreeze({
-          id: row.id,
-          scenarioRef: artifactRef(row.scenario),
-          resultRef: artifactRef(row.result),
-          metricValue,
-          deltaFromBase,
-        }),
-      );
-    }
+function parseFiniteBreakpointSide(
+  value: unknown,
+  side: "left" | "right",
+): FiniteBreakpointSideSnapshot | FiniteBreakpointFailure {
+  if (!isRecord(value) || !hasExactKeys(value, BREAKPOINT_SIDE_KEYS)) {
+    return finiteBreakpointFailure(
+      "breakpoint-request-invalid",
+      "Each finite Breakpoint side must contain exactly experiment, scenarios, and patches",
+      { path: `/${side}`, side },
+    );
+  }
+  if (!Array.isArray(value.scenarios) || !Array.isArray(value.patches)) {
+    return finiteBreakpointFailure(
+      "breakpoint-request-invalid",
+      "Finite Breakpoint scenarios and patches must be arrays",
+      {
+        path: `/${side}/${Array.isArray(value.scenarios) ? "patches" : "scenarios"}`,
+        side,
+      },
+    );
+  }
+  return deepFreeze({
+    experiment: value.experiment,
+    scenarios: value.scenarios,
+    patches: value.patches,
+  });
+}
 
-    let comparison: Comparison;
+function mapBreakpointSourceFailure(
+  side: "left" | "right",
+  source: ExperimentFailure,
+): FiniteBreakpointFailure {
+  return finiteBreakpointFailure(
+    "breakpoint-source-failed",
+    `The ${side} finite Sweep did not complete`,
+    {
+      path: source.error.path === undefined ? `/${side}` : `/${side}${source.error.path}`,
+      side,
+      ...(source.error.memberId === undefined ? {} : { memberId: source.error.memberId }),
+      causeCode: source.error.code,
+    },
+  );
+}
+
+export function createFiniteBreakpointRunner(
+  dependencies: ExperimentRunnerDependencies,
+): (request: RunFiniteBreakpointAnalysisRequest) => Promise<FiniteBreakpointOutcome> {
+  const evaluator = dependencies.evaluateScenario;
+  if (typeof evaluator !== "function") {
+    throw new TypeError("createFiniteBreakpointRunner requires a Scenario evaluator");
+  }
+  return async (request: RunFiniteBreakpointAnalysisRequest): Promise<FiniteBreakpointOutcome> => {
+    let requestSnapshot: unknown;
     try {
-      const withHash = await attachArtifactContentHash({
-        $schema: "urn:voidtrace:schema:comparison:0.1.0",
-        kind: "voidtrace.comparison",
-        schemaVersion: "0.1.0",
-        id: `comparison.${preflighted.experiment.id}`,
-        revision: preflighted.experiment.revision,
-        gameBuild: preflighted.experiment.gameBuild,
-        experimentRef: artifactRef(preflighted.experiment),
-        primaryMetric: preflighted.experiment.primaryMetric,
-        base: {
-          scenarioRef: artifactRef(base.scenario),
-          resultRef: artifactRef(base.result),
-          metricValue: baseMetricValue,
-          deltaFromBase: 0,
-        },
-        variants: variantProjections,
-      } as const);
-      const validation = validateContract("comparison", withHash);
-      if (!validation.ok) {
-        const path = firstIssuePath(validation);
-        return failure("artifact-construction-failed", "Constructed Comparison is invalid", {
-          ...(path === undefined ? {} : { path }),
-        });
-      }
-      comparison = deepFreeze(validation.value);
+      requestSnapshot = snapshotJsonValue(request);
     } catch {
-      return failure("artifact-construction-failed", "Comparison construction failed");
-    }
-
-    if (!(await comparisonMatches(comparison, preflighted, base, variants))) {
-      return failure(
-        "integrity-check-failed",
-        "Comparison failed cross-Artifact integrity checks",
-        {
-          causeCode: "comparison-integrity",
-        },
+      return finiteBreakpointFailure(
+        "breakpoint-request-invalid",
+        "Finite Breakpoint request must be a plain JSON value",
       );
     }
-    return deepFreeze({
-      ok: true,
-      comparison,
-      base,
-      variants,
+    if (!isRecord(requestSnapshot)) {
+      return finiteBreakpointFailure(
+        "breakpoint-request-invalid",
+        "Finite Breakpoint request must be an object",
+      );
+    }
+    const keys = Object.keys(requestSnapshot).toSorted();
+    if (
+      keys.some(
+        (key) => !BREAKPOINT_REQUEST_KEYS.includes(key as (typeof BREAKPOINT_REQUEST_KEYS)[number]),
+      ) ||
+      !["analysisId", "analysisRevision", "catalog", "left", "right", "ruleset"].every((key) =>
+        Object.hasOwn(requestSnapshot, key),
+      )
+    ) {
+      return finiteBreakpointFailure(
+        "breakpoint-request-invalid",
+        "Finite Breakpoint request has an invalid field set",
+      );
+    }
+    if (typeof requestSnapshot.analysisId !== "string" || !isStableId(requestSnapshot.analysisId)) {
+      return finiteBreakpointFailure(
+        "breakpoint-request-invalid",
+        "analysisId must be a stable ID",
+        { path: "/analysisId" },
+      );
+    }
+    if (
+      typeof requestSnapshot.analysisRevision !== "number" ||
+      !Number.isSafeInteger(requestSnapshot.analysisRevision) ||
+      requestSnapshot.analysisRevision < 0
+    ) {
+      return finiteBreakpointFailure(
+        "breakpoint-request-invalid",
+        "analysisRevision must be a non-negative safe integer",
+        { path: "/analysisRevision" },
+      );
+    }
+    if (
+      requestSnapshot.productVersion !== undefined &&
+      typeof requestSnapshot.productVersion !== "string"
+    ) {
+      return finiteBreakpointFailure(
+        "breakpoint-request-invalid",
+        "productVersion must be a string",
+        { path: "/productVersion" },
+      );
+    }
+    const leftSide = parseFiniteBreakpointSide(requestSnapshot.left, "left");
+    if ("ok" in leftSide) {
+      return leftSide;
+    }
+    const rightSide = parseFiniteBreakpointSide(requestSnapshot.right, "right");
+    if ("ok" in rightSide) {
+      return rightSide;
+    }
+
+    const common = {
+      catalog: requestSnapshot.catalog,
+      ruleset: requestSnapshot.ruleset,
+      ...(requestSnapshot.productVersion === undefined
+        ? {}
+        : { productVersion: requestSnapshot.productVersion }),
+    } as const;
+    const leftPreflight = await preflight({ ...common, ...leftSide });
+    if (isExperimentFailure(leftPreflight)) {
+      return mapBreakpointSourceFailure("left", leftPreflight);
+    }
+    const rightPreflight = await preflight({ ...common, ...rightSide });
+    if (isExperimentFailure(rightPreflight)) {
+      return mapBreakpointSourceFailure("right", rightPreflight);
+    }
+    const prepared = prepareFiniteBreakpoint(leftPreflight.experiment, rightPreflight.experiment);
+    if ("ok" in prepared) {
+      return prepared;
+    }
+
+    const leftOutcome = await runPreflightedExperiment(evaluator, leftPreflight);
+    if (!leftOutcome.ok) {
+      return mapBreakpointSourceFailure("left", leftOutcome);
+    }
+    const rightOutcome = await runPreflightedExperiment(evaluator, rightPreflight);
+    if (!rightOutcome.ok) {
+      return mapBreakpointSourceFailure("right", rightOutcome);
+    }
+    return buildFiniteBreakpointAnalysis({
+      analysisId: requestSnapshot.analysisId,
+      analysisRevision: requestSnapshot.analysisRevision,
+      leftExperiment: leftPreflight.experiment,
+      rightExperiment: rightPreflight.experiment,
+      left: leftOutcome,
+      right: rightOutcome,
+      prepared,
     });
   };
 }
 
 export const runExperimentComparison = createExperimentRunner({
+  evaluateScenario: evaluateKernelScenario,
+});
+
+export const runFiniteBreakpointAnalysis = createFiniteBreakpointRunner({
   evaluateScenario: evaluateKernelScenario,
 });
 

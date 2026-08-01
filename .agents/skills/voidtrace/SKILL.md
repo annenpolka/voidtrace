@@ -1,12 +1,12 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect synthetic Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, ordered punch-through, ricochet, or chain fixtures, resolved or Patch-backed Scenario comparison, a checked-in fixed finite Critical-tier Sweep, and finite content-addressed Scenario Patch materialization. Use for checked-in Scenario execution, fixed-tier variation, comparison, Sweep, or Patch inspection, and explicit capability or unsupported-boundary reporting. The skill may report an unsupported request, but must not execute, approximate, or answer it as supported, including current Warframe claims or build advice, arbitrary JSON Patch, Patch chains, range/step or arbitrary/custom Sweep points, multi-axis Sweeps or products, sorting or deduplication, Breakpoint, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface for synthetic experimental Scenario evaluation, fixed-tier variation, resolved or Patch-backed comparison, a fixed finite Critical-tier Sweep, a fixed two-Sweep finite Breakpoint analysis, and content-addressed Scenario Patch materialization. Use for checked-in execution or inspection and explicit capability reporting. Refuse unsupported requests instead of approximating them, including current Warframe claims or build advice, arbitrary JSON Patch or Patch chains, generated or custom Sweep and Breakpoint inputs, continuous roots or interpolation, multi-axis products, sorting or deduplication, generated randomness or Monte Carlo, geometry derivation, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, and other mechanics absent from the specification.
 ---
 
 # VoidTrace repository-local skill interface
 
-This skill operates only the first synthetic, experimental Kernel slice in this repository. It is
-an agent-facing fixture-variation helper alongside the formal `voidtrace` / `vt` CLI. Never
+This skill operates only the finite synthetic, experimental vertical slices in this repository. It
+is an agent-facing fixture-variation and analysis helper alongside the formal `voidtrace` / `vt` CLI. Never
 present its values as verified current Warframe mechanics.
 
 ## Before running
@@ -18,6 +18,12 @@ present its values as verified current Warframe mechanics.
 4. Before calling a fixture checked-in, verify it with
    `git ls-files --error-unmatch <fixture-path>` and verify its bytes match `HEAD`. If either check
    fails, report that state and do not describe the fixture as checked-in.
+5. Before running the finite Breakpoint helper, apply that tracked and `HEAD`-identical check to
+   `breakpoint-left-sweep.experiment.json`, `breakpoint-right-sweep.experiment.json`,
+   `breakpoint-right.scenario.json`, `finite-breakpoint-analysis.expected.json`, the three
+   `critical-tier-sweep-{0,2,3}.scenario-patch.json` files, the three
+   `breakpoint-right-sweep-{0,2,3}.scenario-patch.json` files,
+   `direct-critical-armor.scenario.json`, and `catalog.json`.
 
 ## Supported requests
 
@@ -85,6 +91,10 @@ checked-in three-target Direct-plus-Radial impact Scenarios:
   complete three-Patch set before evaluation, keeps the base tier 1 separate, evaluates declared
   tier points 0, 2, and 3 in declaration order, and reports metric values 50, 150, and 200 with
   signed `variant - base` deltas -50, +50, and +100 for `damage.health.total`;
+- the checked-in fixed finite Breakpoint analysis, which validates and evaluates two complete
+  Critical-tier Sweeps through the SDK at the shared declared coordinates 0, 2, and 3, reads
+  `target.health.remaining`, records left-minus-right differences -50, +50, and +100, and reports
+  the unique observed `sampled-sign-reversal` between the adjacent 0 and 2 samples;
 - the finite Scenario Patch materializer, including the checked-in Critical-tier 1→2 Patch, which
   verifies an exact content-addressed base Scenario, applies 1 to 64 unique ordered replace-only
   same-kind non-null scalar changes at the Contract allowlisted existing paths, assigns the declared new
@@ -111,6 +121,19 @@ state that it is unsupported and stop without replacing it with a checked-in exa
 refusing, you may mention an exact checked-in comparison or Sweep as a distinct available example,
 but do not run it or present it as satisfying the request. You may instead offer separately
 authorized Pkl-first implementation work.
+
+The finite Breakpoint helper accepts only the checked-in left and right finite Sweep Experiments,
+their exact base Scenarios, both complete three-Patch sets, the common synthetic Catalog, and the
+full expected Analysis Artifact. It calls SDK `findFiniteBreakpoint` once; the operator does not
+calculate sample values, differences, signs, or candidates itself. The SDK validates and
+materializes both complete Sweeps before evaluation, requires the same metric, path, versions, and
+strictly increasing numeric coordinates, then returns one content-addressed
+`FiniteBreakpointAnalysis`. The checked-in finding spans declared samples 0 and 2 only. It is an
+observed sampled sign reversal, not a continuous crossover value or root. The helper does not
+accept caller-selected inputs, generate a range or step, sort or deduplicate points, interpolate,
+apply a tolerance, perform binary search, infer monotonicity, declare a winner or tie policy,
+enumerate multiple candidates, or claim current-game mechanics. If a request needs any of those
+behaviors, state that it is unsupported and stop without substituting the fixed example.
 
 The Scenario Patch helper accepts a Contract-valid, content-addressed Patch and its exact
 content-addressed base Scenario. It never edits either input, silently repairs or rehashes stale
@@ -306,6 +329,15 @@ node .agents/skills/voidtrace/scripts/run-sweep.ts --pretty
 node .agents/skills/voidtrace/scripts/run-sweep.ts --check-golden
 ```
 
+Run the checked-in fixed two-Sweep finite Breakpoint analysis through the SDK facade. Apply the
+tracked and `HEAD`-identical fixture checks listed under **Before running** first:
+
+```bash
+node .agents/skills/voidtrace/scripts/run-breakpoint.ts
+node .agents/skills/voidtrace/scripts/run-breakpoint.ts --pretty
+node .agents/skills/voidtrace/scripts/run-breakpoint.ts --check-golden
+```
+
 Materialize the checked-in Scenario Patch, optionally evaluate the resulting normal Scenario, or
 apply another already-valid Patch to its exact base:
 
@@ -349,7 +381,8 @@ for another agent or script. `--help` lists the finite adapter options.
 
 ## Interpreting output
 
-- Exit `0` with `ok: true` means a contract-valid Result and Trace passed cross-Artifact integrity.
+- Scenario evaluation helper exit `0` with `ok: true` means a contract-valid Result and Trace
+  passed cross-Artifact integrity.
 - Comparison helper exit `0` means every declared or materialized Scenario produced an
   integrity-checked Result and Trace and the content-addressed Comparison matched the Experiment
   order. Patch-backed success additionally means the exact Patch set was validated and all derived
@@ -362,6 +395,14 @@ for another agent or script. `--help` lists the finite adapter options.
   and signed `variant - base` deltas -50, +50, +100. These are explicit synthetic points, not a
   generated range or a current-Warframe Critical model; do not sort, deduplicate, interpolate,
   optimize, rank, or infer a Breakpoint from them.
+- Finite Breakpoint helper exit `0` means both exact checked-in Sweep inputs completed, all
+  Scenario, Result, Trace, and Comparison integrity checks passed, and the returned full
+  content-addressed Analysis matched the golden when `--check-golden` was requested. Read
+  `signedDifference` as left absolute `target.health.remaining` minus right absolute
+  `target.health.remaining`: the declared samples 0, 2, and 3 contain -50, +50, and +100. The
+  finding is one `sampled-sign-reversal` whose adjacent lower and upper samples are 0 and 2. It
+  establishes only that the sampled signs differ; it does not locate a root between them,
+  interpolate a crossover, infer monotonic behavior, or say which side wins.
 - Scenario Patch helper exit `0` means the exact base reference and both input hashes passed, all
   replacements completed atomically, and the emitted normal Scenario passed Contract and hash
   validation. With `--evaluate`, read metrics from `evaluation.result`; Patch materialization does
@@ -509,6 +550,8 @@ for another agent or script. `--help` lists the finite adapter options.
   roll inputs.
 - Always preserve the warning and coverage classification that mark this slice experimental.
 
-For a supported analysis request, report the requested metrics, the applied and rejected rule IDs,
-and the experimental limitation. Do not edit repository files unless the user separately asks for
-implementation work.
+For a supported Scenario evaluation request, report the requested metrics, the applied and rejected
+rule IDs, and the experimental limitation. For the fixed finite Breakpoint request, report the
+common metric and path, the three declared sample values and signed differences, the observational
+finding, and the no-root/no-interpolation/no-winner limitation. Do not edit repository files unless
+the user separately asks for implementation work.

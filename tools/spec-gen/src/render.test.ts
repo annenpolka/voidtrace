@@ -266,6 +266,45 @@ describe("renderGeneratedFiles", () => {
     });
   });
 
+  it("publishes finite Breakpoint analysis as a separate planned or active capability", () => {
+    const breakpointClause = {
+      id: "BRK-001",
+      pattern: "finite_breakpoint_analysis" as const,
+      desc: "scan two aligned fully evaluated finite Sweeps for one observational candidate",
+      guarantee: "property-tested" as const,
+      maturity: "planned" as const,
+      area: "experiments" as const,
+    };
+    const planned = renderGeneratedFiles({
+      ...spec,
+      clauses: [breakpointClause],
+    });
+    const active = renderGeneratedFiles({
+      ...spec,
+      clauses: [{ ...breakpointClause, maturity: "active" }],
+    });
+
+    const readCapabilities = (generated: ReturnType<typeof renderGeneratedFiles>) => {
+      const capabilities = generated.find(
+        (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
+      );
+      return JSON.parse(capabilities?.contents ?? "{}").capabilities as unknown[];
+    };
+
+    expect(readCapabilities(planned)).toContainEqual({
+      id: "experiments.finite-breakpoint",
+      status: "unsupported",
+      activeClauseRefs: [],
+      plannedClauseRefs: ["BRK-001"],
+    });
+    expect(readCapabilities(active)).toContainEqual({
+      id: "experiments.finite-breakpoint",
+      status: "supported",
+      activeClauseRefs: ["BRK-001"],
+      plannedClauseRefs: [],
+    });
+  });
+
   it("publishes Scenario Patch separately from resolved Experiment comparison", () => {
     const generated = renderGeneratedFiles({
       ...spec,

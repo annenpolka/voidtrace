@@ -1,0 +1,83 @@
+{
+  "$schema": "urn:voidtrace:schema:scenario:0.3.0",
+  "kind": "voidtrace.scenario",
+  "schemaVersion": "0.3.0",
+  "id": "scenario.golden-breakpoint-right",
+  "revision": 0,
+  "gameBuild": "synthetic-fixture-0",
+  "catalogRef": {
+    "kind": "catalog-snapshot",
+    "schemaVersion": "0.1.0",
+    "id": "catalog.synthetic-mini",
+    "revision": 0,
+    "contentHash": "sha256:006b3b5671b11df87c1b1a905ba99c0c925c468bf090197f9c2de6a1c4130437",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "rulesetRef": {
+    "kind": "ruleset",
+    "schemaVersion": "0.18.0",
+    "id": "ruleset.synthetic-core",
+    "revision": 1,
+    "contentHash": "sha256:30813f8a72f38145f911657da72f7117495b1000fdf5ea68e10975e79c26a00b",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "attacker": {
+    "id": "actor.attacker",
+    "configuration": {
+      "weaponId": "weapon.synthetic-aperture",
+      "attackModeId": "attack-mode.synthetic-aperture.primary"
+    }
+  },
+  "targets": [
+    {
+      "id": "actor.target",
+      "configuration": {
+        "catalogTargetId": "target.synthetic-calibration",
+        "resolvedHealth": 1100,
+        "resolvedShield": 0,
+        "resolvedArmor": 0,
+        "resolvedOverguard": 0
+      }
+    }
+  ],
+  "targetGraph": {
+    "relations": []
+  },
+  "initialState": {},
+  "actionPlan": [
+    {
+      "id": "action.direct-hit-1",
+      "kind": "action.direct-hit",
+      "parameters": {
+        "targetId": "actor.target",
+        "hitLocation": "hit-location.neutral-body",
+        "damageLayer": "health",
+        "criticalTier": 1
+      }
+    }
+  ],
+  "simulation": {
+    "mode": "deterministic",
+    "timeLimitMs": 1
+  },
+  "metrics": [
+    "damage.direct-hit.total",
+    "critical.tier",
+    "critical.multiplier",
+    "damage.post-critical.total",
+    "armor.remaining-multiplier",
+    "damage.health.total",
+    "target.health.remaining"
+  ],
+  "assumptions": [
+    {
+      "id": "assumption.synthetic-mechanics",
+      "description": "The fixture and Ruleset are synthetic and do not claim verified current Warframe behavior."
+    },
+    {
+      "id": "assumption.fixed-critical-tier",
+      "description": "This Scenario supplies a fixed Critical tier, so it does not evaluate Critical probability or a roll."
+    }
+  ],
+  "contentHash": "sha256:20a2fda5b4925fd52cdcc54a799830984fc8a8966cb0d54ccb0519238fefbb67"
+}

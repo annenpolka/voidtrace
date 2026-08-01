@@ -201,6 +201,12 @@ class FiniteParameterSweep extends Clause {
   area = "experiments"
 }
 
+class FiniteBreakpointAnalysis extends Clause {
+  pattern = "finite_breakpoint_analysis"
+  guarantee = "property-tested"
+  area = "experiments"
+}
+
 class ScenarioPatchIsolation extends Clause {
   pattern = "patch_isolation"
   guarantee = "property-tested"

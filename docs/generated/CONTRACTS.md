@@ -112,6 +112,37 @@ Complete immutable input fingerprint for a reproducible execution.
 | `seed` | required | Non-negative deterministic random seed used for evaluation. |
 | `resultHash` | required | SHA-256 of the canonical Fingerprint object excluding this resultHash field. |
 
+## FiniteBreakpointAnalysis
+
+- Contract ID: `finite-breakpoint-analysis`
+- Schema ID: `urn:voidtrace:schema:finite-breakpoint-analysis:0.1.0`
+- Schema version: `0.1.0`
+
+Content-addressed exact equality, sampled sign reversal, or absence finding from two complete aligned finite Sweep evaluations.
+
+| Field | Presence | Meaning |
+| --- | --- | --- |
+| `$schema` | required | Schema identifier used to validate this Artifact. |
+| `kind` | required | Stable discriminator for this Artifact kind. |
+| `schemaVersion` | required | Version of this Artifact contract. |
+| `id` | required | Stable identity of this Artifact. |
+| `revision` | required | Non-negative immutable revision of this Artifact. |
+| `createdFrom` | optional | Optional Artifact revision from which this Artifact was derived. |
+| `contentHash` | required | SHA-256 fingerprint of the canonical Artifact excluding this top-level contentHash field. |
+| `gameBuild` | required | Game build against which this Artifact is defined. |
+| `method` | required | Finite observational analysis method; no interpolation or root finding is implied. |
+| `leftExperimentRef` | required | Exact left finite Sweep Experiment revision evaluated for this analysis. |
+| `rightExperimentRef` | required | Exact right finite Sweep Experiment revision evaluated for this analysis. |
+| `leftComparisonRef` | required | Exact complete left Comparison produced by the left Experiment evaluation. |
+| `rightComparisonRef` | required | Exact complete right Comparison produced by the right Experiment evaluation. |
+| `primaryMetric` | required | Common primary metric read from both aligned finite Sweep evaluations. |
+| `sweepPath` | required | Common allowlisted Scenario scalar path varied by both finite Sweeps. |
+| `productVersion` | required | Common product version recorded by every Result used in the analysis. |
+| `engineVersion` | required | Common Engine version recorded by every Result used in the analysis. |
+| `scenarioSchemaVersion` | required | Common Scenario schema version recorded by every Result used in the analysis. |
+| `samples` | required | One to 15 auditable aligned finite samples in strict increasing coordinate order. |
+| `finding` | required | Unique finite observational finding, including explicit absence within the samples. |
+
 ## Problem
 
 - Contract ID: `problem`

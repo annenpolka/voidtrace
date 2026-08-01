@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:53ee89d208ed4ce52d82c9f4c41146f6c91c5fb1fff949dd8bc790ccc5d3d822",
+  "sourceFingerprint": "sha256:cdc2f564c1768ecd8d669f6e9acc812c5835ae21e16162580fa85aa9da83d7ef",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -17,6 +17,7 @@
         "comparison",
         "experiment",
         "fingerprint",
+        "finite-breakpoint-analysis",
         "problem",
         "result",
         "ruleset",
@@ -187,6 +188,14 @@
       "status": "supported",
       "activeClauseRefs": [
         "SWP-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "experiments.finite-breakpoint",
+      "status": "supported",
+      "activeClauseRefs": [
+        "BRK-001"
       ],
       "plannedClauseRefs": []
     },
