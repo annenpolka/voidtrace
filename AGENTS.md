@@ -29,7 +29,7 @@ The current implemented boundary ends at the synthetic Direct Hit / generalized 
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
 and pellets plus resolved target-specific Pellet allocation, standalone resolved Radial falloff,
 resolved multi-target Radial, resolved synthetic Status ticks, and resolved fixed-Critical Beam
-ticks, backed by generated Ruleset `0.18.0` revision `1` and their formal
+ticks, backed by Kernel Engine `0.19.0`, generated Ruleset `0.18.0` revision `1`, and their formal
 `describe` / `run` / `trace` JSON CLI.
 Fixed Critical input is a non-negative safe-integer tier. Explicit-roll and expected resolution
 accept non-negative Critical chance only while adjacent tiers are safely representable.
@@ -102,6 +102,12 @@ resolved Pellet allocation, resolved Direct-plus-Radial impact, resolved Status 
 Beam tick fixtures.
 The formal CLI also runs the checked-in distinct-mode, distinct-fixed-tier, and shared-explicit-roll
 Direct-plus-Radial impact fixtures.
+For the `critical.roll` phase only, the runtime inspects
+`rule.impact.resolve-shared-critical-roll` and `rule.critical.resolve-tier-roll` in generated
+Ruleset declaration order. It applies the event-kind match and records the non-match as a
+predicate rejection with `predicate.event-kind-mismatch` plus actual/expected event-kind reads.
+The rejected candidate does not read mechanic context, execute its operation, mutate World State,
+or change metrics. Guard/operation rejection and all-phase candidate auditing remain unsupported.
 Probabilistic Multishot or
 pellets, Multishot-plus-pellet composition, per-hit or per-pellet Critical rolls, probabilistic hit distribution,
 Spread, Catalog- or current-game-derived Radial falloff, physical Projectile composition,

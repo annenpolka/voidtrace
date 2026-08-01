@@ -297,6 +297,14 @@ for another agent or script. `--help` lists the finite adapter options.
   Armor, and Health commit Rules once per reachable branch, then applies
   `rule.critical.aggregate-expected-branches`. Do not collapse repeated Rule IDs or invent
   rejected candidates when the Trace contains none.
+- For `critical.roll` only, inspect
+  `rule.impact.resolve-shared-critical-roll` and `rule.critical.resolve-tier-roll` in Trace order.
+  One matches the event kind and is applied; the other is recorded as a predicate rejection with
+  `predicate.event-kind-mismatch` and exact `event.kind` / `rule.event-kind` reads. Treat that
+  rejection as an audited same-phase non-match, not an evaluation failure or a mechanic with zero
+  effect. The Direct explicit-roll Goldens have five applied decisions plus the rejected impact
+  candidate, for six total. The shared-roll impact Golden has 17 applied decisions plus the
+  rejected Direct candidate, for 18 total.
 - Result metric `critical.multiplier` is the resolved tier's applied factor. The Trace field
   `criticalMultiplier` is the Catalog input, so report them separately when they differ.
 - Expected mode has no realized `critical.roll`, `critical.tier`, or `critical.multiplier`. Report
@@ -417,7 +425,8 @@ for another agent or script. `--help` lists the finite adapter options.
   `rule.impact.resolve-shared-critical-roll` decision. It reads Critical chance 0.25 and explicit
   roll 0.2, resolves tier 1 once, and parents the Direct and two Radial construct decisions. All
   three child Critical decisions read tier 1. Report Direct 100, Radial 135, aggregate 235,
-  remaining Health 215, target Health A=100, C=55, B=60, and 17 decisions. This is an explicit
+  remaining Health 215, and target Health A=100, C=55, B=60. Its Trace has 17 applied decisions
+  and one rejected `rule.critical.resolve-tier-roll` candidate, for 18 total. This is an explicit
   synthetic input, not generated randomness or a verified current-game roll-sharing rule. Do not
   extrapolate to distinct attack-mode chances, child-specific rolls, expected values, or arbitrary
   roll inputs.

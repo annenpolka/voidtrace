@@ -100,6 +100,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 07:57:57Z) 最終adversarial／contract reviewを反映し、SDKの最初のawait前snapshot、accessor非実行／秘密非漏洩、extra field拒否、1〜15 variantsのfast-check propertyを `9965e5b` としてコミットした。独立再レビューにactionable findingは残らなかった。
 - [x] (2026-08-01 07:57:57Z) Node 26.0.0とNode 24.18.0の双方で、26生成ファイルのfreshness、55 Clauses、10 Contracts、23テストファイル444件を含む `just check` を通した。
 - [x] (2026-08-01 08:06:59Z) 最終skill／README／AGENTS／ExecPlanを `acf1616` としてpublic mainへpushし、GitHub Actions `Check` run `30691057997` がhead `acf1616` に対して1分11秒で成功した。
+- [x] (2026-08-01 08:38:11Z) 唯一のplanned Clause `TRC-002`をactive化し、同じ `critical.roll` phaseの既存二RuleだけをRuleset宣言順で検査する境界をPklから26生成ファイルへ反映した。generated reverse translationはactive 55／planned 0、`kernel.foundation` supportedである。
+- [x] (2026-08-01 08:38:11Z) Rulesへevent-kindだけを読むpredicate判定、KernelへDirect／共有impactの双方向rejection Trace、3 literal Golden更新、完全read比較、50-run property、hash改変試験を実装した。固定tier／expected／他phaseは従来どおり候補不一致を列挙しない。
+- [x] (2026-08-01 08:38:11Z) README／AGENTS／repository-local skillを現境界へ更新した。empirical-prompt-tuningの変更前2件と変更後2件はすべて100%、critical全通過、retry 0、変更後のtarget-instruction不明点0だった。tool-use／durationは取得不能のため定量収束を主張しない。
+- [x] (2026-08-01 08:38:11Z) skill validation／smoke、Node 26.0.0とNode 24.18.0の双方で26生成ファイル、55 Clauses、10 Contracts、24テストファイル453件を含む全 `check` を通した。
+- [x] (2026-08-01 08:48:00Z) 最終独立reviewで指摘されたfingerprint再利用を防ぐためKernel Engineを`0.19.0`へ上げ、Ruleset IR `0.18.0`とは分離した。修正後reviewにactionable findingは残らず、機能を `80571a0` としてコミットした。
+- [ ] 最終文書をcommitしてpublic mainへpushし、GitHub Actions `Check`を確認する。
 
 ## Surprises & Discoveries
 
@@ -216,6 +222,18 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: `EXP-001/002`を`property-tested`として公開するには、有限なexample matrixだけでは検証方法の表記と実証が一致しなかった。
   Evidence: fast-check propertyを追加し、1〜15 variants、供給順permutation、有限小数／負の0の符号付きdelta、missing／duplicate／extra／undeclared集合、任意evaluator失敗位置を生成した。全runで宣言順、非丸め、hash、事前拒否、call prefix、部分row禁止を検査する。
+
+- Observation: Experiment完了後も `TRC-002`だけがplannedで、Trace Contractのpredicate／guard／operation拒否shapeとKernelの変換分岐は存在する一方、現在のdispatcherがphaseとevent kindを先に完全一致させるためrejected decisionは一件も生成されない。
+  Evidence: generated coverageはactive 54／planned 1、全Goldenの `rejectedRules` は空である。Ruleset宣言順では同じ `critical.roll` phaseにimpact共有roll Rule、Direct explicit-roll Ruleが並ぶため、この二候補だけで新しい戦闘メカニクスなしに非適用Ruleの因果記録を検証できる。
+
+- Observation: rejected decisionを一件追加するとTraceとそれを参照するResultのcontent hashは変わるが、Scenario／Catalog／Ruleset入力hashとmetric projectionだけのComparison Goldenは変わらない。
+  Evidence: formal comparison helperはexplicit-roll variantの新Trace／Result hashを含めてintegrity-checkを通し、`--check-golden`のbase／variant metric値とsigned deltaは従来どおり一致した。checked-in literal出力hashは存在しない。
+
+- Observation: Traceの可観測decisionを変えてKernel Engine `0.18.0`を据え置くと、旧実装と新実装が同じexecution-input `resultHash`を共有する。
+  Evidence: `engineVersion`はCatalog／Ruleset／Scenario hash、seedとともにResult／Trace fingerprintの入力である。Ruleset IRは不変のためRuleset `0.18.0`を保ち、Kernel実装だけを`0.19.0`へ上げてcache／再現境界を分離した。
+
+- Observation: skillの変更前baselineは共有rollを17 decisionsと書いたままでも、fresh executorがformal Traceから18へ自己修正して100%になった。
+  Evidence: empirical baseline 2件はcritical checklistを通したが、この成功はinstruction/runtime driftを隠す。本文へ二候補、非失敗のrejection意味、Direct 6件／共有impact 18件を近接して明記し、変更後fresh 2件も100%／retry 0だった。
 
 ## Decision Log
 
@@ -403,6 +421,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: Result値そのものを再計算せず、比較入力と出力のprovenanceをSchemaとhashで検査できる。比率、優劣方向、tie、ranking、統計量はmetric意味論を必要とするためこのsliceでは生成しない。
   Date/Author: 2026-08-01 07:25:00Z / Codex
 
+- Decision: Experiment後の次の縦切りはScenario Patchより先に `TRC-002`をactive化し、候補列挙を `critical.roll` phaseの既存二Ruleだけへ限定する。
+  Rationale: `TRC-002`は現在唯一のplanned Clauseであり、`kernel.foundation`のpartial状態を残している。全phaseの全候補を記録すると最大64 hit／tickでTraceが不必要に急増する一方、既存二RuleならDirectと共有impactの両方向で宣言順、predicate不一致、状態非変更、安定reasonを独立に検証できる。guard／operation rejection、全phase候補監査、Scenario Patch、Sweep、Breakpointはこのsliceへ含めない。
+  Date/Author: 2026-08-01 08:20:01Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -433,7 +455,7 @@ Resolved Direct＋Radial impactマイルストーンでは、一つの親impact�
 
 別固定tier Direct＋Radialマイルストーンでは、既存actionとEvent DAGを保ったまま、Directへ `criticalTier: 1`、Radialへ `radialCriticalTier: 2` をbindできるようになった。GoldenはDirect 100、Radial 162、合計262、終端Health A=80、C=48、B=60、残Health合計188を16 decisionsで再生する。`radialCriticalTier`省略時は既存Goldenの共有tier挙動を保つ。負数、非整数、安全でないtierは構造化拒否となり、roll、Critical chance、roll共有、expected分岐、Projectile物理、現行Warframe値は引き続き非対応である。
 
-共有explicit-roll Direct＋Radialマイルストーンでは、親impactがprimary modeのCritical chance `0.25` と明示roll `0.2`からtier 1を一度だけ解決し、Directと全Radial childrenへ継承できるようになった。GoldenはDirect 100、Radial 135、合計235、終端Health A=100、C=55、B=60、残Health合計215を17 decisionsで再生する。DirectとRadialのconstructは共通の親roll eventを持ち、改変Traceはhash一致後もchance／roll／tierの因果整合性を再検査される。別attack mode chance、child-specific roll、生成乱数、expected分岐、Projectile物理、現行Warframe値は引き続き非対応である。
+共有explicit-roll Direct＋Radialマイルストーンでは、親impactがprimary modeのCritical chance `0.25` と明示roll `0.2`からtier 1を一度だけ解決し、Directと全Radial childrenへ継承できるようになった。GoldenはDirect 100、Radial 135、合計235、終端Health A=100、C=55、B=60、残Health合計215を17 applied decisionsと1 predicate-rejected candidateの計18 decisionsで再生する。DirectとRadialのconstructは共通の親roll eventを持ち、改変Traceはhash一致後もchance／roll／tierの因果整合性を再検査される。別attack mode chance、child-specific roll、生成乱数、expected分岐、Projectile物理、現行Warframe値は引き続き非対応である。
 
 Resolved Beam tickマイルストーンでは、`delivery: beam` の合成attack modeを、明示tick数と間隔で安定した時刻付きchildrenへ展開し、各tickへbase Damage、共通固定Critical tier、resolved Armor、逐次Health commitを適用できるようになった。Goldenは各tickを `20→40→20` と評価して100／200／300msでHealthを `50→30→10→0` へ更新し、Damage合計60を14 decisionsで再生する。64 tick超、time horizon超過、安全でない時刻、非Beam delivery、expected／roll入力は部分Artifactなしで拒否する。held duration、ramp、Fire Rate、Magazine／Ammo／Reload、Chain Beam、tick別roll、Status、現行ゲーム式は引き続き非対応である。
 
@@ -524,7 +546,7 @@ Resolved Direct＋Radial impactは、targets配列順と異なるrelation順、D
 
 別固定tier Direct＋Radial impactは、`criticalTier: 1`をDirectへ、`radialCriticalTier: 2`をRadialへbindする合成Goldenで受け入れる。TraceはDirectの `event.critical-tier` 1とRadial二件の2を区別し、Direct Damage 100、Radial Damage 162、合計262、終端Health A=80／C=48／B=60、残Health合計188を再生する。負数、非整数、安全でないtierは部分Artifactなしで拒否する。`radialCriticalTier`を省略した共有mode／別mode既存Goldenは共有tier挙動のまま残す。roll、Critical chance、roll共有規則、expected分岐、Projectile物理は扱わない。
 
-共有explicit-roll Direct＋Radial impactは、`criticalRoll: 0.2`を親impactで一度だけ解決し、primary modeのCritical chance `0.25`から得たtier 1をDirectと全Radial childrenへ継承する合成Goldenで受け入れる。Traceは一つの親roll decisionと各childのtier 1読取を区別し、Direct Damage 100、Radial Damage 135、合計235、終端Health A=100／C=55／B=60、残Health合計215を17 decisionsで再生する。`criticalTier`との併記、範囲外roll、別Radial mode、別Radial tier、子別roll、生成乱数、expected分岐は部分Artifactなしで拒否する。固定tierの既存Goldenは回帰試験に残す。
+共有explicit-roll Direct＋Radial impactは、`criticalRoll: 0.2`を親impactで一度だけ解決し、primary modeのCritical chance `0.25`から得たtier 1をDirectと全Radial childrenへ継承する合成Goldenで受け入れる。Traceは一つの親roll decisionと各childのtier 1読取を区別し、Direct Damage 100、Radial Damage 135、合計235、終端Health A=100／C=55／B=60、残Health合計215を17 applied decisionsと1 predicate-rejected candidateの計18 decisionsで再生する。`criticalTier`との併記、範囲外roll、別Radial mode、別Radial tier、子別roll、生成乱数、expected分岐は部分Artifactなしで拒否する。固定tierの既存Goldenは回帰試験に残す。
 
 Resolved Beam ticksは、base Damage 20、Critical tier 1、Armor 300、Health 50、tick数3、間隔100msの合成Goldenで受け入れる。Traceはscheduleの後、100／200／300msで各tickのBeam construct、Critical、Armor、Health commitを順に記録し、Health `50→30→10→0`、Beam Damage合計60、14 decisionsを再生する。tick数0／65以上、非整数、間隔0以下、safe integer overflow、time horizon超過は部分Artifactなしで拒否する。held durationからの導出、ramp、Fire Rate、Magazine／Ammo／Reload、Chain Beam、tick別roll、Status、expected値、生成乱数、現行WarframeのBeam式は扱わない。
 
@@ -803,6 +825,24 @@ Experimentマイルストーンの受け入れ結果は次のとおりである�
     implementation commits: 88a846f, 69e881a, e3192a3, 9965e5b
     public GitHub Check: run 30691057997 for acf1616 succeeded in 1m11s
     formal CLI: unchanged
+
+`TRC-002`マイルストーンのローカル受け入れ結果は次のとおりである。
+
+    Kernel Engine / Ruleset: 0.19.0 / 0.18.0 revision 1
+    coverage: 55 active / 0 planned Clauses; kernel.foundation supported
+    candidate scope: critical.roll only; impact shared-roll then Direct explicit-roll in Ruleset declaration order
+    Direct explicit-roll Trace: 5 applied + 1 predicate-rejected = 6 decisions
+    shared-impact explicit-roll Trace: 17 applied + 1 predicate-rejected = 18 decisions
+    rejection reason: predicate.event-kind-mismatch with exact actual / expected event-kind reads
+    non-effects: no mechanic-context read, operation execution, World State mutation, or metric change
+    adversarial coverage: Rule-property Proxy, exact rejection reads/reason, deterministic property, Trace hash and Result traceRef binding
+    Node 26.0.0: 24 test files / 453 tests
+    Node 24.18.0: 24 test files / 453 tests
+    empirical baseline / targeted rerun: 4/4 at 100%, retries 0; quantitative convergence not claimed
+    unsupported: guard rejection, operation rejection, all-phase candidate audit, Scenario Patch, Sweep, Breakpoint
+    formal CLI: unchanged (`describe` / `run` / `trace`)
+    implementation commit: 80571a0
+    documentation commit / public GitHub Check: pending
 
 ## Interfaces and Dependencies
 

@@ -5,8 +5,9 @@ VoidTrace is being built as two layers:
 - **VoidTrace Kernel** — a headless, reproducible execution model for Warframe combat mechanics.
 - **VoidTrace Lab** — an AI-assisted analysis environment that turns questions into inspectable experiments.
 
-The implemented boundary is a synthetic, experimental Kernel backed by generated Ruleset `0.18.0`
-revision `1`, ten versioned public contracts, and 55 normative Clauses. It currently supports:
+The implemented boundary is synthetic, experimental Kernel Engine `0.19.0`, backed by generated
+Ruleset `0.18.0` revision `1`, ten versioned public contracts, and 55 normative Clauses. It
+currently supports:
 
 - Direct Hit through base Damage, fixed or explicit-roll Critical, Armor, and terminal Health;
 - analytic expected Critical across safely representable adjacent tiers;
@@ -16,6 +17,12 @@ revision `1`, ten versioned public contracts, and 55 normative Clauses. It curre
   and shared explicit-roll variants;
 - resolved synthetic Status ticks and fixed-Critical Beam ticks; and
 - resolved punch-through, ricochet, and chain ordered target paths.
+
+For `critical.roll`, Trace now inspects the existing shared-impact and Direct explicit-roll Rules
+in generated Ruleset declaration order. The matching candidate is applied; the other is recorded
+as a predicate rejection with code `predicate.event-kind-mismatch` and exact actual/expected event
+kinds. A rejected candidate is an auditable non-match, not a failed Scenario or a zero-effect
+mechanic. Guard/operation rejection and all-phase candidate auditing remain outside this slice.
 
 Scenario Contract `0.3.0` makes its Target Graph explicit. The runtime accepts only the finite
 resolved relation shapes consumed by the supported slices: empty relations, one ordered target
@@ -125,7 +132,7 @@ an unsupported request.
 
 ## Specification maturity
 
-Of 55 Clauses, 54 are `active`; `TRC-002` remains one planned rejection-trace obligation. The
-generated coverage view reports 29 property-tested, 25 example-tested, and one manual Clause.
+All 55 Clauses are `active`; no planned Clause remains. The generated coverage view reports 29
+property-tested, 25 example-tested, and one manual Clause.
 Machine-verified active Clauses use independent oracles exercised by `just check`. All runtime
 Rules remain synthetic and retain `experimental` evidence status.

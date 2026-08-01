@@ -179,6 +179,9 @@ Run the helper with fixed Critical tier 4, Armor 0, and Health 1000, then summar
 
 #### Scenario B — supported edge: inspect the tier-2 explicit-roll golden
 
+> Historical note: this Commit 8 checklist predates `TRC-002`. Current explicit-roll Trace
+> reporting is reevaluated in the later `TRC-002` section and includes one rejected candidate.
+
 Run and inspect both Result and Trace for the checked-in tier-2 explicit-roll Scenario.
 
 1. [critical] Invoke formal `vt run` and `vt trace` with the tier-2 Scenario and matching Catalog.
@@ -302,6 +305,92 @@ Convergence check: reset to zero consecutive clears because a new unclear point 
 - No new patterns.
 
 Convergence check: one consecutive clear round after the Iteration 2 fix.
+
+## TRC-002 rejection-trace re-evaluation
+
+This re-evaluation follows the activation of `TRC-002`. It supersedes only earlier claims that
+the explicit-roll Trace has no rejected Rule; fixed-tier and expected-mode results are unchanged.
+
+### Frozen scenarios and requirements
+
+#### Scenario A — supported edge: tier-2 explicit roll
+
+1. [critical] Run formal `vt run` and `vt trace` with the tier-2 Scenario and matching Catalog
+   without editing files.
+2. Report base tier 1, next tier 2, fraction 0.25, resolved tier 2, applied multiplier 3, Health
+   Damage 150, and remaining Health 850.
+3. Report five applied Rules, six total decisions, and exactly one rejected
+   `rule.impact.resolve-shared-critical-roll` candidate with predicate stage and
+   `predicate.event-kind-mismatch`.
+4. Treat the rejection as a same-phase event-kind non-match, not an evaluation failure or a
+   zero-effect mechanic.
+5. Preserve the synthetic/experimental boundary and do not claim generated randomness.
+
+#### Scenario B — supported edge: shared-roll Direct plus Radial impact
+
+1. [critical] Run formal `vt run` and `vt trace` with the shared-roll impact Scenario and matching
+   Catalog without editing files.
+2. Report chance 0.25, roll 0.2, tier 1, Direct 100, Radial 135, aggregate 235, remaining Health
+   215, and target Health A=100, C=55, B=60.
+3. Report 17 applied decisions, 18 total decisions, and exactly one rejected
+   `rule.critical.resolve-tier-roll` candidate with predicate stage and
+   `predicate.event-kind-mismatch`.
+4. Preserve the non-failure rejection meaning, shared parent, and Direct-before-Radial order.
+5. Preserve the synthetic/experimental boundary and the stated roll-sharing limitations.
+
+### Iteration 0 — pre-fix baseline
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — tier-2 explicit roll | ○ | 100% | unavailable | unavailable | 0 | — |
+| B — shared-roll impact | ○ | 100% | unavailable | unavailable | 0 | — |
+
+Both executors corrected the runtime facts from formal Trace output. Scenario B therefore passed
+despite the skill still saying 17 total decisions, which exposed instruction/runtime drift rather
+than an output failure. Scenario A repeated the already-documented distinction between Catalog
+Critical multiplier input 2 and applied Result multiplier 3.
+
+- Issue: a capable executor could self-correct the stale shared-roll count, but the instruction
+  itself still contradicted the formal Trace.
+- Cause: the skill's literal Trace interpretation had not moved with the activated rejection
+  Clause.
+- General Fix Rule: when an auditable decision is added, update both the general decision semantics
+  and each affected literal decision count close to the interpretation recipe.
+
+### Iteration 1
+
+#### Changes from Iteration 0
+
+- Defined the two `critical.roll` candidates, the predicate rejection reason and reads, and the
+  non-failure/non-zero interpretation.
+- Updated Direct explicit-roll to six total decisions and shared-roll impact to 17 applied plus
+  one rejected decision, 18 total.
+- Pattern applied: runtime drift obscured by successful executor self-correction.
+
+#### Execution results
+
+| Scenario | Success | Accuracy | Steps | Duration | Retries | Weak phase |
+|---|---:|---:|---:|---:|---:|---|
+| A — tier-2 explicit roll | ○ | 100% | unavailable | unavailable | 0 | — |
+| B — shared-roll impact | ○ | 100% | unavailable | unavailable | 0 | — |
+
+Both fresh executors satisfied every frozen requirement and reported zero retries. Scenario B's
+structured note described the domain-level risk of misreading a rejection; it did not identify an
+instruction ambiguity and repeated the interpretation now stated by the skill.
+
+#### Discretionary fill-ins
+
+- Scenario A separated the Catalog multiplier input from the applied multiplier.
+- Scenario B reported exact actual/expected event kinds and target-local Health transitions.
+
+#### Ledger updates
+
+- Added: runtime drift obscured by successful executor self-correction.
+
+Resource cutoff: ship after one targeted post-fix round because both baseline and post-fix rounds
+were 100%, every critical item passed, retries were zero, and no target-instruction ambiguity
+remained. Collaboration metadata did not expose tool-use or duration, so full quantitative
+convergence is not claimed.
 
 ## `69e881a` resolved Experiment comparison re-evaluation
 
