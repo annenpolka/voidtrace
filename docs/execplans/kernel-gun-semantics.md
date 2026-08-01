@@ -90,7 +90,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 05:19:25Z) `BEM-001`と`GOL-018`でBeam tickの有限schedule、固定Critical／Armor／Health pipeline、逐次commit、集約を規定し、Ruleset `0.18.0`を生成した。逆翻訳でBeam専用capabilityと6 Rulesを確認した。
 - [x] (2026-08-01 05:36:00Z) Domain／Rules／Kernel／Trace replay／CLI／repository-local skillを実装した。base Damage 20、固定tier 1、Armor 300、Health 50、3 ticks／100msのGoldenはDamage 60、Health `50→30→10→0`、14 decisionsを再生する。
 - [x] (2026-08-01 06:10:29Z) Ruleset更新で失効した既存17 Scenarioの参照とcontent hashを再計算し、全Catalog／ScenarioのContractとhashを検証した。adversarial Trace reviewの修正後、Node 26.0.0／24.18.0で53 Clauses、8 Contracts、生成24ファイル、21テストファイル411テストの全gateを通した。
-- [ ] repository-local skillのempirical-prompt-tuningをfeature commit後に2回とhold-outで評価する。
+- [x] (2026-08-01 06:23:20Z) Beam実装を `ce1fff9` としてコミットし、repository-local skillをfeature commit後のfresh executorで評価した。Iteration 0はdescription／body一致、対応Iteration 1／2は7/7、非対応Iteration 1／2は6/6、wrong-Catalog hold-outは6/6で、全回とも不明点0、retry 0だった。
 - [ ] Ruleset `0.18.0`マイルストーンをpublic mainへpushし、GitHub Actions `Check`を確認する。
 
 ## Surprises & Discoveries
@@ -741,6 +741,13 @@ Resolved Beam tickマイルストーンのローカル検証記録は次のと�
     Trace decisions: 14
     invalid inputs: zero/non-integer/65 ticks, zero/non-integer/overflow interval, time horizon, expected/roll, non-Beam delivery
     unsupported: held duration, ramp, Fire Rate, resource behavior, Chain Beam, per-tick rolls, Status, expected values, current-game formulas
+    empirical Iteration 0: frontmatter description and body scope aligned
+    empirical supported Iteration 1 / 2: 7/7 / 7/7, unclear 0 / 0, retries 0 / 0
+    empirical unsupported Iteration 1 / 2: 6/6 / 6/6, unclear 0 / 0, retries 0 / 0
+    empirical wrong-Catalog hold-out: 6/6, catalog-reference-mismatch exit 2, no mutation or substitution
+    empirical usage metadata: Agent tool_uses / duration_ms unavailable; quantitative convergence not claimed
+
+Scenario Contract `0.3.0`、Ruleset `0.18.0` revision `1` とresolved synthetic Beam ticksを含むローカル基準線は `ce1fff9 feat: add resolved beam tick vertical slice` としてコミット済みである。
 
 ## Interfaces and Dependencies
 
