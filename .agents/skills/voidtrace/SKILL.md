@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect its synthetic experimental Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, and ordered punch-through, ricochet, or chain fixtures with Result and Trace JSON. Use for checked-in Scenario execution, supported resolved Armor, Health, or fixed-tier variation, and explicit capability or unsupported-boundary reporting. Do not use for current Warframe claims or build advice, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect its synthetic experimental Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, ordered punch-through, ricochet, or chain fixtures, and the checked-in resolved Scenario comparison with Result, Trace, or Comparison JSON. Use for checked-in Scenario execution, supported resolved Armor, Health, fixed-tier variation, resolved comparison inspection, and explicit capability or unsupported-boundary reporting. Do not use for current Warframe claims or build advice, Scenario Patch, Sweep, Breakpoint, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -75,6 +75,18 @@ checked-in three-target Direct-plus-Radial impact Scenarios:
 - non-negative resolved Armor and Health;
 - neutral body hit against Health;
 - full Result and causal Trace JSON.
+- the checked-in resolved Experiment comparison, which evaluates one base Scenario followed by two
+  declared variant Scenario revisions under the same synthetic Catalog and Ruleset, then reports
+  `damage.health.total` and the signed `variant - base` delta in a content-addressed Comparison.
+
+The comparison helper accepts only the checked-in Experiment and its exact three Scenario
+revisions. It does not apply Scenario Patch, synthesize a variant, sort the declared variants,
+change Catalog or Ruleset, infer whether a larger metric is better, or run Sweep, Breakpoint,
+ruleset branches, Monte Carlo, ratios, ranking, or statistical uncertainty. If a requested
+comparison needs any of those behaviors, state that it is unsupported and stop without replacing
+it with the checked-in comparison. After refusing, you may mention the exact checked-in comparison
+as a distinct available example, but do not run it or present it as satisfying the request. You may
+instead offer separately authorized Pkl-first implementation work.
 
 Before running a Direct-plus-Radial request, require checked-in resolved impact relations and one
 supported explicit Critical resolution. Use the shared-mode Golden when no separate mode or tier
@@ -230,6 +242,14 @@ Result/Trace envelope:
 node .agents/skills/voidtrace/scripts/evaluate-slice.ts
 ```
 
+Run the checked-in resolved Scenario comparison through the SDK Experiment facade:
+
+```bash
+node .agents/skills/voidtrace/scripts/run-comparison.ts
+node .agents/skills/voidtrace/scripts/run-comparison.ts --pretty
+node .agents/skills/voidtrace/scripts/run-comparison.ts --check-golden
+```
+
 Vary only the supported resolved inputs:
 
 ```bash
@@ -265,6 +285,10 @@ for another agent or script. `--help` lists the finite adapter options.
 ## Interpreting output
 
 - Exit `0` with `ok: true` means a contract-valid Result and Trace passed cross-Artifact integrity.
+- Comparison helper exit `0` means every declared Scenario produced an integrity-checked Result
+  and Trace and the content-addressed Comparison matched the Experiment order. Its
+  `deltaFromBase` is signed `variant - base`; do not take an absolute value or interpret its sign
+  as a winner without metric-direction semantics.
 - Exit `2` with `ok: false` is a structured domain rejection. Report `error.code`,
   `error.mechanicId` when present, and `error.message`.
 - Exit `1` with `ok: false` and an `adapter.*` code means input, file, or golden-check failure in

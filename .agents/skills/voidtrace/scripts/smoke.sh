@@ -2,4 +2,5 @@
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-exec node "${script_dir}/evaluate-slice.ts" --check-golden
+node "${script_dir}/evaluate-slice.ts" --check-golden
+exec node "${script_dir}/run-comparison.ts" --check-golden
