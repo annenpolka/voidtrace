@@ -3,7 +3,7 @@ import {
   validateContract,
   verifyResultTraceIntegrity,
 } from "@voidtrace/contracts";
-import { createNodeApplication, createProblem, type CliApplication } from "@voidtrace/runtime-node";
+import { type CliApplication, createNodeApplication, createProblem } from "@voidtrace/runtime-node";
 import { describe, expect, it, vi } from "vitest";
 import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor.scenario.json" with {
   type: "json",
@@ -11,32 +11,37 @@ import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor
 import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical-armor.scenario.json" with {
   type: "json",
 };
-import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
-  type: "json",
-};
-import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
+import beamScenarioFixture from "../../../data/fixtures/golden/resolved-beam-ticks.scenario.json" with {
   type: "json",
 };
 import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.scenario.json" with {
   type: "json",
 };
+import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
+  type: "json",
+};
 import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
+  type: "json",
+};
+import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
   type: "json",
 };
 import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
   type: "json",
 };
 import packageJson from "../package.json" with { type: "json" };
-import { runCli, type CliIo } from "./cli.ts";
+import { type CliIo, runCli } from "./cli.ts";
 
 const SCENARIO_PATH = "data/fixtures/golden/direct-critical-armor.scenario.json";
 const RADIAL_SCENARIO_PATH = "data/fixtures/golden/radial-critical-armor.scenario.json";
 const STATUS_SCENARIO_PATH = "data/fixtures/golden/resolved-status-ticks.scenario.json";
+const BEAM_SCENARIO_PATH = "data/fixtures/golden/resolved-beam-ticks.scenario.json";
 const PUNCH_THROUGH_SCENARIO_PATH = "data/fixtures/golden/resolved-punch-through.scenario.json";
 const RICOCHET_SCENARIO_PATH = "data/fixtures/golden/resolved-ricochet.scenario.json";
 const CHAIN_SCENARIO_PATH = "data/fixtures/golden/resolved-chain.scenario.json";
 const RADIAL_TARGETS_SCENARIO_PATH = "data/fixtures/golden/resolved-radial-targets.scenario.json";
 const CATALOG_PATH = "data/fixtures/catalog-mini/catalog.json";
+const BEAM_CATALOG_PATH = "data/fixtures/catalog-mini/catalog-beam.json";
 
 type Invocation = {
   readonly exitCode: number;
@@ -84,6 +89,16 @@ describe("VoidTrace CLI success routing", () => {
     expect(first.stdout.endsWith("\n")).toBe(true);
     expect(JSON.parse(first.stdout)).toEqual(createNodeApplication().describe());
     expect(first.stdout).toBe(`${canonicalizeJson(JSON.parse(first.stdout))}\n`);
+    expect(JSON.parse(first.stdout)).toMatchObject({
+      capabilities: expect.arrayContaining([
+        {
+          id: "mechanics.resolved-beam-ticks",
+          status: "supported",
+          activeClauseRefs: ["BEM-001", "GOL-018"],
+          plannedClauseRefs: [],
+        },
+      ]),
+    });
   });
 
   it("selects only Result for run and only Trace for trace", async () => {
@@ -198,6 +213,40 @@ describe("VoidTrace CLI success routing", () => {
     });
     await expect(
       verifyResultTraceIntegrity(result.value, causalTrace.value, statusScenarioFixture),
+    ).resolves.toBe(true);
+  });
+
+  it("selects the Beam fixture Catalog and round-trips resolved Beam ticks", async () => {
+    const run = await invoke(["run", BEAM_SCENARIO_PATH, "--catalog", BEAM_CATALOG_PATH]);
+    const trace = await invoke(["trace", BEAM_SCENARIO_PATH, "--catalog", BEAM_CATALOG_PATH]);
+    const resultValue = JSON.parse(run.stdout) as unknown;
+    const traceValue = JSON.parse(trace.stdout) as unknown;
+    const result = validateContract("result", resultValue);
+    const causalTrace = validateContract("trace", traceValue);
+
+    expect(run.exitCode).toBe(0);
+    expect(trace.exitCode).toBe(0);
+    expect(run.stderr).toBe("");
+    expect(trace.stderr).toBe("");
+    expect(result.ok).toBe(true);
+    expect(causalTrace.ok).toBe(true);
+    if (!result.ok || !causalTrace.ok) {
+      throw new Error("CLI emitted an invalid resolved Beam Result or Trace");
+    }
+    expect(result.value.metrics).toMatchObject({
+      "beam.tick-count": 3,
+      "beam.tick-interval-ms": 100,
+      "damage.beam.per-tick": 20,
+      "damage.beam.total": 60,
+      "critical.tier": 1,
+      "critical.multiplier": 2,
+      "damage.post-critical.total": 40,
+      "armor.remaining-multiplier": 0.5,
+      "damage.health.total": 60,
+      "target.health.remaining": 0,
+    });
+    await expect(
+      verifyResultTraceIntegrity(result.value, causalTrace.value, beamScenarioFixture),
     ).resolves.toBe(true);
   });
 
@@ -333,6 +382,23 @@ describe("VoidTrace CLI success routing", () => {
 });
 
 describe("VoidTrace CLI failure routing", () => {
+  it("rejects the Beam Scenario when a nearby non-Beam Catalog is selected", async () => {
+    const invocation = await invoke(["run", BEAM_SCENARIO_PATH, "--catalog", CATALOG_PATH]);
+    const problem = validateContract("problem", JSON.parse(invocation.stderr));
+
+    expect(invocation.exitCode).toBe(2);
+    expect(invocation.stdout).toBe("");
+    expect(problem.ok).toBe(true);
+    if (!problem.ok) {
+      throw new Error("CLI emitted an invalid Beam Catalog mismatch Problem");
+    }
+    expect(problem.value).toMatchObject({
+      classification: "input",
+      code: "catalog-reference-mismatch",
+      source: BEAM_SCENARIO_PATH,
+    });
+  });
+
   it.each([
     { argv: [] as string[] },
     { argv: ["unknown"] },

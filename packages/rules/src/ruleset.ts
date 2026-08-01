@@ -10,50 +10,53 @@ import { RulesError } from "./errors.ts";
 import {
   type ExpectedAggregateContext,
   executeExpectedAggregateRule,
-  type FixedMultishotContext,
   executeFixedMultishotRule,
-  type FixedPelletContext,
   executeFixedPelletRule,
-  type ResolvedPelletAllocationAggregateContext,
-  type ResolvedPelletAllocationExpansionContext,
-  executeResolvedPelletAllocationAggregateRule,
-  executeResolvedPelletAllocationExpansionRule,
-  type ResolvedRadialFalloffContext,
-  executeResolvedRadialFalloffRule,
-  type ResolvedStatusTickDamageContext,
-  executeResolvedStatusTickDamageRule,
-  type ResolvedStatusTickScheduleContext,
-  executeResolvedStatusTickScheduleRule,
-  type ResolvedPunchThroughAggregateContext,
-  type ResolvedPunchThroughExpansionContext,
-  executeResolvedPunchThroughAggregateRule,
-  executeResolvedPunchThroughExpansionRule,
-  type ResolvedRicochetAggregateContext,
-  type ResolvedRicochetExpansionContext,
-  executeResolvedRicochetAggregateRule,
-  executeResolvedRicochetExpansionRule,
-  type ResolvedChainAggregateContext,
-  type ResolvedChainExpansionContext,
+  executeResolvedBeamTickScheduleRule,
   executeResolvedChainAggregateRule,
   executeResolvedChainExpansionRule,
-  type ResolvedRadialTargetAggregateContext,
-  type ResolvedRadialTargetExpansionContext,
-  executeResolvedRadialTargetAggregateRule,
-  executeResolvedRadialTargetExpansionRule,
-  type ResolvedDirectRadialImpactAggregateContext,
-  type ResolvedDirectRadialImpactExpansionContext,
   executeResolvedDirectRadialImpactAggregateRule,
   executeResolvedDirectRadialImpactExpansionRule,
+  executeResolvedPelletAllocationAggregateRule,
+  executeResolvedPelletAllocationExpansionRule,
+  executeResolvedPunchThroughAggregateRule,
+  executeResolvedPunchThroughExpansionRule,
+  executeResolvedRadialFalloffRule,
+  executeResolvedRadialTargetAggregateRule,
+  executeResolvedRadialTargetExpansionRule,
+  executeResolvedRicochetAggregateRule,
+  executeResolvedRicochetExpansionRule,
+  executeResolvedStatusTickDamageRule,
+  executeResolvedStatusTickScheduleRule,
   executeRule,
+  executeSequentialBeamTickAggregateRule,
+  executeSequentialHitAggregateRule,
+  executeSequentialPelletAggregateRule,
+  executeSequentialStatusTickAggregateRule,
+  type FixedMultishotContext,
+  type FixedPelletContext,
+  type ResolvedBeamTickScheduleContext,
+  type ResolvedChainAggregateContext,
+  type ResolvedChainExpansionContext,
+  type ResolvedDirectRadialImpactAggregateContext,
+  type ResolvedDirectRadialImpactExpansionContext,
+  type ResolvedPelletAllocationAggregateContext,
+  type ResolvedPelletAllocationExpansionContext,
+  type ResolvedPunchThroughAggregateContext,
+  type ResolvedPunchThroughExpansionContext,
+  type ResolvedRadialFalloffContext,
+  type ResolvedRadialTargetAggregateContext,
+  type ResolvedRadialTargetExpansionContext,
+  type ResolvedRicochetAggregateContext,
+  type ResolvedRicochetExpansionContext,
+  type ResolvedStatusTickDamageContext,
+  type ResolvedStatusTickScheduleContext,
   type RuleContext,
   type RuleDefinition,
   type RuleExecution,
   type RuleOperationKind,
   type RulePhase,
   type SequentialHitAggregateContext,
-  executeSequentialHitAggregateRule,
-  executeSequentialPelletAggregateRule,
-  executeSequentialStatusTickAggregateRule,
 } from "./execution.ts";
 
 export type LoadedRuleset = {
@@ -78,6 +81,10 @@ export type LoadedRuleset = {
   executeResolvedStatusTickScheduleRule(
     id: string,
     context: ResolvedStatusTickScheduleContext,
+  ): RuleExecution;
+  executeResolvedBeamTickScheduleRule(
+    id: string,
+    context: ResolvedBeamTickScheduleContext,
   ): RuleExecution;
   executeResolvedStatusTickDamageRule(
     id: string,
@@ -132,6 +139,10 @@ export type LoadedRuleset = {
     context: SequentialHitAggregateContext,
   ): RuleExecution;
   executeSequentialStatusTickAggregateRule(
+    id: string,
+    context: SequentialHitAggregateContext,
+  ): RuleExecution;
+  executeSequentialBeamTickAggregateRule(
     id: string,
     context: SequentialHitAggregateContext,
   ): RuleExecution;
@@ -196,6 +207,12 @@ const OPERATION_DECLARATIONS = {
     reads: ["action.status-tick-count", "action.status-tick-interval-ms"],
     writes: ["event.status-tick-count"],
   },
+  "event.expand-resolved-beam-ticks": {
+    phase: "attack.emit",
+    eventKind: "action.resolved-beam-ticks",
+    reads: ["action.beam-tick-count", "action.beam-tick-interval-ms"],
+    writes: ["event.beam-tick-count"],
+  },
   "event.expand-resolved-punch-through-targets": {
     phase: "attack.emit",
     eventKind: "action.resolved-punch-through-direct-hits",
@@ -228,7 +245,7 @@ const OPERATION_DECLARATIONS = {
   },
   "damage-vector.copy": {
     phase: "damage.construct",
-    eventKind: ["damage.direct", "damage.radial"],
+    eventKind: ["damage.direct", "damage.radial", "damage.beam-tick"],
     reads: ["attack.base-damage"],
     writes: ["event.damage"],
   },
@@ -259,19 +276,19 @@ const OPERATION_DECLARATIONS = {
   },
   "damage-vector.scale-critical-tier": {
     phase: "critical.resolve",
-    eventKind: ["damage.direct", "damage.radial"],
+    eventKind: ["damage.direct", "damage.radial", "damage.beam-tick"],
     reads: ["event.damage", "event.critical-tier", "attack.critical-multiplier"],
     writes: ["event.damage"],
   },
   "damage-vector.scale-standard-armor": {
     phase: "target.mitigate",
-    eventKind: ["damage.direct", "damage.radial"],
+    eventKind: ["damage.direct", "damage.radial", "damage.beam-tick"],
     reads: ["event.damage", "target.armor"],
     writes: ["event.damage"],
   },
   "damage.commit-health": {
     phase: "damage.commit",
-    eventKind: ["damage.direct", "damage.radial", "damage.status-tick"],
+    eventKind: ["damage.direct", "damage.radial", "damage.status-tick", "damage.beam-tick"],
     reads: ["event.damage", "target.health"],
     writes: ["target.health"],
   },
@@ -314,6 +331,12 @@ const OPERATION_DECLARATIONS = {
   "damage-vector.aggregate-sequential-status-ticks": {
     phase: "result.aggregate",
     eventKind: "action.resolved-status-ticks",
+    reads: ["tick.damage", "tick.health-before", "tick.health-after"],
+    writes: ["event.damage", "target.health"],
+  },
+  "damage-vector.aggregate-sequential-beam-ticks": {
+    phase: "result.aggregate",
+    eventKind: "action.resolved-beam-ticks",
     reads: ["tick.damage", "tick.health-before", "tick.health-after"],
     writes: ["event.damage", "target.health"],
   },
@@ -418,6 +441,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
       }
       break;
     case "event.expand-resolved-status-ticks":
+    case "event.expand-resolved-beam-ticks":
       if (
         typeof operation.maximumTicks === "number" &&
         Number.isSafeInteger(operation.maximumTicks) &&
@@ -451,6 +475,7 @@ function assertFiniteOperation(rule: RuleDefinition): void {
     case "damage-vector.scale-resolved-radial-falloff":
     case "damage-vector.copy-resolved-status-tick":
     case "damage-vector.aggregate-sequential-status-ticks":
+    case "damage-vector.aggregate-sequential-beam-ticks":
     case "damage-vector.aggregate-resolved-punch-through-targets":
     case "damage-vector.aggregate-resolved-ricochet-targets":
     case "damage-vector.aggregate-resolved-chain-targets":
@@ -577,6 +602,10 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       id: string,
       context: ResolvedStatusTickScheduleContext,
     ): RuleExecution => executeResolvedStatusTickScheduleRule(resolveRule(id), context),
+    executeResolvedBeamTickScheduleRule: (
+      id: string,
+      context: ResolvedBeamTickScheduleContext,
+    ): RuleExecution => executeResolvedBeamTickScheduleRule(resolveRule(id), context),
     executeResolvedStatusTickDamageRule: (
       id: string,
       context: ResolvedStatusTickDamageContext,
@@ -633,6 +662,10 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
       id: string,
       context: SequentialHitAggregateContext,
     ): RuleExecution => executeSequentialStatusTickAggregateRule(resolveRule(id), context),
+    executeSequentialBeamTickAggregateRule: (
+      id: string,
+      context: SequentialHitAggregateContext,
+    ): RuleExecution => executeSequentialBeamTickAggregateRule(resolveRule(id), context),
   });
 }
 

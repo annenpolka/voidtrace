@@ -88,7 +88,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-31 00:06:37Z) Ruleset `0.17.0`マイルストーンをpublic mainへpushし、`7b79f91`に対するGitHub Actions `Check` run `30592492415`の成功を確認した。
 - [x] (2026-08-01 05:12:33Z) 元計画のCommit 7以降の順序と実装済み境界を照合し、次の縦切りを解決済み固定tick数／間隔を持つ合成Beamに固定した。
 - [x] (2026-08-01 05:19:25Z) `BEM-001`と`GOL-018`でBeam tickの有限schedule、固定Critical／Armor／Health pipeline、逐次commit、集約を規定し、Ruleset `0.18.0`を生成した。逆翻訳でBeam専用capabilityと6 Rulesを確認した。
-- [ ] Domain／Rules／Kernel／Trace replay／CLI／skillを実装し、Node 26／24の全ゲート、empirical評価、public push、CIを完了する。
+- [x] (2026-08-01 05:36:00Z) Domain／Rules／Kernel／Trace replay／CLI／repository-local skillを実装した。base Damage 20、固定tier 1、Armor 300、Health 50、3 ticks／100msのGoldenはDamage 60、Health `50→30→10→0`、14 decisionsを再生する。
+- [x] (2026-08-01 06:10:29Z) Ruleset更新で失効した既存17 Scenarioの参照とcontent hashを再計算し、全Catalog／ScenarioのContractとhashを検証した。adversarial Trace reviewの修正後、Node 26.0.0／24.18.0で53 Clauses、8 Contracts、生成24ファイル、21テストファイル411テストの全gateを通した。
+- [ ] repository-local skillのempirical-prompt-tuningをfeature commit後に2回とhold-outで評価する。
+- [ ] Ruleset `0.18.0`マイルストーンをpublic mainへpushし、GitHub Actions `Check`を確認する。
 
 ## Surprises & Discoveries
 
@@ -172,6 +175,27 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: 新しいBeam ClauseとGoldenを生成した初回のcapability manifestは、それらを汎用Direct capabilityへ誤分類した。
   Evidence: 初回の `just spec-gen` は `BEM-001/GOL-018` を `mechanics.direct-critical-armor` へ列挙した。生成器の有限分類と回帰試験を追加し、再生成後は `mechanics.resolved-beam-ticks` が両Clauseだけをsupportedとした。
+
+- Observation: Rulesetのcontent hash更新後は、新規Beam Scenarioだけでなく既存Golden全件の `rulesetRef` と自己hashも意図どおり失効した。
+  Evidence: 初回のKernel回帰は既存Scenarioを `ruleset-reference-mismatch` で拒否した。生成Ruleset `0.18.0` revision `1` の参照へ既存17件を機械的に更新し、全ScenarioのContractとcanonical content hashを独立に再検証した。
+
+- Observation: Beam専用metricを大域のsupported IDへ追加しただけでは、単発Direct Scenarioがそのmetricをdomainで受理し、投影時まで失敗を遅延させた。
+  Evidence: 既存のmetric-subset propertyが `beam.tick-interval-ms` をDirectへ選んで失敗した。Beam-only集合を明示し、非Beam actionで `unsupported-metric` として事前拒否する回帰試験を追加した。
+
+- Observation: 正常Traceの再生だけでは、Beam tickごとのCritical tier／Armor根拠改変とStatus tickへのscale操作混入を検出できなかった。
+  Evidence: adversarial review後、Beam replayへCritical tier／multiplier／factor式、Armor／constant／factor式、全tick共通入力、Health commit readsを追加した。さらにdecision sequence、単一終端aggregate、Status tickのscale拒否を固定し、再hashした5種のtamper回帰試験を追加した。
+
+- Observation: tick metadataを持つ不正scaleだけを拒否しても、schedule直後へmetadataなしfactor 1のglobal scaleを挿入でき、二つ目のscheduleは期待tick種別を上書きできた。
+  Evidence: follow-up adversarial reviewを受け、Status／Beamのschedule後は各sliceの有限なtick operation列と終端aggregate以外を拒否するmode whitelistを追加した。metadataなしglobal scale、二重Status schedule、Beam global scaleを正しく再hashした回帰試験はすべて `invalid-operation-parameters` となる。
+
+- Observation: tick内部の演算式とschedule後のoperation集合を閉じても、tick間のbase Damage変更、schedule前のglobal copy、論理時刻を逆行させるtick interleaveは独立に可能だった。
+  Evidence: 二回目のadversarial reviewを受け、最初のBeam base Damage totalを全tickへ固定し、Beam／Status scheduleを最初のapplied decisionへ限定し、applied decisionの時刻を非減少にした。Health 0でも成立する完全整合tamperを含む3回帰試験を追加し、Node 26／24の全gateで拒否を確認した。
+
+- Observation: Beamで追加したtick replay不変条件を既存Statusへ対称に適用しないと、Status Damageのtick間変更、aggregate複製、event topology改変が残った。
+  Evidence: 最終adversarial reviewを受け、Statusの最初のresolved Damage totalを全tickへ固定し、Status／Beam共通のterminal aggregate状態とexactly-one footerを追加し、Status schedule／copy／commit／aggregateのcanonical event鎖を検査した。完全整合Damage tamper、aggregate複製、4段階のtopology改変を再hashした回帰試験はすべて拒否される。
+
+- Observation: Trace-only replayはBeam construct時のbase Damage合計をCatalog由来のscalar readへ束縛するが、合計を保ったDamage type間の付け替えまでは独立に証明しない。
+  Evidence: evaluatorとCatalog fingerprintは元入力を束縛し、正常Artifactの生成を検証する。一方、Trace単体でcomponent vectorまで根拠化するには、component別readを契約へ追加するかCatalog-aware replayへ拡張する別マイルストーンが必要であり、今回のsynthetic Beam sliceでは境界を拡張しない。
 
 ## Decision Log
 
@@ -378,6 +402,8 @@ Resolved Direct＋Radial impactマイルストーンでは、一つの親impact�
 別固定tier Direct＋Radialマイルストーンでは、既存actionとEvent DAGを保ったまま、Directへ `criticalTier: 1`、Radialへ `radialCriticalTier: 2` をbindできるようになった。GoldenはDirect 100、Radial 162、合計262、終端Health A=80、C=48、B=60、残Health合計188を16 decisionsで再生する。`radialCriticalTier`省略時は既存Goldenの共有tier挙動を保つ。負数、非整数、安全でないtierは構造化拒否となり、roll、Critical chance、roll共有、expected分岐、Projectile物理、現行Warframe値は引き続き非対応である。
 
 共有explicit-roll Direct＋Radialマイルストーンでは、親impactがprimary modeのCritical chance `0.25` と明示roll `0.2`からtier 1を一度だけ解決し、Directと全Radial childrenへ継承できるようになった。GoldenはDirect 100、Radial 135、合計235、終端Health A=100、C=55、B=60、残Health合計215を17 decisionsで再生する。DirectとRadialのconstructは共通の親roll eventを持ち、改変Traceはhash一致後もchance／roll／tierの因果整合性を再検査される。別attack mode chance、child-specific roll、生成乱数、expected分岐、Projectile物理、現行Warframe値は引き続き非対応である。
+
+Resolved Beam tickマイルストーンでは、`delivery: beam` の合成attack modeを、明示tick数と間隔で安定した時刻付きchildrenへ展開し、各tickへbase Damage、共通固定Critical tier、resolved Armor、逐次Health commitを適用できるようになった。Goldenは各tickを `20→40→20` と評価して100／200／300msでHealthを `50→30→10→0` へ更新し、Damage合計60を14 decisionsで再生する。64 tick超、time horizon超過、安全でない時刻、非Beam delivery、expected／roll入力は部分Artifactなしで拒否する。held duration、ramp、Fire Rate、Magazine／Ammo／Reload、Chain Beam、tick別roll、Status、現行ゲーム式は引き続き非対応である。
 
 ## Context and Orientation
 
@@ -701,6 +727,20 @@ Scenario Contract `0.3.0`、Ruleset `0.16.0` revision `1` と別固定Critical t
     empirical note: unsupported iteration 2 recorded one non-blocking interpretation of decimal roll wording, then correctly stopped without a question or substitution
 
 Scenario Contract `0.3.0`、Ruleset `0.17.0` revision `1` と共有explicit Critical rollのresolved Direct＋Radial impactを含むローカル基準線は `d85fb9b feat: share direct radial critical roll` としてコミット済みである。
+
+Resolved Beam tickマイルストーンのローカル検証記録は次のとおりである。
+
+    Scenario / Ruleset / Result Contract: 0.3.0 / 0.18.0 / 0.2.0
+    Clauses / Contracts / generated files: 53 / 8 / 24
+    Node.js 26.0.0: 21 files, 411 tests passed
+    Node.js 24.18.0: 21 files, 411 tests passed
+    Beam ticks / interval: 3 / 100ms
+    per-tick base / post-Critical / post-Armor Damage: 20 / 40 / 20
+    Beam total Damage / remaining Health: 60 / 0
+    Health sequence: 50 -> 30 -> 10 -> 0
+    Trace decisions: 14
+    invalid inputs: zero/non-integer/65 ticks, zero/non-integer/overflow interval, time horizon, expected/roll, non-Beam delivery
+    unsupported: held duration, ramp, Fire Rate, resource behavior, Chain Beam, per-tick rolls, Status, expected values, current-game formulas
 
 ## Interfaces and Dependencies
 

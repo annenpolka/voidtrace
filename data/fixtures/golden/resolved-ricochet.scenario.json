@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.17.0",
+    "schemaVersion": "0.18.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:d0659a1f766ab740d8e6226e090d92fa035c076374627577e508cb687428a1c7",
+    "contentHash": "sha256:30813f8a72f38145f911657da72f7117495b1000fdf5ea68e10975e79c26a00b",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -104,5 +104,5 @@
       "description": "Each target receives one independent Direct Hit without angle, trajectory, collision, selection, or ricochet attenuation."
     }
   ],
-  "contentHash": "sha256:8e0cc4b995bf655d7b25871a82b9e548383573eed814bd602e27719e795be369"
+  "contentHash": "sha256:2e5f9dbea1ac05a7abc1868f02ae211e183f44f20888f04adc032ed52dc5fad7"
 }

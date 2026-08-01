@@ -23,10 +23,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.17.0",
+    "schemaVersion": "0.18.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:d0659a1f766ab740d8e6226e090d92fa035c076374627577e508cb687428a1c7",
+    "contentHash": "sha256:30813f8a72f38145f911657da72f7117495b1000fdf5ea68e10975e79c26a00b",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -95,5 +95,5 @@
       "description": "This explicit-roll Scenario does not generate randomness or perform expected-value aggregation."
     }
   ],
-  "contentHash": "sha256:e09615e01709859a99193c48506c771d7e33ce4ab3c88fad611d31f87466a78a"
+  "contentHash": "sha256:7c7d3f9d0efbf2f9c0758dac810709795e05eb8b50ce89fb89efd8d7633191b0"
 }

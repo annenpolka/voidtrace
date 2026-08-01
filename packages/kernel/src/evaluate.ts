@@ -36,7 +36,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.17.0";
+export const KERNEL_ENGINE_VERSION = "0.18.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -479,6 +479,7 @@ function updateMetricValues(
     case "event.expand-fixed-multishot":
     case "event.expand-fixed-pellets":
     case "event.expand-resolved-pellet-allocation":
+    case "event.expand-resolved-beam-ticks":
     case "event.expand-resolved-status-ticks":
     case "event.expand-resolved-punch-through-targets":
     case "event.expand-resolved-ricochet-targets":
@@ -488,6 +489,7 @@ function updateMetricValues(
     case "damage-vector.aggregate-sequential-hits":
     case "damage-vector.aggregate-sequential-pellets":
     case "damage-vector.aggregate-resolved-pellet-allocation":
+    case "damage-vector.aggregate-sequential-beam-ticks":
     case "damage-vector.aggregate-sequential-status-ticks":
     case "damage-vector.aggregate-resolved-punch-through-targets":
     case "damage-vector.aggregate-resolved-ricochet-targets":
@@ -496,9 +498,11 @@ function updateMetricValues(
     case "damage-vector.aggregate-resolved-direct-radial-impact":
       return;
     case "damage-vector.copy":
-      metricValues[
-        eventKind === "damage.radial" ? "damage.radial.base.total" : "damage.direct-hit.total"
-      ] = execution.after.damageTotal;
+      if (eventKind === "damage.radial") {
+        metricValues["damage.radial.base.total"] = execution.after.damageTotal;
+      } else if (eventKind !== "damage.beam-tick") {
+        metricValues["damage.direct-hit.total"] = execution.after.damageTotal;
+      }
       return;
     case "critical-tier.resolve-tier-roll": {
       if (execution.resolvedCriticalTier === undefined) {
@@ -624,6 +628,9 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "damage-vector.copy-resolved-status-tick":
     case "damage-vector.aggregate-sequential-status-ticks":
       return "mechanic.status.resolved-ticks";
+    case "event.expand-resolved-beam-ticks":
+    case "damage-vector.aggregate-sequential-beam-ticks":
+      return "mechanic.beam.resolved-ticks";
     case "event.expand-resolved-punch-through-targets":
     case "damage-vector.aggregate-resolved-punch-through-targets":
       return "mechanic.punch-through.resolved-path";
@@ -644,7 +651,9 @@ function mechanicForRule(rule: RuleDefinition): string {
     case "damage-vector.copy":
       return rule.eventKind === "damage.radial"
         ? "mechanic.damage.radial"
-        : "mechanic.damage.direct-hit";
+        : rule.eventKind === "damage.beam-tick"
+          ? "mechanic.beam.resolved-ticks"
+          : "mechanic.damage.direct-hit";
     case "critical-tier.resolve-tier-roll":
       return "mechanic.critical.probability";
     case "critical-tier.resolve-expected-branches":
@@ -2110,6 +2119,244 @@ function evaluateFixedRadialRuntime(
   });
 }
 
+function evaluateResolvedBeamTicksRuntime(
+  domain: ScenarioDomain,
+  references: ResolvedCatalogReferences,
+  ruleset: LoadedRuleset,
+): RuntimeEvaluation {
+  if (
+    domain.action.kind !== "resolved-beam-ticks" ||
+    domain.action.criticalResolution !== "fixed" ||
+    domain.action.criticalTier === null
+  ) {
+    throw new TypeError("Non-resolved Beam input reached resolved Beam tick evaluation");
+  }
+
+  const appliedRules: RuleDefinition[] = [];
+  const decisions: Trace["decisions"][number][] = [];
+  const metricValues: Record<string, number> = {};
+  const zeroDamage = zeroVector(references.attackMode.baseDamage);
+  let world = createWorldState([
+    {
+      id: domain.target.id,
+      values: Object.freeze({ health: domain.target.resolvedHealth }),
+    },
+  ]);
+  let decisionSequence = 0;
+  let scheduleExecution: RuleExecution | undefined;
+  let scheduleEventId: string | undefined;
+
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-beam-ticks",
+    phases: FIXED_MULTISHOT_EMISSION_PHASES,
+  }).drain()) {
+    scheduleEventId = event.id;
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeResolvedBeamTickScheduleRule(rule.id, {
+        tickCount: domain.action.beamTickCount,
+        tickIntervalMs: domain.action.beamTickIntervalMs,
+        initialHealth: domain.target.resolvedHealth,
+        zeroDamage,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          domain.target.resolvedArmor,
+          {
+            readOverrides: {
+              "action.beam-tick-count": domain.action.beamTickCount,
+              "action.beam-tick-interval-ms": domain.action.beamTickIntervalMs,
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        scheduleExecution = execution;
+      }
+    }
+  }
+  if (
+    scheduleExecution === undefined ||
+    scheduleExecution.operationKind !== "event.expand-resolved-beam-ticks" ||
+    scheduleEventId === undefined ||
+    requiredNumber(scheduleExecution.parameters, "tickCount") !== domain.action.beamTickCount ||
+    requiredNumber(scheduleExecution.parameters, "tickIntervalMs") !==
+      domain.action.beamTickIntervalMs
+  ) {
+    throw new TypeError("Ruleset did not apply resolved Beam tick scheduling");
+  }
+
+  const ticks: SequentialHit[] = [];
+  for (let index = 0; index < domain.action.beamTickCount; index += 1) {
+    const timeMs = (index + 1) * domain.action.beamTickIntervalMs;
+    const tick: TickTraceMetadata = Object.freeze({
+      id: `tick.beam-${index}`,
+      index,
+      count: domain.action.beamTickCount,
+      timeMs,
+    });
+    const healthBefore = readHealth(world, domain.target.id);
+    let tickDamage: DamageVector = zeroDamage;
+
+    for (const event of createPhaseEvents({
+      actionId: domain.action.id,
+      namespace: `${domain.action.id}.${tick.id}`,
+      logicalId: `${domain.action.id}.${tick.id}`,
+      parentEventId: scheduleEventId,
+      kind: "damage.beam-tick",
+      timeMs,
+      phases: FIXED_CRITICAL_PHASES,
+    }).drain()) {
+      for (const rule of ruleset.snapshot.rules) {
+        if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+          continue;
+        }
+        const execution = ruleset.executeRule(
+          rule.id,
+          ruleContext(
+            references,
+            tickDamage,
+            domain.action.criticalTier,
+            null,
+            domain.target.resolvedArmor,
+            readHealth(world, domain.target.id),
+          ),
+        );
+        decisions.push(
+          decisionForExecution(
+            decisionSequence,
+            event,
+            rule,
+            execution,
+            references,
+            domain.action.criticalTier,
+            null,
+            domain.target.resolvedArmor,
+            { tick },
+          ),
+        );
+        decisionSequence += 1;
+        updateMetricValues(metricValues, execution, domain.action.criticalTier, rule.eventKind);
+        if (execution.outcome === "applied") {
+          appliedRules.push(rule);
+          tickDamage = execution.after.damage;
+          world = replaceEntityState(world, domain.target.id, {
+            health: execution.after.health,
+          });
+        }
+      }
+    }
+
+    ticks.push(
+      Object.freeze({
+        id: tick.id,
+        index,
+        damage: tickDamage,
+        healthBefore,
+        healthAfter: readHealth(world, domain.target.id),
+      }),
+    );
+  }
+
+  let aggregateExecution: RuleExecution | undefined;
+  const finalTickTimeMs = domain.action.beamTickCount * domain.action.beamTickIntervalMs;
+  for (const event of createPhaseEvents({
+    actionId: domain.action.id,
+    kind: "action.resolved-beam-ticks",
+    parentEventId: scheduleEventId,
+    timeMs: finalTickTimeMs,
+    phases: FIXED_MULTISHOT_AGGREGATION_PHASES,
+  }).drain()) {
+    for (const rule of ruleset.snapshot.rules) {
+      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        continue;
+      }
+      const execution = ruleset.executeSequentialBeamTickAggregateRule(rule.id, {
+        initialHealth: domain.target.resolvedHealth,
+        hits: ticks,
+      });
+      decisions.push(
+        decisionForExecution(
+          decisionSequence,
+          event,
+          rule,
+          execution,
+          references,
+          domain.action.criticalTier,
+          null,
+          domain.target.resolvedArmor,
+          {
+            readOverrides: {
+              "tick.damage": canonicalizeJson(
+                ticks.map((tick) => ({
+                  id: tick.id,
+                  index: tick.index,
+                  damage: { ...tick.damage },
+                })),
+              ),
+              "tick.health-before": canonicalizeJson(
+                ticks.map((tick) => ({
+                  id: tick.id,
+                  index: tick.index,
+                  healthBefore: tick.healthBefore,
+                })),
+              ),
+              "tick.health-after": canonicalizeJson(
+                ticks.map((tick) => ({
+                  id: tick.id,
+                  index: tick.index,
+                  healthAfter: tick.healthAfter,
+                })),
+              ),
+            },
+          },
+        ),
+      );
+      decisionSequence += 1;
+      if (execution.outcome === "applied") {
+        appliedRules.push(rule);
+        aggregateExecution = execution;
+      }
+    }
+  }
+  if (
+    aggregateExecution === undefined ||
+    aggregateExecution.operationKind !== "damage-vector.aggregate-sequential-beam-ticks"
+  ) {
+    throw new TypeError("Ruleset did not apply resolved Beam tick aggregation");
+  }
+
+  const firstTick = ticks[0];
+  if (firstTick === undefined) {
+    throw new TypeError("Resolved Beam tick evaluation produced no ticks");
+  }
+  metricValues["beam.tick-count"] = domain.action.beamTickCount;
+  metricValues["beam.tick-interval-ms"] = domain.action.beamTickIntervalMs;
+  metricValues["damage.beam.per-tick"] = sumDamageVector(firstTick.damage);
+  metricValues["damage.beam.total"] = aggregateExecution.after.damageTotal;
+  metricValues["damage.health.total"] = aggregateExecution.after.damageTotal;
+  metricValues["target.health.remaining"] = aggregateExecution.after.health;
+
+  return Object.freeze({
+    appliedRules: Object.freeze(appliedRules),
+    decisions: Object.freeze(decisions),
+    metricValues: Object.freeze(metricValues),
+    damage: aggregateExecution.after.damage,
+  });
+}
+
 function evaluateResolvedStatusTicksRuntime(
   domain: ScenarioDomain,
   references: ResolvedCatalogReferences,
@@ -2712,8 +2959,18 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
     }
   }
 
+  if (domain.action.kind === "resolved-beam-ticks" && references.attackMode.delivery !== "beam") {
+    return failure(
+      "unsupported-delivery",
+      `Resolved Beam ticks require beam delivery; received ${references.attackMode.delivery}`,
+      {
+        mechanicId: `mechanic.delivery.${references.attackMode.delivery}`,
+      },
+    );
+  }
   if (
     domain.action.kind !== "resolved-status-ticks" &&
+    domain.action.kind !== "resolved-beam-ticks" &&
     references.attackMode.delivery !== "hitscan"
   ) {
     return failure(
@@ -2755,26 +3012,33 @@ export async function evaluateScenario(request: EvaluationRequest): Promise<Eval
   let runtime: RuntimeEvaluation;
   try {
     runtime =
-      domain.action.kind === "resolved-status-ticks"
-        ? evaluateResolvedStatusTicksRuntime(domain, references, ruleset)
-        : domain.action.kind === "resolved-pellet-allocation"
-          ? evaluateResolvedPelletAllocationRuntime(domain, references, ruleset)
-          : domain.action.kind === "resolved-radial-targets"
-            ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset)
-            : domain.action.kind === "resolved-direct-radial-impact"
-              ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset, radialReferences)
-              : domain.action.kind === "resolved-punch-through" ||
-                  domain.action.kind === "resolved-ricochet" ||
-                  domain.action.kind === "resolved-chain"
-                ? evaluateResolvedTargetPathRuntime(domain, references, ruleset)
-                : domain.action.kind === "radial-hit"
-                  ? evaluateFixedRadialRuntime(domain, references, ruleset)
-                  : domain.action.kind === "fixed-multishot" ||
-                      domain.action.kind === "fixed-pellets"
-                    ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
-                    : domain.action.criticalResolution === "expected"
-                      ? evaluateExpectedRuntime(domain, references, ruleset)
-                      : evaluateDeterministicRuntime(domain, references, ruleset);
+      domain.action.kind === "resolved-beam-ticks"
+        ? evaluateResolvedBeamTicksRuntime(domain, references, ruleset)
+        : domain.action.kind === "resolved-status-ticks"
+          ? evaluateResolvedStatusTicksRuntime(domain, references, ruleset)
+          : domain.action.kind === "resolved-pellet-allocation"
+            ? evaluateResolvedPelletAllocationRuntime(domain, references, ruleset)
+            : domain.action.kind === "resolved-radial-targets"
+              ? evaluateResolvedRadialTargetsRuntime(domain, references, ruleset)
+              : domain.action.kind === "resolved-direct-radial-impact"
+                ? evaluateResolvedRadialTargetsRuntime(
+                    domain,
+                    references,
+                    ruleset,
+                    radialReferences,
+                  )
+                : domain.action.kind === "resolved-punch-through" ||
+                    domain.action.kind === "resolved-ricochet" ||
+                    domain.action.kind === "resolved-chain"
+                  ? evaluateResolvedTargetPathRuntime(domain, references, ruleset)
+                  : domain.action.kind === "radial-hit"
+                    ? evaluateFixedRadialRuntime(domain, references, ruleset)
+                    : domain.action.kind === "fixed-multishot" ||
+                        domain.action.kind === "fixed-pellets"
+                      ? evaluateFixedHitGroupRuntime(domain, references, ruleset)
+                      : domain.action.criticalResolution === "expected"
+                        ? evaluateExpectedRuntime(domain, references, ruleset)
+                        : evaluateDeterministicRuntime(domain, references, ruleset);
   } catch (error) {
     if (error instanceof RulesError && error.code === "unsupported-critical-multiplier") {
       const path = attackModeFieldPath(catalog, references, "criticalMultiplier");

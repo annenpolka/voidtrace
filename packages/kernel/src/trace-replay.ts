@@ -630,15 +630,49 @@ async function replayTrace(
   let expectedHitCount: number | undefined;
   let expectedTickCount: number | undefined;
   let expectedTickIntervalMs: number | undefined;
+  let expectedTickKind: "status" | "beam" | undefined;
+  let expectedStatusScheduleEventId: string | undefined;
+  let expectedStatusEventPrefix: string | undefined;
+  let expectedStatusDamagePerTick: number | undefined;
+  let expectedBeamScheduleEventId: string | undefined;
+  let expectedBeamEventPrefix: string | undefined;
+  let expectedBeamBaseDamageTotal: number | undefined;
+  let expectedBeamCriticalTier: number | undefined;
+  let expectedBeamCriticalMultiplier: number | undefined;
+  let expectedBeamArmor: number | undefined;
+  let tickAggregateSeen: "status" | "beam" | undefined;
+  const statusTickConstructEventId = new Map<string, string>();
+  const beamTickNextStep = new Map<string, number>();
+  const beamTickLastEventId = new Map<string, string>();
   let expectedPathTargetCount: number | undefined;
   let expectedPathId: string | undefined;
   let sharedImpactCriticalTier: number | undefined;
   let sharedImpactRollEventId: string | undefined;
   let terminalHealthByTarget: Readonly<Record<string, number>> | undefined;
+  let appliedDecisionSeen = false;
+  let lastAppliedEventTimeMs: number | undefined;
 
-  for (const decision of trace.decisions) {
+  for (const [decisionIndex, decision] of trace.decisions.entries()) {
+    if (decision.sequence !== decisionIndex) {
+      invalidParameters(
+        `Trace decision sequence ${decision.sequence} does not match array index ${decisionIndex}`,
+      );
+    }
     if (decision.outcome !== "applied") {
       continue;
+    }
+    const hasPriorAppliedDecision = appliedDecisionSeen;
+    appliedDecisionSeen = true;
+    if (lastAppliedEventTimeMs !== undefined && decision.eventTimeMs < lastAppliedEventTimeMs) {
+      invalidParameters(
+        `Trace applied decision logical time moves backwards from ${lastAppliedEventTimeMs}ms to ${decision.eventTimeMs}ms`,
+      );
+    }
+    lastAppliedEventTimeMs = decision.eventTimeMs;
+    if (tickAggregateSeen !== undefined) {
+      invalidParameters(
+        `Trace contains an applied decision after terminal ${tickAggregateSeen === "beam" ? "Beam" : "Status"} aggregation`,
+      );
     }
     if (decision.operations.length !== 1) {
       invalidParameters(`Trace decision ${decision.sequence} must contain exactly one operation`);
@@ -665,6 +699,26 @@ async function replayTrace(
       invalidParameters(
         `Trace decision ${decision.sequence} mixes branch, hit, tick, or path metadata`,
       );
+    }
+    if (expectedTickKind !== undefined) {
+      const allowedInTickMode =
+        expectedTickKind === "status"
+          ? (operation.kind === "damage-vector.copy-resolved-status-tick" &&
+              operationTickId !== undefined) ||
+            (operation.kind === "damage.commit-health" && operationTickId !== undefined) ||
+            operation.kind === "damage-vector.aggregate-sequential-status-ticks"
+          : (operation.kind === "damage-vector.copy" && operationTickId !== undefined) ||
+            (operation.kind === "damage-vector.scale-critical-tier" &&
+              operationTickId !== undefined) ||
+            (operation.kind === "damage-vector.scale-standard-armor" &&
+              operationTickId !== undefined) ||
+            (operation.kind === "damage.commit-health" && operationTickId !== undefined) ||
+            operation.kind === "damage-vector.aggregate-sequential-beam-ticks";
+      if (!allowedInTickMode) {
+        invalidParameters(
+          `Trace resolved ${expectedTickKind === "beam" ? "Beam" : "Status"} tick mode cannot apply operation ${operation.kind}`,
+        );
+      }
     }
     const branchState =
       operationBranchId === undefined ? undefined : branches.get(operationBranchId);
@@ -724,6 +778,20 @@ async function replayTrace(
             : operationPathTargetId !== undefined
               ? pathTargetState?.health
               : health;
+    if (operationTickId !== undefined && expectedTickKind === "beam") {
+      const step = beamTickNextStep.get(operationTickId) ?? 0;
+      const expectedOperationKind = [
+        "damage-vector.copy",
+        "damage-vector.scale-critical-tier",
+        "damage-vector.scale-standard-armor",
+        "damage.commit-health",
+      ][step];
+      if (operation.kind !== expectedOperationKind) {
+        invalidParameters(
+          `Trace Beam tick ${operationTickId} has an invalid operation at step ${step}`,
+        );
+      }
+    }
 
     switch (operation.kind) {
       case "event.expand-resolved-pellet-allocation": {
@@ -834,10 +902,21 @@ async function replayTrace(
         health = initialHealthTotal;
         break;
       }
-      case "event.expand-resolved-status-ticks": {
+      case "event.expand-resolved-status-ticks":
+      case "event.expand-resolved-beam-ticks": {
+        const isBeam = operation.kind === "event.expand-resolved-beam-ticks";
+        if (hasPriorAppliedDecision) {
+          invalidParameters(
+            `Trace resolved ${isBeam ? "Beam" : "Status"} tick schedule must be the first applied decision`,
+          );
+        }
         const tickCount = operation.parameters.tickCount;
         const tickIntervalMs = operation.parameters.tickIntervalMs;
         const maximumTicks = operation.parameters.maximumTicks;
+        const tickCountRead = isBeam ? "action.beam-tick-count" : "action.status-tick-count";
+        const tickIntervalRead = isBeam
+          ? "action.beam-tick-interval-ms"
+          : "action.status-tick-interval-ms";
         if (
           typeof tickCount !== "number" ||
           !Number.isSafeInteger(tickCount) ||
@@ -848,11 +927,38 @@ async function replayTrace(
           typeof maximumTicks !== "number" ||
           !Number.isSafeInteger(maximumTicks) ||
           maximumTicks < tickCount ||
-          decision.reads["action.status-tick-count"] !== tickCount ||
-          decision.reads["action.status-tick-interval-ms"] !== tickIntervalMs ||
+          decision.reads[tickCountRead] !== tickCount ||
+          decision.reads[tickIntervalRead] !== tickIntervalMs ||
           decision.eventTimeMs !== 0
         ) {
-          invalidParameters("Trace resolved Status tick expansion has invalid parameters");
+          invalidParameters(
+            `Trace resolved ${isBeam ? "Beam" : "Status"} tick expansion has invalid parameters`,
+          );
+        }
+        const scheduleSuffix = ".attack.emit";
+        const expectedScheduleEventId = isBeam
+          ? expectedBeamScheduleEventId
+          : expectedStatusScheduleEventId;
+        if (
+          expectedScheduleEventId !== undefined ||
+          decision.ruleId !==
+            (isBeam
+              ? "rule.beam.schedule-resolved-ticks"
+              : "rule.status.schedule-resolved-ticks") ||
+          decision.phase !== "attack.emit" ||
+          decision.parentEventId !== undefined ||
+          !decision.eventId.endsWith(scheduleSuffix)
+        ) {
+          invalidParameters(
+            `Trace resolved ${isBeam ? "Beam" : "Status"} tick expansion has invalid event topology`,
+          );
+        }
+        if (isBeam) {
+          expectedBeamScheduleEventId = decision.eventId;
+          expectedBeamEventPrefix = decision.eventId.slice(0, -scheduleSuffix.length);
+        } else {
+          expectedStatusScheduleEventId = decision.eventId;
+          expectedStatusEventPrefix = decision.eventId.slice(0, -scheduleSuffix.length);
         }
         const beforeDamage = projectionDamage(
           decision.before,
@@ -864,7 +970,9 @@ async function replayTrace(
           `Trace decision ${decision.sequence} before`,
         );
         if (sumDamageVector(beforeDamage) !== 0) {
-          invalidParameters("Trace resolved Status tick expansion does not start at zero Damage");
+          invalidParameters(
+            `Trace resolved ${isBeam ? "Beam" : "Status"} tick expansion does not start at zero Damage`,
+          );
         }
         if (initialHealth === undefined) {
           initialHealth = beforeHealth;
@@ -883,6 +991,7 @@ async function replayTrace(
         );
         expectedTickCount = tickCount;
         expectedTickIntervalMs = tickIntervalMs;
+        expectedTickKind = isBeam ? "beam" : "status";
         damage = beforeDamage;
         health = initialHealth;
         break;
@@ -977,6 +1086,7 @@ async function replayTrace(
           `Trace decision ${decision.sequence} before`,
         );
         const copied = copyOperationDamage(operation.parameters);
+        const copiedTotal = sumDamageVector(copied);
         assertProjection(
           decision.after,
           copied,
@@ -1019,6 +1129,44 @@ async function replayTrace(
             operationTick,
             `Trace copy decision ${decision.sequence}`,
           );
+          const isBeamTick = expectedTickKind === "beam";
+          const isStatusTick = expectedTickKind === "status";
+          if (
+            isBeamTick &&
+            expectedBeamBaseDamageTotal !== undefined &&
+            expectedBeamBaseDamageTotal !== copiedTotal
+          ) {
+            invalidParameters("Trace Beam base Damage total changes between ticks");
+          }
+          if (
+            isStatusTick &&
+            expectedStatusDamagePerTick !== undefined &&
+            expectedStatusDamagePerTick !== copiedTotal
+          ) {
+            invalidParameters("Trace Status resolved Damage changes between ticks");
+          }
+          const beamCopyIsValid =
+            !isBeamTick ||
+            (operation.kind === "damage-vector.copy" &&
+              metadata.id === `tick.beam-${metadata.index}` &&
+              decision.ruleId === "rule.beam.construct-resolved-tick" &&
+              decision.phase === "damage.construct" &&
+              expectedBeamScheduleEventId !== undefined &&
+              expectedBeamEventPrefix !== undefined &&
+              decision.parentEventId === expectedBeamScheduleEventId &&
+              decision.eventId === `${expectedBeamEventPrefix}.${metadata.id}.damage.construct` &&
+              decision.reads["attack.base-damage"] === copiedTotal);
+          const statusCopyIsValid =
+            !isStatusTick ||
+            (operation.kind === "damage-vector.copy-resolved-status-tick" &&
+              metadata.id === `tick.status-${metadata.index}` &&
+              decision.ruleId === "rule.status.construct-resolved-tick" &&
+              decision.phase === "status.tick" &&
+              expectedStatusScheduleEventId !== undefined &&
+              expectedStatusEventPrefix !== undefined &&
+              decision.parentEventId === expectedStatusScheduleEventId &&
+              decision.eventId === `${expectedStatusEventPrefix}.${metadata.id}.status.tick` &&
+              decision.reads["status.resolved-health-damage-per-tick"] === copiedTotal);
           if (
             expectedTickCount === undefined ||
             expectedTickIntervalMs === undefined ||
@@ -1028,7 +1176,8 @@ async function replayTrace(
             metadata.timeMs !== decision.eventTimeMs ||
             ticks.has(operationTickId) ||
             copyHealth !== health ||
-            decision.reads["status.resolved-health-damage-per-tick"] !== sumDamageVector(copied)
+            !beamCopyIsValid ||
+            !statusCopyIsValid
           ) {
             invalidParameters(`Trace constructs invalid sequential tick ${operationTickId}`);
           }
@@ -1043,6 +1192,14 @@ async function replayTrace(
               count: metadata.count,
             }),
           );
+          if (isBeamTick) {
+            expectedBeamBaseDamageTotal ??= copiedTotal;
+            beamTickNextStep.set(operationTickId, 1);
+            beamTickLastEventId.set(operationTickId, decision.eventId);
+          } else if (isStatusTick) {
+            expectedStatusDamagePerTick ??= copiedTotal;
+            statusTickConstructEventId.set(operationTickId, decision.eventId);
+          }
         } else if (operationHitId !== undefined) {
           const metadata = requiredHitMetadata(
             operationHit,
@@ -1244,6 +1401,35 @@ async function replayTrace(
             `Trace operation ${operation.kind} precedes Damage Vector construction`,
           );
         }
+        let nextBeamTickStep: number | undefined;
+        if (operationTickId !== undefined && expectedTickKind === "beam") {
+          const metadata = requiredTickMetadata(
+            operationTick,
+            `Trace Beam scale decision ${decision.sequence}`,
+          );
+          const step = beamTickNextStep.get(operationTickId);
+          const isCriticalStep = step === 1;
+          const isArmorStep = step === 2;
+          const expectedOperationKind = isCriticalStep
+            ? "damage-vector.scale-critical-tier"
+            : "damage-vector.scale-standard-armor";
+          const expectedRuleId = isCriticalStep
+            ? "rule.beam.scale-critical-tier"
+            : "rule.beam.standard-armor";
+          const expectedPhase = isCriticalStep ? "critical.resolve" : "target.mitigate";
+          if (
+            (!isCriticalStep && !isArmorStep) ||
+            operation.kind !== expectedOperationKind ||
+            decision.ruleId !== expectedRuleId ||
+            decision.phase !== expectedPhase ||
+            expectedBeamEventPrefix === undefined ||
+            decision.parentEventId !== beamTickLastEventId.get(operationTickId) ||
+            decision.eventId !== `${expectedBeamEventPrefix}.${metadata.id}.${expectedPhase}`
+          ) {
+            invalidParameters(`Trace Beam tick ${operationTickId} has invalid scale topology`);
+          }
+          nextBeamTickStep = (step as number) + 1;
+        }
         assertProjection(
           decision.before,
           currentDamage,
@@ -1251,6 +1437,52 @@ async function replayTrace(
           `Trace decision ${decision.sequence} before`,
         );
         const factor = scaleFactor(operation.parameters);
+        if (nextBeamTickStep === 2) {
+          const tier = decision.reads["event.critical-tier"];
+          const criticalMultiplier = decision.reads["attack.critical-multiplier"];
+          const actualTier = operation.parameters.actualTier;
+          const parameterCriticalMultiplier = operation.parameters.criticalMultiplier;
+          const eventDamage = decision.reads["event.damage"];
+          if (
+            typeof tier !== "number" ||
+            !Number.isSafeInteger(tier) ||
+            tier < 0 ||
+            typeof criticalMultiplier !== "number" ||
+            !Number.isFinite(criticalMultiplier) ||
+            criticalMultiplier < 1 ||
+            actualTier !== tier ||
+            parameterCriticalMultiplier !== criticalMultiplier ||
+            eventDamage !== sumDamageVector(currentDamage) ||
+            factor !== 1 + tier * (criticalMultiplier - 1) ||
+            !Number.isFinite(factor) ||
+            (expectedBeamCriticalTier !== undefined && expectedBeamCriticalTier !== tier) ||
+            (expectedBeamCriticalMultiplier !== undefined &&
+              expectedBeamCriticalMultiplier !== criticalMultiplier)
+          ) {
+            invalidParameters("Trace Beam Critical scale is inconsistent with its fixed inputs");
+          }
+          expectedBeamCriticalTier = tier;
+          expectedBeamCriticalMultiplier = criticalMultiplier;
+        } else if (nextBeamTickStep === 3) {
+          const armor = decision.reads["target.armor"];
+          const parameterArmor = operation.parameters.armor;
+          const constant = operation.parameters.constant;
+          const eventDamage = decision.reads["event.damage"];
+          if (
+            typeof armor !== "number" ||
+            !Number.isFinite(armor) ||
+            armor < 0 ||
+            parameterArmor !== armor ||
+            constant !== 300 ||
+            eventDamage !== sumDamageVector(currentDamage) ||
+            factor !== constant / (armor + constant) ||
+            !Number.isFinite(factor) ||
+            (expectedBeamArmor !== undefined && expectedBeamArmor !== armor)
+          ) {
+            invalidParameters("Trace Beam Armor scale is inconsistent with its resolved input");
+          }
+          expectedBeamArmor = armor;
+        }
         if (
           operation.kind === "damage-vector.scale-critical-tier" &&
           sharedImpactCriticalTier !== undefined &&
@@ -1284,6 +1516,31 @@ async function replayTrace(
               health: currentHealth,
             }),
           );
+        } else if (operationTickId !== undefined && expectedTickKind === "beam") {
+          const metadata = requiredTickMetadata(
+            operationTick,
+            `Trace scale decision ${decision.sequence}`,
+          );
+          if (tickState === undefined) {
+            invalidParameters(`Trace scales unknown tick ${operationTickId}`);
+          }
+          ticks.set(
+            operationTickId,
+            Object.freeze({
+              damage: scaled,
+              health: currentHealth,
+              healthBefore: tickState.healthBefore,
+              committed: tickState.committed,
+              index: metadata.index,
+              count: metadata.count,
+            }),
+          );
+          if (nextBeamTickStep !== undefined) {
+            beamTickNextStep.set(operationTickId, nextBeamTickStep);
+            beamTickLastEventId.set(operationTickId, decision.eventId);
+          }
+        } else if (operationTickId !== undefined) {
+          invalidParameters("Trace resolved Status tick contains an unsupported scale operation");
         } else if (operationHitId !== undefined) {
           const metadata = requiredHitMetadata(
             operationHit,
@@ -1329,6 +1586,40 @@ async function replayTrace(
             "missing-damage-vector",
             "Trace commits Health before constructing a Damage Vector",
           );
+        }
+        if (operationTickId !== undefined && expectedTickKind === "beam") {
+          const metadata = requiredTickMetadata(
+            operationTick,
+            `Trace Beam Health commit ${decision.sequence}`,
+          );
+          if (
+            beamTickNextStep.get(operationTickId) !== 3 ||
+            decision.ruleId !== "rule.beam.commit-resolved-tick-health" ||
+            decision.phase !== "damage.commit" ||
+            expectedBeamEventPrefix === undefined ||
+            decision.parentEventId !== beamTickLastEventId.get(operationTickId) ||
+            decision.eventId !== `${expectedBeamEventPrefix}.${metadata.id}.damage.commit` ||
+            decision.reads["event.damage"] !== sumDamageVector(currentDamage) ||
+            decision.reads["target.health"] !== currentHealth
+          ) {
+            invalidParameters(`Trace Beam tick ${operationTickId} has invalid commit topology`);
+          }
+        } else if (operationTickId !== undefined && expectedTickKind === "status") {
+          const metadata = requiredTickMetadata(
+            operationTick,
+            `Trace Status Health commit ${decision.sequence}`,
+          );
+          if (
+            decision.ruleId !== "rule.status.commit-resolved-tick-health" ||
+            decision.phase !== "damage.commit" ||
+            expectedStatusEventPrefix === undefined ||
+            decision.parentEventId !== statusTickConstructEventId.get(operationTickId) ||
+            decision.eventId !== `${expectedStatusEventPrefix}.${metadata.id}.damage.commit` ||
+            decision.reads["event.damage"] !== sumDamageVector(currentDamage) ||
+            decision.reads["target.health"] !== currentHealth
+          ) {
+            invalidParameters(`Trace Status tick ${operationTickId} has invalid commit topology`);
+          }
         }
         assertProjection(
           decision.before,
@@ -1403,6 +1694,10 @@ async function replayTrace(
             }),
           );
           health = healthAfter;
+          if (expectedTickKind === "beam") {
+            beamTickNextStep.set(operationTickId, 4);
+            beamTickLastEventId.set(operationTickId, decision.eventId);
+          }
         } else if (operationHitId !== undefined) {
           const metadata = requiredHitMetadata(
             operationHit,
@@ -1497,17 +1792,47 @@ async function replayTrace(
         committed = true;
         break;
       }
-      case "damage-vector.aggregate-sequential-status-ticks": {
-        if (initialHealth === undefined || expectedTickCount === undefined) {
+      case "damage-vector.aggregate-sequential-status-ticks":
+      case "damage-vector.aggregate-sequential-beam-ticks": {
+        const isBeam = operation.kind === "damage-vector.aggregate-sequential-beam-ticks";
+        const tickKind = isBeam ? "beam" : "status";
+        if (
+          initialHealth === undefined ||
+          expectedTickCount === undefined ||
+          expectedTickKind !== tickKind
+        ) {
           invalidParameters(
-            "Trace aggregates sequential Status ticks before resolved tick expansion",
+            `Trace aggregates sequential ${isBeam ? "Beam" : "Status"} ticks before resolved tick expansion`,
           );
         }
         if (
           expectedTickIntervalMs === undefined ||
           decision.eventTimeMs !== expectedTickCount * expectedTickIntervalMs
         ) {
-          invalidParameters("Trace Status tick aggregate has invalid logical time");
+          invalidParameters(
+            `Trace ${isBeam ? "Beam" : "Status"} tick aggregate has invalid logical time`,
+          );
+        }
+        const expectedScheduleEventId = isBeam
+          ? expectedBeamScheduleEventId
+          : expectedStatusScheduleEventId;
+        const expectedEventPrefix = isBeam ? expectedBeamEventPrefix : expectedStatusEventPrefix;
+        if (
+          tickAggregateSeen !== undefined ||
+          decision.ruleId !==
+            (isBeam
+              ? "rule.beam.aggregate-resolved-ticks"
+              : "rule.status.aggregate-resolved-ticks") ||
+          decision.phase !== "result.aggregate" ||
+          expectedScheduleEventId === undefined ||
+          expectedEventPrefix === undefined ||
+          decision.parentEventId !== expectedScheduleEventId ||
+          decision.eventId !== `${expectedEventPrefix}.result.aggregate` ||
+          (isBeam && [...ticks.keys()].some((tickId) => beamTickNextStep.get(tickId) !== 4))
+        ) {
+          invalidParameters(
+            `Trace ${isBeam ? "Beam" : "Status"} tick aggregate has invalid event topology`,
+          );
         }
         const aggregate = aggregateSequentialHits(
           operation.parameters,
@@ -1518,7 +1843,7 @@ async function replayTrace(
         );
         if (ticks.size !== expectedTickCount) {
           invalidParameters(
-            "Trace sequential Status aggregation does not include every emitted tick",
+            `Trace sequential ${isBeam ? "Beam" : "Status"} aggregation does not include every emitted tick`,
           );
         }
         assertProjection(
@@ -1536,6 +1861,7 @@ async function replayTrace(
         damage = aggregate.damage;
         health = aggregate.health;
         committed = true;
+        tickAggregateSeen = tickKind;
         break;
       }
       case "damage-vector.aggregate-resolved-punch-through-targets":
@@ -2116,6 +2442,11 @@ async function replayTrace(
   }
   if (!committed) {
     invalidParameters("Trace does not reach terminal Health commit or expected aggregation");
+  }
+  if (expectedTickKind !== undefined && tickAggregateSeen !== expectedTickKind) {
+    invalidParameters(
+      `Trace resolved ${expectedTickKind === "beam" ? "Beam" : "Status"} ticks do not reach exactly one terminal aggregation`,
+    );
   }
   return Object.freeze({
     damage,

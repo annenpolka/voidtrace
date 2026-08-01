@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect the synthetic Direct Hit, resolved fixed-count Multishot and pellets, resolved target-specific Pellet allocation, standalone or multi-target resolved Radial, shared-mode, checked-in distinct-mode, checked-in distinct-fixed-tier, or checked-in shared-explicit-roll Direct-plus-Radial impact DAGs, resolved synthetic Status ticks, resolved ordered punch-through, ricochet, and chain Direct Hits, generalized fixed Critical tier, explicit adjacent-tier Critical roll, analytic single-hit Critical expected value, and Armor vertical slices; vary resolved Armor or Health, vary a deterministic non-negative safe-integer fixed tier, and inspect Result/Trace JSON. Do not use it for current Warframe claims, build advice, generated randomness, Monte Carlo, projectile physics, arbitrary attack-mode composition, geometry-derived or attenuated target paths, unresolved chain candidate search or branching, Catalog- or current-game-derived Radial falloff, probabilistic Multishot, unresolved pellet allocation, custom Critical chance, Status chance or type resolution, or unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect its synthetic experimental Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, and ordered punch-through, ricochet, or chain fixtures with Result and Trace JSON. Use for checked-in Scenario execution, supported resolved Armor, Health, or fixed-tier variation, and explicit capability or unsupported-boundary reporting. Do not use for current Warframe claims or build advice, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -39,6 +39,10 @@ checked-in three-target Direct-plus-Radial impact Scenarios:
 - a repository-local resolved synthetic Status Scenario through the formal CLI, where an explicit
   final Health Damage per tick is committed at a fixed positive interval for a fixed positive
   tick count;
+- the repository-local resolved synthetic Beam Scenario through the formal CLI, where three
+  explicit ticks at 100ms intervals each copy the Beam attack mode's base Damage, apply one shared
+  fixed Critical tier, resolved Armor, and sequential Health commit, then aggregate terminal tick
+  Damage;
 - the repository-local resolved punch-through Scenario through the formal CLI, where one explicit
   ordered path contains three stable target IDs and each target independently receives the same
   fixed-tier Direct Hit through its resolved Armor and Health;
@@ -83,9 +87,10 @@ Radial tiers, a different impact roll, child-specific rolls, or generated rolls,
 asking for missing values and without running a nearby fixture as a substitute.
 
 The helper does not synthesize or vary Critical chance or rolls. The formal CLI can evaluate the
-repository-local explicit-roll, expected, resolved fixed-count Multishot, resolved
-punch-through, resolved ricochet, resolved chain, resolved multi-target Radial, resolved Pellet
-allocation, and resolved Direct plus Radial impact Scenarios. The
+repository-local explicit-roll, expected, resolved fixed-count Multishot and pellets, standalone
+Radial, resolved Status and Beam ticks, resolved punch-through, resolved ricochet, resolved chain,
+resolved multi-target Radial, resolved Pellet allocation, and resolved Direct plus Radial impact
+Scenarios. The
 distinct-mode, distinct-tier, and shared-roll Direct plus Radial impact Scenarios are also
 available only through the formal CLI.
 The
@@ -100,6 +105,13 @@ geometry, Projectile trajectory or collision, arbitrary or custom attack modes, 
 custom separate Direct/Radial tiers or rolls within one impact, custom Direct-plus-Radial inputs through the helper, custom multi-target
 Radial inputs through the helper, and Radial expected values or generated rolls are also
 unsupported.
+The checked-in Beam Golden is the only operator preset for Beam: tick count 3, interval 100ms,
+fixed tier 1, resolved Armor 300, and initial Health 50. The helper cannot vary Beam tick count,
+interval, tier, or Catalog. Held-duration derivation, ramp, Fire Rate, Magazine, Ammo, Reload,
+Chain Beam, per-tick Critical or Status rolls, Status application, expected Beam values, generated
+randomness, and current-Warframe Beam formulas are unsupported. If a request needs any of them,
+state the unsupported mechanic and stop without running or mutating a nearby fixture as a
+substitute.
 Status chance, Proc count or type resolution,
 Status application from Direct or Radial Damage, Critical or Armor derivation of Status Damage,
 stacking, refresh, snapshot rules, defense changes between ticks, expected Status values, and
@@ -169,6 +181,10 @@ pnpm exec vt run data/fixtures/golden/resolved-status-ticks.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-status-ticks.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
+pnpm exec vt run data/fixtures/golden/resolved-beam-ticks.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog-beam.json
+pnpm exec vt trace data/fixtures/golden/resolved-beam-ticks.scenario.json \
+  --catalog data/fixtures/catalog-mini/catalog-beam.json
 pnpm exec vt run data/fixtures/golden/resolved-punch-through.scenario.json \
   --catalog data/fixtures/catalog-mini/catalog.json
 pnpm exec vt trace data/fixtures/golden/resolved-punch-through.scenario.json \
@@ -294,6 +310,17 @@ for another agent or script. `--help` lists the finite adapter options.
   explaining causality. `resolvedHealthDamagePerTick` is already the final Health Damage for each
   tick. Do not infer a Status chance, Proc type, source hit, Critical, Armor, stack, refresh,
   snapshot, or real-game formula from it.
+- Resolved synthetic Beam uses `rule.beam.schedule-resolved-ticks`, then
+  `rule.beam.construct-resolved-tick`, `rule.beam.scale-critical-tier`,
+  `rule.beam.standard-armor`, and `rule.beam.commit-resolved-tick-health` once per ordered tick,
+  and ends with `rule.beam.aggregate-resolved-ticks`. Report `beam.tick-count`,
+  `beam.tick-interval-ms`, `damage.beam.per-tick`, `damage.beam.total`, `critical.tier`,
+  `critical.multiplier`, `damage.post-critical.total`, `armor.remaining-multiplier`,
+  `damage.health.total`, and `target.health.remaining`. The checked-in Golden schedules at time
+  `0`, evaluates ticks at `100`, `200`, and `300` milliseconds, aggregates at `300`, and commits
+  Health `50→30→10→0`; preserve stable `tick.beam-N` IDs and the 14-decision causal order. These
+  are explicit synthetic inputs. Do not infer held duration, ramp, weapon resources, Chain Beam,
+  per-tick rolls, Status, expected values, or a current-game formula.
 - Resolved punch-through starts with `rule.punch-through.expand-resolved-targets`, applies Direct
   Hit, fixed Critical scale, Armor, and Health commit once per ordered path target, and ends with
   `rule.punch-through.aggregate-resolved-targets`. Report `punch-through.target-count`,
@@ -354,8 +381,9 @@ for another agent or script. `--help` lists the finite adapter options.
   Health 226, and target Health A=90, C=76, B=60. Do not infer a trajectory, collision, physical
   Projectile, arbitrary mode composition, separate Critical tiers or rolls, Status, Multishot,
   or Pellet composition from that Golden.
-- The distinct-tier Direct plus Radial Golden keeps the primary Direct mode for both children but
-  applies fixed tier 1 to Direct and fixed tier 2 to both Radial children. Report Direct 100,
+- The distinct-tier Direct plus Radial Golden combines the primary Direct mode with the explicitly
+  named Radial mode, then applies fixed tier 1 to Direct and fixed tier 2 to both Radial children.
+  Report Direct 100,
   Radial 162, aggregate 262, remaining Health 188, and target Health A=80, C=48, B=60. The Trace
   has 16 decisions: the Direct Critical decision reads tier 1, both Radial Critical decisions read
   tier 2, and all three remain under the common parent event in Direct-before-Radial order. Do not

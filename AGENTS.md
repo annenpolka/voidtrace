@@ -28,8 +28,8 @@
 The current implemented boundary ends at the synthetic Direct Hit / generalized fixed, explicit
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
 and pellets plus resolved target-specific Pellet allocation, standalone resolved Radial falloff,
-resolved multi-target Radial, and resolved synthetic Status ticks, backed by generated Ruleset
-`0.17.0` revision `1` and their formal
+resolved multi-target Radial, resolved synthetic Status ticks, and resolved fixed-Critical Beam
+ticks, backed by generated Ruleset `0.18.0` revision `1` and their formal
 `describe` / `run` / `trace` JSON CLI.
 Fixed Critical input is a non-negative safe-integer tier. Explicit-roll and expected resolution
 accept non-negative Critical chance only while adjacent tiers are safely representable.
@@ -63,6 +63,12 @@ Resolved Status ticks accept only `status.synthetic-resolved-dot`, explicit fina
 tick, a positive count up to 64, and a positive interval whose last tick fits within
 `timeLimitMs`. They do not derive Status application, type, damage, Critical, Armor, stack,
 refresh, snapshot, defense changes, expected values, or rolls.
+Resolved Beam ticks accept a `beam` delivery attack mode, a fixed non-negative safe-integer
+Critical tier, an explicit positive count up to 64, and a positive interval whose last tick fits
+within `timeLimitMs`. They evaluate base Damage, Critical, Armor, and terminal Health sequentially
+for every tick. They do not derive held duration, ramp, Fire Rate, Magazine, Ammo, Reload, Chain
+Beam, per-tick Critical or Status rolls, Status application, expected values, generated randomness,
+or current-game Beam formulas.
 Scenario Contract `0.3.0` requires an explicit `targetGraph`. It can represent resolved
 impact-distance/LoS, ordered punch-through/chain/ricochet relations, and target-specific Pellet
 allocation. The current runtime
@@ -80,7 +86,8 @@ The repository-local fixture-variation skill accepts non-negative safe-integer f
 repository-local analytic expected preset; it is not the formal CLI boundary and does not
 synthesize Critical chance, rolls, Multishot counts, or pellet counts. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
-resolved Pellet allocation, resolved Direct-plus-Radial impact, and resolved Status tick fixtures.
+resolved Pellet allocation, resolved Direct-plus-Radial impact, resolved Status tick, and resolved
+Beam tick fixtures.
 The formal CLI also runs the checked-in distinct-mode, distinct-fixed-tier, and shared-explicit-roll
 Direct-plus-Radial impact fixtures.
 Probabilistic Multishot or
@@ -92,6 +99,8 @@ generated random rolls, grouped-hit expected values, and Monte Carlo remain
 unsupported.
 Real Status formulas, chance/type resolution, Direct/Radial application, stacking, refresh,
 snapshot behavior, and Status expected values remain unsupported.
+Held-duration-derived Beam ticks, ramp, resource behavior, Chain Beam, per-tick rolls, Status
+composition, Beam expected values, and current-game Beam formulas remain unsupported.
 Multiple-target evaluation outside the resolved punch-through, ricochet, chain ordered-path,
 resolved Radial distance/LoS, and resolved Pellet allocation slices remains unsupported.
 Do not add further CLI commands, Lab, API, or MCP implementations until their planned vertical

@@ -1,0 +1,42 @@
+{
+  "$schema": "urn:voidtrace:schema:catalog-snapshot:0.1.0",
+  "kind": "catalog-snapshot",
+  "schemaVersion": "0.1.0",
+  "id": "catalog.synthetic-beam",
+  "revision": 0,
+  "gameBuild": "synthetic-fixture-0",
+  "source": {
+    "kind": "fixture",
+    "description": "Synthetic resolved Beam golden data only; all names and values are invented and are not verified Warframe data or mechanics claims."
+  },
+  "weapons": [
+    {
+      "id": "weapon.synthetic-beam",
+      "label": "Synthetic Beam Fixture",
+      "attackModes": [
+        {
+          "id": "attack-mode.synthetic-beam.primary",
+          "label": "Synthetic Primary Beam Fixture",
+          "delivery": "beam",
+          "baseDamage": {
+            "damage.synthetic-beam": 20
+          },
+          "criticalChance": 0.25,
+          "criticalMultiplier": 2
+        }
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "id": "target.synthetic-calibration",
+      "label": "Synthetic Calibration Target Fixture",
+      "baseHealth": 1000,
+      "baseShield": 0,
+      "baseArmor": 300,
+      "baseOverguard": 0
+    }
+  ],
+  "mods": [],
+  "contentHash": "sha256:85a63570e131a3bedefd59fa1b5902c8d4bc8cbad7f86842866f60a11aedaa7a"
+}

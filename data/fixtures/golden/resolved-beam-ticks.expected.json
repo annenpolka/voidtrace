@@ -1,0 +1,41 @@
+{
+  "id": "golden.resolved-beam-ticks",
+  "scenarioId": "scenario.golden-resolved-beam-ticks",
+  "metrics": {
+    "beam.tick-count": 3,
+    "beam.tick-interval-ms": 100,
+    "damage.beam.per-tick": 20,
+    "damage.beam.total": 60,
+    "critical.tier": 1,
+    "critical.multiplier": 2,
+    "damage.post-critical.total": 40,
+    "armor.remaining-multiplier": 0.5,
+    "damage.health.total": 60,
+    "target.health.remaining": 0
+  },
+  "damageBySource": {
+    "action.resolved-beam-ticks-1": 60
+  },
+  "damageByType": {
+    "damage.synthetic-beam": 60
+  },
+  "appliedRuleIds": [
+    "rule.beam.schedule-resolved-ticks",
+    "rule.beam.construct-resolved-tick",
+    "rule.beam.scale-critical-tier",
+    "rule.beam.standard-armor",
+    "rule.beam.commit-resolved-tick-health",
+    "rule.beam.construct-resolved-tick",
+    "rule.beam.scale-critical-tier",
+    "rule.beam.standard-armor",
+    "rule.beam.commit-resolved-tick-health",
+    "rule.beam.construct-resolved-tick",
+    "rule.beam.scale-critical-tier",
+    "rule.beam.standard-armor",
+    "rule.beam.commit-resolved-tick-health",
+    "rule.beam.aggregate-resolved-ticks"
+  ],
+  "rejectedRules": [],
+  "eventTimesMs": [0, 100, 100, 100, 100, 200, 200, 200, 200, 300, 300, 300, 300, 300],
+  "tolerance": 0.000001
+}

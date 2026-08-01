@@ -9,6 +9,9 @@ import { loadCoreRuleset } from "@voidtrace/rules";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import catalogFixture from "../../../data/fixtures/catalog-mini/catalog.json" with { type: "json" };
+import beamCatalogFixture from "../../../data/fixtures/catalog-mini/catalog-beam.json" with {
+  type: "json",
+};
 import tier2CatalogFixture from "../../../data/fixtures/catalog-mini/catalog-tier-2.json" with {
   type: "json",
 };
@@ -48,34 +51,16 @@ import radialExpectedFixture from "../../../data/fixtures/golden/radial-critical
 import radialScenarioFixture from "../../../data/fixtures/golden/radial-critical-armor.scenario.json" with {
   type: "json",
 };
-import punchThroughExpectedFixture from "../../../data/fixtures/golden/resolved-punch-through.expected.json" with {
+import beamExpectedFixture from "../../../data/fixtures/golden/resolved-beam-ticks.expected.json" with {
   type: "json",
 };
-import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
-  type: "json",
-};
-import ricochetExpectedFixture from "../../../data/fixtures/golden/resolved-ricochet.expected.json" with {
-  type: "json",
-};
-import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
+import beamScenarioFixture from "../../../data/fixtures/golden/resolved-beam-ticks.scenario.json" with {
   type: "json",
 };
 import chainExpectedFixture from "../../../data/fixtures/golden/resolved-chain.expected.json" with {
   type: "json",
 };
 import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.scenario.json" with {
-  type: "json",
-};
-import radialTargetsExpectedFixture from "../../../data/fixtures/golden/resolved-radial-targets.expected.json" with {
-  type: "json",
-};
-import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
-  type: "json",
-};
-import pelletAllocationExpectedFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.expected.json" with {
-  type: "json",
-};
-import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
   type: "json",
 };
 import directRadialImpactExpectedFixture from "../../../data/fixtures/golden/resolved-direct-radial-impact.expected.json" with {
@@ -94,6 +79,30 @@ import distinctTierImpactExpectedFixture from "../../../data/fixtures/golden/res
   type: "json",
 };
 import distinctTierImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json" with {
+  type: "json",
+};
+import pelletAllocationExpectedFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.expected.json" with {
+  type: "json",
+};
+import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
+  type: "json",
+};
+import punchThroughExpectedFixture from "../../../data/fixtures/golden/resolved-punch-through.expected.json" with {
+  type: "json",
+};
+import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
+  type: "json",
+};
+import radialTargetsExpectedFixture from "../../../data/fixtures/golden/resolved-radial-targets.expected.json" with {
+  type: "json",
+};
+import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
+  type: "json",
+};
+import ricochetExpectedFixture from "../../../data/fixtures/golden/resolved-ricochet.expected.json" with {
+  type: "json",
+};
+import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
   type: "json",
 };
 import sharedRollImpactExpectedFixture from "../../../data/fixtures/golden/resolved-shared-roll-direct-radial-impact.expected.json" with {
@@ -183,6 +192,42 @@ async function evaluateStatusGolden() {
   return evaluateScenario({
     scenario: structuredClone(statusScenarioFixture),
     catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateStatusWithInitialHealth(resolvedHealth: number) {
+  const changed = structuredClone(statusScenarioFixture);
+  const target = changed.targets[0];
+  if (target === undefined) {
+    throw new Error("Resolved Status golden must contain one target");
+  }
+  target.configuration.resolvedHealth = resolvedHealth;
+  return evaluateScenario({
+    scenario: await rehash(changed),
+    catalog: structuredClone(catalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateBeamGolden() {
+  return evaluateScenario({
+    scenario: structuredClone(beamScenarioFixture),
+    catalog: structuredClone(beamCatalogFixture),
+    productVersion: "0.0.0",
+  });
+}
+
+async function evaluateBeamWithInitialHealth(resolvedHealth: number) {
+  const changed = structuredClone(beamScenarioFixture);
+  const target = changed.targets[0];
+  if (target === undefined) {
+    throw new Error("Resolved Beam golden must contain one target");
+  }
+  target.configuration.resolvedHealth = resolvedHealth;
+  return evaluateScenario({
+    scenario: await rehash(changed),
+    catalog: structuredClone(beamCatalogFixture),
     productVersion: "0.0.0",
   });
 }
@@ -2154,6 +2199,178 @@ describe("evaluateScenario", () => {
     );
   });
 
+  it("rejects a rehashed Status Trace whose resolved Damage changes between ticks", async () => {
+    const outcome = await evaluateStatusWithInitialHealth(0);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = structuredClone(outcome.trace);
+    const findSecondTickDecision = (ruleId: string) =>
+      changed.decisions.find(
+        (decision) =>
+          decision.outcome === "applied" &&
+          decision.ruleId === ruleId &&
+          decision.operations[0]?.parameters["tick.id"] === "tick.status-1",
+      );
+    const copy = findSecondTickDecision("rule.status.construct-resolved-tick");
+    const commit = findSecondTickDecision("rule.status.commit-resolved-tick-health");
+    const aggregate = changed.decisions.find(
+      (decision) =>
+        decision.outcome === "applied" &&
+        decision.ruleId === "rule.status.aggregate-resolved-ticks",
+    );
+    if (
+      copy?.outcome !== "applied" ||
+      commit?.outcome !== "applied" ||
+      aggregate?.outcome !== "applied"
+    ) {
+      throw new Error("Resolved Status Trace omitted a second-tick or aggregate decision");
+    }
+    const copyOperation = copy.operations[0];
+    const commitOperation = commit.operations[0];
+    const aggregateOperation = aggregate.operations[0];
+    if (
+      copyOperation === undefined ||
+      commitOperation === undefined ||
+      aggregateOperation === undefined
+    ) {
+      throw new Error("Resolved Status Trace omitted a required operation");
+    }
+    const setDamageProjection = (
+      projection: Readonly<Record<string, string | number | boolean | null>>,
+      total: number,
+    ) => {
+      const mutable = projection as Record<string, string | number | boolean | null>;
+      mutable["damage.total"] = total;
+      mutable["damage.type.damage.synthetic-status"] = total;
+    };
+
+    (copyOperation.parameters as Record<string, string | number | boolean | null>)[
+      "component.damage.synthetic-status"
+    ] = 20;
+    (copy.reads as Record<string, string | number | boolean | null>)[
+      "status.resolved-health-damage-per-tick"
+    ] = 20;
+    setDamageProjection(copy.after, 20);
+    setDamageProjection(commit.before, 20);
+    setDamageProjection(commit.after, 20);
+    (commit.reads as Record<string, string | number | boolean | null>)["event.damage"] = 20;
+    (commitOperation.parameters as Record<string, string | number | boolean | null>).damageTotal =
+      20;
+    setDamageProjection(aggregate.before, 100);
+    setDamageProjection(aggregate.after, 100);
+    const aggregateParameters = aggregateOperation.parameters as Record<
+      string,
+      string | number | boolean | null
+    >;
+    aggregateParameters["tick.1.damage.damage.synthetic-status"] = 20;
+    aggregateParameters["tick.1.damageTotal"] = 20;
+    (aggregate.reads as Record<string, string | number | boolean | null>)["tick.damage"] =
+      canonicalizeJson([
+        { id: "tick.status-0", index: 0, damage: { "damage.synthetic-status": 40 } },
+        { id: "tick.status-1", index: 1, damage: { "damage.synthetic-status": 20 } },
+        { id: "tick.status-2", index: 2, damage: { "damage.synthetic-status": 40 } },
+      ]);
+    const trace = await rehash(changed);
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("Status resolved Damage changes"),
+      }),
+    );
+  });
+
+  it("rejects a duplicate terminal Status aggregate", async () => {
+    const outcome = await evaluateStatusGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const aggregate = outcome.trace.decisions.at(-1);
+    if (aggregate?.outcome !== "applied") {
+      throw new Error("Resolved Status Trace omitted its terminal aggregate");
+    }
+    const trace = await rehash({
+      ...outcome.trace,
+      decisions: [
+        ...outcome.trace.decisions,
+        {
+          ...structuredClone(aggregate),
+          sequence: outcome.trace.decisions.length,
+        },
+      ],
+    });
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("after terminal Status aggregation"),
+      }),
+    );
+  });
+
+  it("rejects rehashed Status schedule, copy, commit, and aggregate topology changes", async () => {
+    const outcome = await evaluateStatusGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const cases = [
+      {
+        name: "schedule rule",
+        ruleId: "rule.status.schedule-resolved-ticks",
+        message: "Status tick expansion has invalid event topology",
+        mutate(decision: (typeof outcome.trace.decisions)[number]) {
+          (decision as { ruleId: string }).ruleId = "rule.status.schedule-resolved-ticks.tampered";
+        },
+      },
+      {
+        name: "copy phase",
+        ruleId: "rule.status.construct-resolved-tick",
+        message: "constructs invalid sequential tick",
+        mutate(decision: (typeof outcome.trace.decisions)[number]) {
+          (decision as { phase: string }).phase = "damage.construct";
+        },
+      },
+      {
+        name: "commit parent",
+        ruleId: "rule.status.commit-resolved-tick-health",
+        message: "Status tick tick.status-0 has invalid commit topology",
+        mutate(decision: (typeof outcome.trace.decisions)[number]) {
+          (decision as { parentEventId?: string }).parentEventId =
+            "event.action.resolved-status-ticks-1.attack.emit";
+        },
+      },
+      {
+        name: "aggregate event",
+        ruleId: "rule.status.aggregate-resolved-ticks",
+        message: "Status tick aggregate has invalid event topology",
+        mutate(decision: (typeof outcome.trace.decisions)[number]) {
+          (decision as { eventId: string }).eventId =
+            "event.action.resolved-status-ticks-1.result.aggregate.tampered";
+        },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const changed = structuredClone(outcome.trace);
+      const decision = changed.decisions.find(
+        (candidate) => candidate.outcome === "applied" && candidate.ruleId === testCase.ruleId,
+      );
+      if (decision === undefined) {
+        throw new Error(`Resolved Status Trace omitted ${testCase.name}`);
+      }
+      testCase.mutate(decision);
+      const trace = await rehash(changed);
+
+      await expect(replayTraceDamage(trace), testCase.name).rejects.toThrowError(
+        expect.objectContaining<Partial<TraceReplayError>>({
+          code: "invalid-operation-parameters",
+          message: expect.stringContaining(testCase.message),
+        }),
+      );
+    }
+  });
+
   it("property-tests resolved Status tick timing, aggregation, Health clamp, and replay", async () => {
     const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
     const ruleset = await loadCoreRuleset();
@@ -2231,6 +2448,592 @@ describe("evaluateScenario", () => {
     changed.simulation.timeLimitMs = 65;
     const scenario = await rehash(changed);
     const catalog = await loadCatalogSnapshot(structuredClone(catalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    const outcome = await evaluateScenario({ scenario, catalog, ruleset });
+
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: {
+        code: "rule-execution-failed",
+        causeCode: "execution-limit-exceeded",
+      },
+    });
+    expect("result" in outcome).toBe(false);
+    expect("trace" in outcome).toBe(false);
+  });
+
+  it("matches the independently authored resolved Beam golden and logical times", async () => {
+    const outcome = await evaluateBeamGolden();
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    for (const [metricId, expected] of Object.entries(beamExpectedFixture.metrics)) {
+      expect(outcome.result.metrics[metricId]).toBeCloseTo(expected, 6);
+    }
+    expect(outcome.result.damageBySource).toEqual(beamExpectedFixture.damageBySource);
+    expect(outcome.result.damageByType).toEqual(beamExpectedFixture.damageByType);
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "applied")
+        .map((decision) => decision.ruleId),
+    ).toEqual(beamExpectedFixture.appliedRuleIds);
+    expect(outcome.trace.decisions.map((decision) => decision.eventTimeMs)).toEqual(
+      beamExpectedFixture.eventTimesMs,
+    );
+    expect(
+      outcome.trace.decisions.flatMap((decision) =>
+        decision.outcome === "applied" &&
+        decision.ruleId === "rule.beam.commit-resolved-tick-health"
+          ? [decision.after["target.health"]]
+          : [],
+      ),
+    ).toEqual([30, 10, 0]);
+    expect(outcome.trace.decisions[1]).toMatchObject({
+      phase: "damage.construct",
+      ruleId: "rule.beam.construct-resolved-tick",
+      eventTimeMs: 100,
+      operations: [
+        {
+          kind: "damage-vector.copy",
+          parameters: {
+            "tick.id": "tick.beam-0",
+            "tick.index": 0,
+            "tick.count": 3,
+            "tick.time-ms": 100,
+            "component.damage.synthetic-beam": 20,
+          },
+        },
+      ],
+    });
+    expect(await replayTraceState(outcome.trace, 50)).toEqual({
+      damage: beamExpectedFixture.damageByType,
+      health: 0,
+    });
+    expect(await verifyArtifactContentHash(outcome.trace)).toBe(true);
+    expect(await verifyArtifactContentHash(outcome.result)).toBe(true);
+    expect(
+      await verifyResultTraceIntegrity(outcome.result, outcome.trace, beamScenarioFixture),
+    ).toBe(true);
+  });
+
+  it("rejects a resolved Beam Trace whose tick logical time was altered", async () => {
+    const outcome = await evaluateBeamGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = await rehash({
+      ...outcome.trace,
+      decisions: outcome.trace.decisions.map((decision) =>
+        decision.outcome === "applied" &&
+        decision.ruleId === "rule.beam.construct-resolved-tick" &&
+        decision.eventTimeMs === 200
+          ? { ...decision, eventTimeMs: 201 }
+          : decision,
+      ),
+    });
+
+    await expect(replayTraceDamage(changed)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+      }),
+    );
+  });
+
+  it("rejects a rehashed Beam Trace whose base Damage total changes between ticks", async () => {
+    const outcome = await evaluateBeamWithInitialHealth(0);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = structuredClone(outcome.trace);
+    const findSecondTickDecision = (ruleId: string) =>
+      changed.decisions.find(
+        (decision) =>
+          decision.outcome === "applied" &&
+          decision.ruleId === ruleId &&
+          decision.operations[0]?.parameters["tick.id"] === "tick.beam-1",
+      );
+    const copy = findSecondTickDecision("rule.beam.construct-resolved-tick");
+    const critical = findSecondTickDecision("rule.beam.scale-critical-tier");
+    const armor = findSecondTickDecision("rule.beam.standard-armor");
+    const commit = findSecondTickDecision("rule.beam.commit-resolved-tick-health");
+    const aggregate = changed.decisions.find(
+      (decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.beam.aggregate-resolved-ticks",
+    );
+    if (
+      copy?.outcome !== "applied" ||
+      critical?.outcome !== "applied" ||
+      armor?.outcome !== "applied" ||
+      commit?.outcome !== "applied" ||
+      aggregate?.outcome !== "applied"
+    ) {
+      throw new Error("Resolved Beam Trace omitted a second-tick or aggregate decision");
+    }
+    const copyOperation = copy.operations[0];
+    const commitOperation = commit.operations[0];
+    const aggregateOperation = aggregate.operations[0];
+    if (
+      copyOperation === undefined ||
+      commitOperation === undefined ||
+      aggregateOperation === undefined
+    ) {
+      throw new Error("Resolved Beam Trace omitted a required operation");
+    }
+    const setDamageProjection = (
+      projection: Readonly<Record<string, string | number | boolean | null>>,
+      total: number,
+    ) => {
+      const mutable = projection as Record<string, string | number | boolean | null>;
+      mutable["damage.total"] = total;
+      mutable["damage.type.damage.synthetic-beam"] = total;
+    };
+
+    (copyOperation.parameters as Record<string, string | number | boolean | null>)[
+      "component.damage.synthetic-beam"
+    ] = 10;
+    (copy.reads as Record<string, string | number | boolean | null>)["attack.base-damage"] = 10;
+    setDamageProjection(copy.after, 10);
+    setDamageProjection(critical.before, 10);
+    setDamageProjection(critical.after, 20);
+    (critical.reads as Record<string, string | number | boolean | null>)["event.damage"] = 10;
+    setDamageProjection(armor.before, 20);
+    setDamageProjection(armor.after, 10);
+    (armor.reads as Record<string, string | number | boolean | null>)["event.damage"] = 20;
+    setDamageProjection(commit.before, 10);
+    setDamageProjection(commit.after, 10);
+    (commit.reads as Record<string, string | number | boolean | null>)["event.damage"] = 10;
+    (commitOperation.parameters as Record<string, string | number | boolean | null>).damageTotal =
+      10;
+    setDamageProjection(aggregate.before, 50);
+    setDamageProjection(aggregate.after, 50);
+    const aggregateParameters = aggregateOperation.parameters as Record<
+      string,
+      string | number | boolean | null
+    >;
+    aggregateParameters["tick.1.damage.damage.synthetic-beam"] = 10;
+    aggregateParameters["tick.1.damageTotal"] = 10;
+    (aggregate.reads as Record<string, string | number | boolean | null>)["tick.damage"] =
+      canonicalizeJson([
+        { id: "tick.beam-0", index: 0, damage: { "damage.synthetic-beam": 20 } },
+        { id: "tick.beam-1", index: 1, damage: { "damage.synthetic-beam": 10 } },
+        { id: "tick.beam-2", index: 2, damage: { "damage.synthetic-beam": 20 } },
+      ]);
+    const trace = await rehash(changed);
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("Beam base Damage total changes"),
+      }),
+    );
+  });
+
+  it("rejects an applied operation before resolved Beam scheduling", async () => {
+    const outcome = await evaluateBeamGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const schedule = outcome.trace.decisions[0];
+    if (schedule?.outcome !== "applied") {
+      throw new Error("Resolved Beam Trace omitted its schedule decision");
+    }
+    const injected = {
+      ...structuredClone(schedule),
+      eventId: "event.injected-beam.damage.construct",
+      phase: "damage.construct" as const,
+      ruleId: "rule.direct.construct-base-damage",
+      reads: { "attack.base-damage": 20 },
+      operations: [
+        {
+          kind: "damage-vector.copy" as const,
+          parameters: { factor: 1, "component.damage.synthetic-beam": 20 },
+        },
+      ],
+      after: {
+        ...schedule.after,
+        "damage.total": 20,
+        "damage.type.damage.synthetic-beam": 20,
+      },
+    };
+    const decisions = [injected, ...outcome.trace.decisions].map((decision, sequence) => ({
+      ...decision,
+      sequence,
+    }));
+    const trace = await rehash({ ...outcome.trace, decisions });
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("tick schedule must be the first applied decision"),
+      }),
+    );
+  });
+
+  it("rejects rehashed Beam tick interleaving that moves logical time backwards", async () => {
+    const outcome = await evaluateBeamWithInitialHealth(0);
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const order = [0, 1, 5, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13];
+    if (outcome.trace.decisions.length !== order.length) {
+      throw new Error("Resolved Beam Trace decision count changed unexpectedly");
+    }
+    const decisions = order.map((index, sequence) => {
+      const decision = outcome.trace.decisions[index];
+      if (decision === undefined) {
+        throw new Error(`Resolved Beam Trace omitted decision ${index}`);
+      }
+      return { ...structuredClone(decision), sequence };
+    });
+    const trace = await rehash({ ...outcome.trace, decisions });
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("logical time moves backwards"),
+      }),
+    );
+  });
+
+  it("rejects a rehashed Beam Trace whose fixed Critical tier read changes between ticks", async () => {
+    const outcome = await evaluateBeamGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = structuredClone(outcome.trace);
+    const criticalDecisions = changed.decisions.filter(
+      (decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.beam.scale-critical-tier",
+    );
+    const secondCritical = criticalDecisions[1];
+    if (secondCritical?.outcome !== "applied") {
+      throw new Error("Resolved Beam Trace omitted its second Critical decision");
+    }
+    (secondCritical.reads as Record<string, string | number | boolean | null>)[
+      "event.critical-tier"
+    ] = 0;
+    const trace = await rehash(changed);
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("Beam Critical scale"),
+      }),
+    );
+  });
+
+  it("rejects a rehashed Beam Trace whose Armor constant changes", async () => {
+    const outcome = await evaluateBeamGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = structuredClone(outcome.trace);
+    const armorDecision = changed.decisions.find(
+      (decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.beam.standard-armor",
+    );
+    if (armorDecision?.outcome !== "applied") {
+      throw new Error("Resolved Beam Trace omitted its Armor decision");
+    }
+    const operation = armorDecision.operations[0];
+    if (operation === undefined) {
+      throw new Error("Resolved Beam Armor decision omitted its operation");
+    }
+    (operation.parameters as Record<string, string | number | boolean | null>).constant = 301;
+    const trace = await rehash(changed);
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("Beam Armor scale"),
+      }),
+    );
+  });
+
+  it("rejects a rehashed Trace with a non-canonical decision sequence", async () => {
+    const outcome = await evaluateBeamGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const changed = structuredClone(outcome.trace);
+    const secondDecision = changed.decisions[1];
+    if (secondDecision === undefined) {
+      throw new Error("Resolved Beam Trace omitted its second decision");
+    }
+    (secondDecision as { sequence: number }).sequence = 2;
+    const trace = await rehash(changed);
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("does not match array index"),
+      }),
+    );
+  });
+
+  it("rejects a rehashed Beam Trace with a duplicate terminal aggregate", async () => {
+    const outcome = await evaluateBeamGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const aggregate = outcome.trace.decisions.at(-1);
+    if (aggregate?.outcome !== "applied") {
+      throw new Error("Resolved Beam Trace omitted its terminal aggregate");
+    }
+    const changed = await rehash({
+      ...outcome.trace,
+      decisions: [
+        ...outcome.trace.decisions,
+        {
+          ...structuredClone(aggregate),
+          sequence: outcome.trace.decisions.length,
+        },
+      ],
+    });
+
+    await expect(replayTraceDamage(changed)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("after terminal Beam aggregation"),
+      }),
+    );
+  });
+
+  it("rejects an injected global scale operation after resolved Status scheduling", async () => {
+    const outcome = await evaluateStatusGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const schedule = outcome.trace.decisions.find(
+      (decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.status.schedule-resolved-ticks",
+    );
+    if (schedule?.outcome !== "applied") {
+      throw new Error("Resolved Status Trace omitted its schedule decision");
+    }
+    const injected = {
+      ...structuredClone(schedule),
+      sequence: schedule.sequence + 1,
+      eventId: `${schedule.eventId}.injected-critical`,
+      parentEventId: schedule.eventId,
+      phase: "critical.resolve" as const,
+      ruleId: "rule.beam.scale-critical-tier",
+      reads: {
+        "event.damage": schedule.after["damage.total"] ?? 0,
+        "event.critical-tier": 0,
+        "attack.critical-multiplier": 1,
+      },
+      operations: [
+        {
+          kind: "damage-vector.scale-critical-tier" as const,
+          parameters: {
+            factor: 1,
+            actualTier: 0,
+            criticalMultiplier: 1,
+          },
+        },
+      ],
+      before: schedule.after,
+      after: schedule.after,
+    };
+    const decisions = outcome.trace.decisions
+      .flatMap((decision) =>
+        decision.sequence === schedule.sequence ? [decision, injected] : [decision],
+      )
+      .map((decision, sequence) => ({ ...decision, sequence }));
+    const trace = await rehash({ ...outcome.trace, decisions });
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("Status tick mode cannot apply operation"),
+      }),
+    );
+  });
+
+  it("rejects a second resolved Status schedule", async () => {
+    const outcome = await evaluateStatusGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const schedule = outcome.trace.decisions.find(
+      (decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.status.schedule-resolved-ticks",
+    );
+    if (schedule?.outcome !== "applied") {
+      throw new Error("Resolved Status Trace omitted its schedule decision");
+    }
+    const duplicate = {
+      ...structuredClone(schedule),
+      sequence: schedule.sequence + 1,
+      eventId: `${schedule.eventId}.duplicate`,
+      parentEventId: schedule.eventId,
+    };
+    const decisions = outcome.trace.decisions
+      .flatMap((decision) =>
+        decision.sequence === schedule.sequence ? [decision, duplicate] : [decision],
+      )
+      .map((decision, sequence) => ({ ...decision, sequence }));
+    const trace = await rehash({ ...outcome.trace, decisions });
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("Status tick mode cannot apply operation"),
+      }),
+    );
+  });
+
+  it("rejects an injected global scale operation after resolved Beam scheduling", async () => {
+    const outcome = await evaluateBeamGolden();
+    if (!outcome.ok) {
+      throw new Error(outcome.error.message);
+    }
+    const schedule = outcome.trace.decisions.find(
+      (decision) =>
+        decision.outcome === "applied" && decision.ruleId === "rule.beam.schedule-resolved-ticks",
+    );
+    if (schedule?.outcome !== "applied") {
+      throw new Error("Resolved Beam Trace omitted its schedule decision");
+    }
+    const injected = {
+      ...structuredClone(schedule),
+      sequence: schedule.sequence + 1,
+      eventId: `${schedule.eventId}.injected-critical`,
+      parentEventId: schedule.eventId,
+      phase: "critical.resolve" as const,
+      ruleId: "rule.beam.scale-critical-tier",
+      reads: {
+        "event.damage": schedule.after["damage.total"] ?? 0,
+        "event.critical-tier": 0,
+        "attack.critical-multiplier": 1,
+      },
+      operations: [
+        {
+          kind: "damage-vector.scale-critical-tier" as const,
+          parameters: {
+            factor: 1,
+            actualTier: 0,
+            criticalMultiplier: 1,
+          },
+        },
+      ],
+      before: schedule.after,
+      after: schedule.after,
+    };
+    const decisions = outcome.trace.decisions
+      .flatMap((decision) =>
+        decision.sequence === schedule.sequence ? [decision, injected] : [decision],
+      )
+      .map((decision, sequence) => ({ ...decision, sequence }));
+    const trace = await rehash({ ...outcome.trace, decisions });
+
+    await expect(replayTraceDamage(trace)).rejects.toThrowError(
+      expect.objectContaining<Partial<TraceReplayError>>({
+        code: "invalid-operation-parameters",
+        message: expect.stringContaining("Beam tick mode cannot apply operation"),
+      }),
+    );
+  });
+
+  it("property-tests resolved Beam Critical, Armor, timing, aggregation, Health clamp, and replay", async () => {
+    const catalog = await loadCatalogSnapshot(structuredClone(beamCatalogFixture));
+    const ruleset = await loadCoreRuleset();
+
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 1, max: 16 }),
+        fc.integer({ min: 1, max: 1000 }),
+        fc.integer({ min: 0, max: 4 }),
+        fc.integer({ min: 0, max: 900 }),
+        fc.integer({ min: 0, max: 10_000 }),
+        async (tickCount, tickIntervalMs, criticalTier, armor, health) => {
+          const changed = structuredClone(beamScenarioFixture);
+          const action = changed.actionPlan[0];
+          const target = changed.targets[0];
+          if (action === undefined || target === undefined) {
+            throw new Error("Resolved Beam golden must contain one action and target");
+          }
+          action.parameters.tickCount = tickCount;
+          action.parameters.tickIntervalMs = tickIntervalMs;
+          action.parameters.criticalTier = criticalTier;
+          target.configuration.resolvedArmor = armor;
+          target.configuration.resolvedHealth = health;
+          changed.simulation.timeLimitMs = tickCount * tickIntervalMs;
+          const scenario = await rehash(changed);
+          const first = await evaluateScenario({ scenario, catalog, ruleset });
+          const second = await evaluateScenario({ scenario, catalog, ruleset });
+          expect(first.ok).toBe(true);
+          expect(second.ok).toBe(true);
+          if (!first.ok || !second.ok) {
+            return;
+          }
+
+          const criticalMultiplier = 1 + criticalTier;
+          const postCriticalPerTick = 20 * criticalMultiplier;
+          const armorMultiplier = 300 / (armor + 300);
+          const healthDamagePerTick = postCriticalPerTick * armorMultiplier;
+          const totalDamage = healthDamagePerTick * tickCount;
+          let remainingHealth = health;
+          for (let index = 0; index < tickCount; index += 1) {
+            remainingHealth =
+              healthDamagePerTick >= remainingHealth ? 0 : remainingHealth - healthDamagePerTick;
+          }
+          expect(first.result.metrics["beam.tick-count"]).toBe(tickCount);
+          expect(first.result.metrics["beam.tick-interval-ms"]).toBe(tickIntervalMs);
+          expect(first.result.metrics["damage.beam.per-tick"]).toBeCloseTo(healthDamagePerTick, 6);
+          expect(first.result.metrics["damage.beam.total"]).toBeCloseTo(totalDamage, 6);
+          expect(first.result.metrics["critical.tier"]).toBe(criticalTier);
+          expect(first.result.metrics["critical.multiplier"]).toBe(criticalMultiplier);
+          expect(first.result.metrics["damage.post-critical.total"]).toBeCloseTo(
+            postCriticalPerTick,
+            6,
+          );
+          expect(first.result.metrics["armor.remaining-multiplier"]).toBeCloseTo(
+            armorMultiplier,
+            6,
+          );
+          expect(first.result.metrics["target.health.remaining"]).toBeCloseTo(remainingHealth, 6);
+          expect(
+            first.trace.decisions
+              .filter(
+                (decision) =>
+                  decision.ruleId === "rule.beam.construct-resolved-tick" ||
+                  decision.ruleId === "rule.beam.scale-critical-tier" ||
+                  decision.ruleId === "rule.beam.standard-armor" ||
+                  decision.ruleId === "rule.beam.commit-resolved-tick-health",
+              )
+              .map((decision) => decision.eventTimeMs),
+          ).toEqual(
+            Array.from({ length: tickCount }, (_, index) =>
+              Array(4).fill((index + 1) * tickIntervalMs),
+            ).flat(),
+          );
+          expect(await replayTraceState(first.trace, health)).toEqual({
+            damage: first.result.damageByType,
+            health: remainingHealth,
+          });
+          expect(canonicalizeJson(first)).toBe(canonicalizeJson(second));
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
+  it("rejects a resolved Beam schedule above the execution limit without partial artifacts", async () => {
+    const changed = structuredClone(beamScenarioFixture);
+    const action = changed.actionPlan[0];
+    if (action === undefined) {
+      throw new Error("Resolved Beam golden must contain one action");
+    }
+    action.parameters.tickCount = 65;
+    action.parameters.tickIntervalMs = 1;
+    changed.simulation.timeLimitMs = 65;
+    const scenario = await rehash(changed);
+    const catalog = await loadCatalogSnapshot(structuredClone(beamCatalogFixture));
     const ruleset = await loadCoreRuleset();
 
     const outcome = await evaluateScenario({ scenario, catalog, ruleset });
@@ -2454,6 +3257,10 @@ describe("evaluateScenario", () => {
         metric !== "status.tick-interval-ms" &&
         metric !== "damage.status.per-tick" &&
         metric !== "damage.status.total" &&
+        metric !== "beam.tick-count" &&
+        metric !== "beam.tick-interval-ms" &&
+        metric !== "damage.beam.per-tick" &&
+        metric !== "damage.beam.total" &&
         metric !== "punch-through.target-count" &&
         metric !== "damage.punch-through.total" &&
         metric !== "ricochet.target-count" &&

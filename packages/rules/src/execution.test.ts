@@ -1,29 +1,31 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  type ExpectedAggregateContext,
   executeExpectedAggregateRule,
   executeFixedMultishotRule,
   executeFixedPelletRule,
-  executeResolvedPelletAllocationAggregateRule,
-  executeResolvedPelletAllocationExpansionRule,
-  executeResolvedRadialFalloffRule,
-  executeResolvedPunchThroughAggregateRule,
-  executeResolvedPunchThroughExpansionRule,
-  executeResolvedRicochetAggregateRule,
-  executeResolvedRicochetExpansionRule,
+  executeResolvedBeamTickScheduleRule,
   executeResolvedChainAggregateRule,
   executeResolvedChainExpansionRule,
-  executeResolvedRadialTargetAggregateRule,
-  executeResolvedRadialTargetExpansionRule,
   executeResolvedDirectRadialImpactAggregateRule,
   executeResolvedDirectRadialImpactExpansionRule,
+  executeResolvedPelletAllocationAggregateRule,
+  executeResolvedPelletAllocationExpansionRule,
+  executeResolvedPunchThroughAggregateRule,
+  executeResolvedPunchThroughExpansionRule,
+  executeResolvedRadialFalloffRule,
+  executeResolvedRadialTargetAggregateRule,
+  executeResolvedRadialTargetExpansionRule,
+  executeResolvedRicochetAggregateRule,
+  executeResolvedRicochetExpansionRule,
   executeResolvedStatusTickDamageRule,
   executeResolvedStatusTickScheduleRule,
+  executeRule,
+  executeSequentialBeamTickAggregateRule,
   executeSequentialHitAggregateRule,
   executeSequentialPelletAggregateRule,
   executeSequentialStatusTickAggregateRule,
-  executeRule,
-  type ExpectedAggregateContext,
   type RuleContext,
   scaleDamageVector,
   sumDamageVector,
@@ -117,8 +119,10 @@ describe("generated core Rule execution", async () => {
   const aggregatePellets = loaded.resolveRule("rule.pellet.aggregate-fixed-hits");
   const radialFalloff = loaded.resolveRule("rule.radial.apply-resolved-falloff");
   const statusSchedule = loaded.resolveRule("rule.status.schedule-resolved-ticks");
+  const beamSchedule = loaded.resolveRule("rule.beam.schedule-resolved-ticks");
   const statusTick = loaded.resolveRule("rule.status.construct-resolved-tick");
   const aggregateStatusTicks = loaded.resolveRule("rule.status.aggregate-resolved-ticks");
+  const aggregateBeamTicks = loaded.resolveRule("rule.beam.aggregate-resolved-ticks");
   const punchThroughExpansion = loaded.resolveRule("rule.punch-through.expand-resolved-targets");
   const punchThroughAggregate = loaded.resolveRule("rule.punch-through.aggregate-resolved-targets");
   const ricochetExpansion = loaded.resolveRule("rule.ricochet.expand-resolved-targets");
@@ -320,6 +324,69 @@ describe("generated core Rule execution", async () => {
       damageTotal: 80,
       health: 20,
     });
+  });
+
+  it("schedules and aggregates bounded resolved Beam ticks through distinct operations", () => {
+    const schedule = executeResolvedBeamTickScheduleRule(beamSchedule, {
+      tickCount: 3,
+      tickIntervalMs: 250,
+      initialHealth: 250,
+      zeroDamage: { "damage.synthetic": 0 },
+    });
+    const aggregate = executeSequentialBeamTickAggregateRule(aggregateBeamTicks, {
+      initialHealth: 250,
+      hits: [
+        {
+          id: "tick.beam-0",
+          index: 0,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 250,
+          healthAfter: 150,
+        },
+        {
+          id: "tick.beam-1",
+          index: 1,
+          damage: { "damage.synthetic": 100 },
+          healthBefore: 150,
+          healthAfter: 50,
+        },
+      ],
+    });
+
+    expect(schedule).toMatchObject({
+      operationKind: "event.expand-resolved-beam-ticks",
+      parameters: { maximumTicks: 64, tickCount: 3, tickIntervalMs: 250 },
+    });
+    expect(aggregate).toMatchObject({
+      operationKind: "damage-vector.aggregate-sequential-beam-ticks",
+      parameters: {
+        tickCount: 2,
+        "tick.0.id": "tick.beam-0",
+        "tick.1.id": "tick.beam-1",
+      },
+      after: {
+        damage: { "damage.synthetic": 200 },
+        damageTotal: 200,
+        health: 50,
+      },
+    });
+
+    expect(() =>
+      executeResolvedBeamTickScheduleRule(beamSchedule, {
+        tickCount: 65,
+        tickIntervalMs: 250,
+        initialHealth: 250,
+        zeroDamage: { "damage.synthetic": 0 },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "execution-limit-exceeded" }));
+    expect(() =>
+      executeResolvedBeamTickScheduleRule(statusSchedule, {
+        tickCount: 1,
+        tickIntervalMs: 250,
+        initialHealth: 250,
+        zeroDamage: { "damage.synthetic": 0 },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "invalid-rule" }));
   });
 
   it("expands and aggregates independent resolved punch-through targets", () => {

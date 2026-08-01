@@ -6,19 +6,10 @@ import scenarioFixture from "../../../data/fixtures/golden/direct-critical-armor
 import expectedScenarioFixture from "../../../data/fixtures/golden/expected-critical-armor.scenario.json" with {
   type: "json",
 };
-import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
-  type: "json",
-};
-import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
-  type: "json",
-};
-import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
+import beamScenarioFixture from "../../../data/fixtures/golden/resolved-beam-ticks.scenario.json" with {
   type: "json",
 };
 import chainScenarioFixture from "../../../data/fixtures/golden/resolved-chain.scenario.json" with {
-  type: "json",
-};
-import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
   type: "json",
 };
 import distinctModeImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-mode-direct-radial-impact.scenario.json" with {
@@ -27,10 +18,22 @@ import distinctModeImpactScenarioFixture from "../../../data/fixtures/golden/res
 import distinctTierImpactScenarioFixture from "../../../data/fixtures/golden/resolved-distinct-tier-direct-radial-impact.scenario.json" with {
   type: "json",
 };
+import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
+  type: "json",
+};
+import punchThroughScenarioFixture from "../../../data/fixtures/golden/resolved-punch-through.scenario.json" with {
+  type: "json",
+};
+import radialTargetsScenarioFixture from "../../../data/fixtures/golden/resolved-radial-targets.scenario.json" with {
+  type: "json",
+};
+import ricochetScenarioFixture from "../../../data/fixtures/golden/resolved-ricochet.scenario.json" with {
+  type: "json",
+};
 import sharedRollImpactScenarioFixture from "../../../data/fixtures/golden/resolved-shared-roll-direct-radial-impact.scenario.json" with {
   type: "json",
 };
-import pelletAllocationScenarioFixture from "../../../data/fixtures/golden/resolved-pellet-allocation.scenario.json" with {
+import statusScenarioFixture from "../../../data/fixtures/golden/resolved-status-ticks.scenario.json" with {
   type: "json",
 };
 import { parseScenarioDomain } from "./scenario-domain.ts";
@@ -107,6 +110,15 @@ async function changedStatusScenario(
   change: (scenario: MutableScenarioFixture) => void,
 ): Promise<unknown> {
   const mutable = structuredClone(statusScenarioFixture) as MutableScenarioFixture;
+  change(mutable);
+  const { contentHash: _contentHash, ...withoutHash } = mutable;
+  return attachArtifactContentHash(withoutHash);
+}
+
+async function changedBeamScenario(
+  change: (scenario: MutableScenarioFixture) => void,
+): Promise<unknown> {
+  const mutable = structuredClone(beamScenarioFixture) as MutableScenarioFixture;
   change(mutable);
   const { contentHash: _contentHash, ...withoutHash } = mutable;
   return attachArtifactContentHash(withoutHash);
@@ -942,6 +954,87 @@ describe("parseScenarioDomain", () => {
     });
   });
 
+  it("accepts resolved fixed-Critical Beam ticks within the logical-time horizon", async () => {
+    const result = await parseScenarioDomain(structuredClone(beamScenarioFixture));
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        attacker: {
+          weaponId: "weapon.synthetic-beam",
+          attackModeId: "attack-mode.synthetic-beam.primary",
+        },
+        action: {
+          id: "action.resolved-beam-ticks-1",
+          kind: "resolved-beam-ticks",
+          targetId: "actor.target",
+          hitLocation: "hit-location.neutral-body",
+          damageLayer: "health",
+          criticalResolution: "fixed",
+          criticalTier: 1,
+          criticalRoll: null,
+          hitCount: 3,
+          beamTickCount: 3,
+          beamTickIntervalMs: 100,
+        },
+        simulation: {
+          mode: "deterministic",
+          timeLimitMs: 300,
+        },
+      },
+    });
+  });
+
+  it.each([
+    ["tickCount", 0],
+    ["tickCount", 1.5],
+    ["tickIntervalMs", 0],
+    ["tickIntervalMs", 1.5],
+  ])("rejects invalid resolved Beam %s value %s", async (key, value) => {
+    const scenario = await changedBeamScenario((mutable) => {
+      firstAction(mutable).parameters[key] = value;
+    });
+
+    await expectFailure(scenario, {
+      code: "invalid-configuration-value",
+      path: `/actionPlan/0/parameters/${key}`,
+      mechanicId: "mechanic.beam.resolved-ticks",
+    });
+  });
+
+  it("rejects expected and explicit-roll Beam resolution", async () => {
+    const expected = await changedBeamScenario((mutable) => {
+      mutable.simulation = { mode: "expected", timeLimitMs: 300 };
+    });
+    await expectFailure(expected, {
+      code: "unsupported-beam-resolution",
+      path: "/simulation/mode",
+      mechanicId: "mechanic.beam.resolved-ticks",
+    });
+
+    const rolled = await changedBeamScenario((mutable) => {
+      const action = firstAction(mutable);
+      delete action.parameters.criticalTier;
+      action.parameters.criticalRoll = 0.2;
+    });
+    await expectFailure(rolled, {
+      code: "unsupported-configuration-key",
+      path: "/actionPlan/0/parameters/criticalRoll",
+    });
+  });
+
+  it("rejects resolved Beam ticks beyond the Scenario time horizon", async () => {
+    const scenario = await changedBeamScenario((mutable) => {
+      mutable.simulation = { mode: "deterministic", timeLimitMs: 299 };
+    });
+
+    await expectFailure(scenario, {
+      code: "beam-time-horizon-exceeded",
+      path: "/simulation/timeLimitMs",
+      mechanicId: "mechanic.beam.resolved-ticks",
+    });
+  });
+
   it("accepts resolved fixed-count Multishot without inventing rolls", async () => {
     const scenario = await changedScenario((mutable) => {
       const action = firstAction(mutable);
@@ -1273,6 +1366,17 @@ describe("parseScenarioDomain", () => {
       code: "unsupported-metric",
       path: "/metrics/0",
       mechanicId: "critical.expected.multiplier",
+    });
+  });
+
+  it("keeps Beam-only metrics out of Direct Hit scenarios", async () => {
+    const directWithBeamMetric = await changedScenario((mutable) => {
+      mutable.metrics = ["beam.tick-interval-ms"];
+    });
+    await expectFailure(directWithBeamMetric, {
+      code: "unsupported-metric",
+      path: "/metrics/0",
+      mechanicId: "beam.tick-interval-ms",
     });
   });
 

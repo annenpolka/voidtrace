@@ -15,10 +15,10 @@
   },
   "rulesetRef": {
     "kind": "ruleset",
-    "schemaVersion": "0.17.0",
+    "schemaVersion": "0.18.0",
     "id": "ruleset.synthetic-core",
     "revision": 1,
-    "contentHash": "sha256:d0659a1f766ab740d8e6226e090d92fa035c076374627577e508cb687428a1c7",
+    "contentHash": "sha256:30813f8a72f38145f911657da72f7117495b1000fdf5ea68e10975e79c26a00b",
     "gameBuild": "synthetic-fixture-0"
   },
   "attacker": {
@@ -143,5 +143,5 @@
       "description": "The fixture does not derive impact coordinates, terrain, LoS, distance, or current-game falloff parameters."
     }
   ],
-  "contentHash": "sha256:44cfa5cfe2ceffe85c61ca77998293522094cabc047ee21e4229de8f63514756"
+  "contentHash": "sha256:dc09648ef9db475a86b83a255cc86c290b4c90ff0da324abb038c5bc9ddb3673"
 }

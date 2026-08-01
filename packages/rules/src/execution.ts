@@ -58,6 +58,13 @@ export type ResolvedStatusTickScheduleContext = {
   readonly zeroDamage: DamageVector;
 };
 
+export type ResolvedBeamTickScheduleContext = {
+  readonly tickCount: number;
+  readonly tickIntervalMs: number;
+  readonly initialHealth: number;
+  readonly zeroDamage: DamageVector;
+};
+
 export type ResolvedStatusTickDamageContext = {
   readonly resolvedHealthDamagePerTick: number;
   readonly health: number;
@@ -182,7 +189,7 @@ type ValidatedFixedPelletContext = FixedPelletContext;
 
 type ValidatedResolvedRadialFalloffContext = ResolvedRadialFalloffContext;
 
-type ValidatedResolvedStatusTickScheduleContext = ResolvedStatusTickScheduleContext;
+type ValidatedResolvedTickScheduleContext = ResolvedStatusTickScheduleContext;
 
 type ValidatedResolvedStatusTickDamageContext = ResolvedStatusTickDamageContext;
 
@@ -501,9 +508,10 @@ function snapshotResolvedRadialFalloffContext(
   });
 }
 
-function snapshotResolvedStatusTickScheduleContext(
-  value: ResolvedStatusTickScheduleContext,
-): ValidatedResolvedStatusTickScheduleContext {
+function snapshotResolvedTickScheduleContext(
+  value: ResolvedStatusTickScheduleContext | ResolvedBeamTickScheduleContext,
+  tickKind: "Status" | "Beam",
+): ValidatedResolvedTickScheduleContext {
   const context = snapshotPlainExactObject(
     value,
     ["tickCount", "tickIntervalMs", "initialHealth", "zeroDamage"],
@@ -512,10 +520,10 @@ function snapshotResolvedStatusTickScheduleContext(
   const tickCount = dataProperty(context, "tickCount", "context");
   const tickIntervalMs = dataProperty(context, "tickIntervalMs", "context");
   if (!isNonNegativeSafeInteger(tickCount) || tickCount < 1) {
-    invalidContext("tickCount must be a positive safe integer", "tickCount");
+    invalidContext(`${tickKind} tickCount must be a positive safe integer`, "tickCount");
   }
   if (!isNonNegativeSafeInteger(tickIntervalMs) || tickIntervalMs < 1) {
-    invalidContext("tickIntervalMs must be a positive safe integer", "tickIntervalMs");
+    invalidContext(`${tickKind} tickIntervalMs must be a positive safe integer`, "tickIntervalMs");
   }
   const zeroDamage = snapshotDamageVector(
     dataProperty(context, "zeroDamage", "context"),
@@ -1247,20 +1255,22 @@ export function executeResolvedRadialFalloffRule(
   );
 }
 
-export function executeResolvedStatusTickScheduleRule(
+function executeResolvedTickScheduleRule(
   rule: RuleDefinition,
-  context: ResolvedStatusTickScheduleContext,
+  context: ResolvedStatusTickScheduleContext | ResolvedBeamTickScheduleContext,
+  operationKind: "event.expand-resolved-status-ticks" | "event.expand-resolved-beam-ticks",
+  tickKind: "Status" | "Beam",
 ): RuleExecution {
   assertExecutableRule(rule);
-  if (rule.operation.kind !== "event.expand-resolved-status-ticks") {
+  if (rule.operation.kind !== operationKind) {
     throw new RulesError(
       "invalid-rule",
-      `Rule ${rule.id} is not a resolved Status tick expansion operation`,
+      `Rule ${rule.id} is not a resolved ${tickKind} tick expansion operation`,
       { operationKind: rule.operation.kind, ruleId: rule.id },
     );
   }
   const operation = rule.operation as {
-    readonly kind: "event.expand-resolved-status-ticks";
+    readonly kind: typeof operationKind;
     readonly maximumTicks: unknown;
   };
   if (
@@ -1268,15 +1278,15 @@ export function executeResolvedStatusTickScheduleRule(
     !Number.isSafeInteger(operation.maximumTicks) ||
     operation.maximumTicks < 1
   ) {
-    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid Status tick limit`, {
+    throw new RulesError("invalid-rule", `Rule ${rule.id} has an invalid ${tickKind} tick limit`, {
       ruleId: rule.id,
     });
   }
-  const input = snapshotResolvedStatusTickScheduleContext(context);
+  const input = snapshotResolvedTickScheduleContext(context, tickKind);
   if (input.tickCount > operation.maximumTicks) {
     throw new RulesError(
       "execution-limit-exceeded",
-      `Resolved Status tickCount ${input.tickCount} exceeds limit ${operation.maximumTicks}`,
+      `Resolved ${tickKind} tickCount ${input.tickCount} exceeds limit ${operation.maximumTicks}`,
       { maximumTicks: operation.maximumTicks, tickCount: input.tickCount },
     );
   }
@@ -1293,6 +1303,25 @@ export function executeResolvedStatusTickScheduleRule(
     projection,
     projection,
   );
+}
+
+export function executeResolvedStatusTickScheduleRule(
+  rule: RuleDefinition,
+  context: ResolvedStatusTickScheduleContext,
+): RuleExecution {
+  return executeResolvedTickScheduleRule(
+    rule,
+    context,
+    "event.expand-resolved-status-ticks",
+    "Status",
+  );
+}
+
+export function executeResolvedBeamTickScheduleRule(
+  rule: RuleDefinition,
+  context: ResolvedBeamTickScheduleContext,
+): RuleExecution {
+  return executeResolvedTickScheduleRule(rule, context, "event.expand-resolved-beam-ticks", "Beam");
 }
 
 export function executeResolvedStatusTickDamageRule(
@@ -1702,7 +1731,8 @@ function executeSequentialAggregateRule(
   operationKind:
     | "damage-vector.aggregate-sequential-hits"
     | "damage-vector.aggregate-sequential-pellets"
-    | "damage-vector.aggregate-sequential-status-ticks",
+    | "damage-vector.aggregate-sequential-status-ticks"
+    | "damage-vector.aggregate-sequential-beam-ticks",
 ): RuleExecution {
   assertExecutableRule(rule);
   if (rule.operation.kind !== operationKind) {
@@ -1713,8 +1743,7 @@ function executeSequentialAggregateRule(
   }
 
   const input = snapshotSequentialHitAggregateContext(context);
-  const itemPrefix =
-    operationKind === "damage-vector.aggregate-sequential-status-ticks" ? "tick" : "hit";
+  const itemPrefix = operationKind.includes("ticks") ? "tick" : "hit";
   const expectedDamageKeys = Object.keys(input.hits[0]?.damage ?? {});
   const aggregateDamage: Record<string, number> = Object.fromEntries(
     expectedDamageKeys.map((id) => [id, 0]),
@@ -1790,6 +1819,17 @@ export function executeSequentialStatusTickAggregateRule(
     rule,
     context,
     "damage-vector.aggregate-sequential-status-ticks",
+  );
+}
+
+export function executeSequentialBeamTickAggregateRule(
+  rule: RuleDefinition,
+  context: SequentialHitAggregateContext,
+): RuleExecution {
+  return executeSequentialAggregateRule(
+    rule,
+    context,
+    "damage-vector.aggregate-sequential-beam-ticks",
   );
 }
 

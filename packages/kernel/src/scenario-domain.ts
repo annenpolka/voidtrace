@@ -38,6 +38,10 @@ export const SUPPORTED_METRIC_IDS = Object.freeze([
   "status.tick-interval-ms",
   "damage.status.per-tick",
   "damage.status.total",
+  "beam.tick-count",
+  "beam.tick-interval-ms",
+  "damage.beam.per-tick",
+  "damage.beam.total",
   "punch-through.target-count",
   "damage.punch-through.total",
   "ricochet.target-count",
@@ -76,6 +80,8 @@ export type ScenarioDomainErrorCode =
   | "unsupported-radial-resolution"
   | "unsupported-status-resolution"
   | "status-time-horizon-exceeded"
+  | "unsupported-beam-resolution"
+  | "beam-time-horizon-exceeded"
   | "unsupported-critical-tier"
   | "unsupported-metric"
   | "duplicate-metric";
@@ -104,6 +110,7 @@ export type ScenarioDomain = {
       | "fixed-pellets"
       | "radial-hit"
       | "resolved-status-ticks"
+      | "resolved-beam-ticks"
       | "resolved-punch-through"
       | "resolved-ricochet"
       | "resolved-chain"
@@ -131,6 +138,8 @@ export type ScenarioDomain = {
     readonly resolvedHealthDamagePerTick: number;
     readonly statusTickCount: number;
     readonly statusTickIntervalMs: number;
+    readonly beamTickCount: number;
+    readonly beamTickIntervalMs: number;
   };
   readonly simulation: {
     readonly mode: "deterministic" | "expected";
@@ -231,6 +240,12 @@ const RESOLVED_STATUS_TICK_PARAMETER_KEYS = Object.freeze([
   "tickCount",
   "tickIntervalMs",
 ] as const);
+const RESOLVED_BEAM_TICK_PARAMETER_KEYS = Object.freeze([
+  ...ACTION_PARAMETER_COMMON_KEYS,
+  "criticalTier",
+  "tickCount",
+  "tickIntervalMs",
+] as const);
 const RESOLVED_PUNCH_THROUGH_PARAMETER_KEYS = Object.freeze([
   "targetPathRelationId",
   "hitLocation",
@@ -294,6 +309,21 @@ const STATUS_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
 ]);
 const STATUS_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
   ...STATUS_ONLY_METRIC_IDS,
+  "damage.health.total",
+  "target.health.remaining",
+]);
+const BEAM_ONLY_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  "beam.tick-count",
+  "beam.tick-interval-ms",
+  "damage.beam.per-tick",
+  "damage.beam.total",
+]);
+const BEAM_AVAILABLE_METRIC_IDS: ReadonlySet<SupportedMetricId> = new Set([
+  ...BEAM_ONLY_METRIC_IDS,
+  "critical.tier",
+  "critical.multiplier",
+  "damage.post-critical.total",
+  "armor.remaining-multiplier",
   "damage.health.total",
   "target.health.remaining",
 ]);
@@ -979,6 +1009,8 @@ function parseResolvedRadialTargetsDomain(scenario: Scenario): ScenarioDomainPar
       resolvedHealthDamagePerTick: 0,
       statusTickCount: 0,
       statusTickIntervalMs: 0,
+      beamTickCount: 0,
+      beamTickIntervalMs: 0,
     }),
     simulation: Object.freeze({
       mode: "deterministic",
@@ -1350,6 +1382,8 @@ function parseResolvedPelletAllocationDomain(scenario: Scenario): ScenarioDomain
         resolvedHealthDamagePerTick: 0,
         statusTickCount: 0,
         statusTickIntervalMs: 0,
+        beamTickCount: 0,
+        beamTickIntervalMs: 0,
       }),
       simulation: Object.freeze({
         mode: "deterministic",
@@ -1711,6 +1745,8 @@ function parseResolvedTargetPathDomain(scenario: Scenario): ScenarioDomainParseR
       resolvedHealthDamagePerTick: 0,
       statusTickCount: 0,
       statusTickIntervalMs: 0,
+      beamTickCount: 0,
+      beamTickIntervalMs: 0,
     }),
     simulation: Object.freeze({
       mode: "deterministic",
@@ -1884,6 +1920,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
     action.kind !== "action.multishot-direct-hit" &&
     action.kind !== "action.pellet-direct-hit" &&
     action.kind !== "action.radial-hit" &&
+    action.kind !== "action.resolved-beam-ticks" &&
     action.kind !== "action.resolved-status-ticks"
   ) {
     return failure(
@@ -1892,6 +1929,201 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       `Unsupported action kind: ${action.kind}`,
       action.kind,
     );
+  }
+  if (action.kind === "action.resolved-beam-ticks") {
+    if (scenario.simulation.mode !== "deterministic") {
+      return failure(
+        "unsupported-beam-resolution",
+        "/simulation/mode",
+        "Resolved Beam ticks require deterministic mode",
+        "mechanic.beam.resolved-ticks",
+      );
+    }
+    const actionKeyError = exactKeys(
+      action.parameters,
+      RESOLVED_BEAM_TICK_PARAMETER_KEYS,
+      "/actionPlan/0/parameters",
+    );
+    if (actionKeyError !== undefined) {
+      return actionKeyError;
+    }
+    const actionTargetId = readStableString(
+      action.parameters,
+      "targetId",
+      "/actionPlan/0/parameters",
+    );
+    if (!actionTargetId.ok) {
+      return actionTargetId;
+    }
+    if (actionTargetId.value !== target.id) {
+      return failure(
+        "invalid-target-reference",
+        "/actionPlan/0/parameters/targetId",
+        `Action targetId ${actionTargetId.value} does not reference the configured target ${target.id}`,
+        "mechanic.beam.resolved-ticks",
+      );
+    }
+    if (action.parameters.hitLocation !== "hit-location.neutral-body") {
+      return failure(
+        "unsupported-hit-location",
+        "/actionPlan/0/parameters/hitLocation",
+        `Unsupported hit location: ${String(action.parameters.hitLocation)}`,
+        "mechanic.hit-location",
+      );
+    }
+    if (action.parameters.damageLayer !== "health") {
+      return failure(
+        "unsupported-damage-layer",
+        "/actionPlan/0/parameters/damageLayer",
+        `Unsupported damage layer: ${String(action.parameters.damageLayer)}`,
+        "mechanic.damage-layer",
+      );
+    }
+    const criticalTier = action.parameters.criticalTier;
+    if (
+      typeof criticalTier !== "number" ||
+      !Number.isSafeInteger(criticalTier) ||
+      criticalTier < 0
+    ) {
+      return failure(
+        "unsupported-critical-tier",
+        "/actionPlan/0/parameters/criticalTier",
+        "Resolved Beam criticalTier must be a non-negative safe integer",
+        "mechanic.critical.tier-multiplier",
+      );
+    }
+    const tickCount = action.parameters.tickCount;
+    if (typeof tickCount !== "number" || !Number.isSafeInteger(tickCount) || tickCount < 1) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/tickCount",
+        `Resolved Beam tickCount must be a positive safe integer; received ${String(tickCount)}`,
+        "mechanic.beam.resolved-ticks",
+      );
+    }
+    const tickIntervalMs = action.parameters.tickIntervalMs;
+    if (
+      typeof tickIntervalMs !== "number" ||
+      !Number.isSafeInteger(tickIntervalMs) ||
+      tickIntervalMs < 1
+    ) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/tickIntervalMs",
+        `Resolved Beam tickIntervalMs must be a positive safe integer; received ${String(tickIntervalMs)}`,
+        "mechanic.beam.resolved-ticks",
+      );
+    }
+    const finalTickTimeMs = tickCount * tickIntervalMs;
+    if (!Number.isSafeInteger(finalTickTimeMs)) {
+      return failure(
+        "invalid-configuration-value",
+        "/actionPlan/0/parameters/tickIntervalMs",
+        "Resolved Beam final tick time must be a safe integer",
+        "mechanic.beam.resolved-ticks",
+      );
+    }
+    if (finalTickTimeMs > scenario.simulation.timeLimitMs) {
+      return failure(
+        "beam-time-horizon-exceeded",
+        "/simulation/timeLimitMs",
+        `Resolved Beam final tick at ${finalTickTimeMs}ms exceeds timeLimitMs ${scenario.simulation.timeLimitMs}`,
+        "mechanic.beam.resolved-ticks",
+      );
+    }
+    if (scenario.metrics.length === 0) {
+      return failure(
+        "unsupported-scenario-shape",
+        "/metrics",
+        "At least one supported metric is required",
+        "mechanic.beam.resolved-ticks",
+      );
+    }
+    const metrics: SupportedMetricId[] = [];
+    const seenMetrics = new Set<string>();
+    for (const [index, metric] of scenario.metrics.entries()) {
+      if (!SUPPORTED_METRIC_SET.has(metric)) {
+        return failure(
+          "unsupported-metric",
+          `/metrics/${index}`,
+          `Unsupported metric: ${metric}`,
+          metric,
+        );
+      }
+      const supportedMetric = metric as SupportedMetricId;
+      if (!BEAM_AVAILABLE_METRIC_IDS.has(supportedMetric)) {
+        return failure(
+          "unsupported-metric",
+          `/metrics/${index}`,
+          `Metric ${metric} is unavailable for resolved Beam ticks`,
+          metric,
+        );
+      }
+      if (seenMetrics.has(metric)) {
+        return failure(
+          "duplicate-metric",
+          `/metrics/${index}`,
+          `Duplicate metric: ${metric}`,
+          metric,
+        );
+      }
+      seenMetrics.add(metric);
+      metrics.push(supportedMetric);
+    }
+
+    const frozenScenario = deepFreeze(scenario);
+    const frozenTarget = Object.freeze({
+      id: target.id,
+      catalogTargetId: catalogTargetId.value,
+      resolvedHealth: resolvedHealth.value,
+      resolvedShield: 0,
+      resolvedArmor: resolvedArmor.value,
+      resolvedOverguard: 0,
+    });
+    const value: ScenarioDomain = Object.freeze({
+      scenario: frozenScenario,
+      attacker: Object.freeze({
+        id: frozenScenario.attacker.id,
+        weaponId: weaponId.value,
+        attackModeId: attackModeId.value,
+      }),
+      target: frozenTarget,
+      targets: Object.freeze([frozenTarget]),
+      action: Object.freeze({
+        id: action.id,
+        kind: "resolved-beam-ticks",
+        targetId: actionTargetId.value,
+        targetPathRelationId: null,
+        pathTargetIds: Object.freeze([]),
+        impactId: null,
+        radialAttackModeId: null,
+        radialTargetRelations: Object.freeze([]),
+        allocationId: null,
+        pelletCount: 0,
+        pelletAllocationRelations: Object.freeze([]),
+        hitLocation: "hit-location.neutral-body",
+        damageLayer: "health",
+        criticalResolution: "fixed",
+        criticalTier,
+        radialCriticalTier: null,
+        criticalRoll: null,
+        hitCount: tickCount,
+        resolvedRadialFalloffMultiplier: 1,
+        statusId: null,
+        resolvedHealthDamagePerTick: 0,
+        statusTickCount: 0,
+        statusTickIntervalMs: 0,
+        beamTickCount: tickCount,
+        beamTickIntervalMs: tickIntervalMs,
+      }),
+      simulation: Object.freeze({
+        mode: "deterministic",
+        timeLimitMs: frozenScenario.simulation.timeLimitMs,
+      }),
+      metrics: Object.freeze(metrics),
+      fingerprintSeed: 0,
+    });
+    return Object.freeze({ ok: true, value });
   }
   if (action.kind === "action.resolved-status-ticks") {
     if (scenario.simulation.mode !== "deterministic") {
@@ -2083,6 +2315,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
         resolvedHealthDamagePerTick,
         statusTickCount: tickCount,
         statusTickIntervalMs: tickIntervalMs,
+        beamTickCount: 0,
+        beamTickIntervalMs: 0,
       }),
       simulation: Object.freeze({
         mode: "deterministic",
@@ -2306,6 +2540,7 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       PELLET_ALLOCATION_ONLY_METRIC_IDS.has(supportedMetric) ||
       (actionKind !== "radial-hit" && RADIAL_ONLY_METRIC_IDS.has(supportedMetric)) ||
       STATUS_ONLY_METRIC_IDS.has(supportedMetric) ||
+      BEAM_ONLY_METRIC_IDS.has(supportedMetric) ||
       PUNCH_THROUGH_ONLY_METRIC_IDS.has(supportedMetric)
     ) {
       return failure(
@@ -2377,6 +2612,8 @@ export async function parseScenarioDomain(input: unknown): Promise<ScenarioDomai
       resolvedHealthDamagePerTick: 0,
       statusTickCount: 0,
       statusTickIntervalMs: 0,
+      beamTickCount: 0,
+      beamTickIntervalMs: 0,
     }),
     simulation: Object.freeze({
       mode: scenario.simulation.mode === "expected" ? "expected" : "deterministic",

@@ -22,14 +22,15 @@ describe("loadRuleset", () => {
     const loaded = await loadRuleset();
 
     expect(loaded.snapshot.id).toBe("ruleset.synthetic-core");
-    expect(loaded.snapshot.schemaVersion).toBe("0.17.0");
+    expect(loaded.snapshot.schemaVersion).toBe("0.18.0");
     expect(loaded.snapshot.revision).toBe(1);
-    expect(loaded.snapshot.rules).toHaveLength(33);
+    expect(loaded.snapshot.rules).toHaveLength(39);
     expect(loaded.snapshot.rules.map((rule) => rule.id)).toEqual([
       "rule.multishot.emit-fixed-hits",
       "rule.pellet.emit-fixed-hits",
       "rule.pellet.expand-resolved-allocation",
       "rule.status.schedule-resolved-ticks",
+      "rule.beam.schedule-resolved-ticks",
       "rule.punch-through.expand-resolved-targets",
       "rule.ricochet.expand-resolved-targets",
       "rule.chain.expand-resolved-targets",
@@ -38,22 +39,27 @@ describe("loadRuleset", () => {
       "rule.critical.resolve-expected-branches",
       "rule.damage.direct-hit",
       "rule.radial.construct-hit",
+      "rule.beam.construct-resolved-tick",
       "rule.impact.resolve-shared-critical-roll",
       "rule.critical.resolve-tier-roll",
       "rule.critical.scale-tier",
       "rule.radial.scale-critical-tier",
+      "rule.beam.scale-critical-tier",
       "rule.radial.apply-resolved-falloff",
       "rule.status.construct-resolved-tick",
       "rule.defense.standard-armor",
       "rule.radial.standard-armor",
+      "rule.beam.standard-armor",
       "rule.damage.commit-health",
       "rule.radial.commit-health",
       "rule.status.commit-resolved-tick-health",
+      "rule.beam.commit-resolved-tick-health",
       "rule.critical.aggregate-expected-branches",
       "rule.multishot.aggregate-fixed-hits",
       "rule.pellet.aggregate-fixed-hits",
       "rule.pellet.aggregate-resolved-allocation",
       "rule.status.aggregate-resolved-ticks",
+      "rule.beam.aggregate-resolved-ticks",
       "rule.punch-through.aggregate-resolved-targets",
       "rule.ricochet.aggregate-resolved-targets",
       "rule.chain.aggregate-resolved-targets",
@@ -114,6 +120,32 @@ describe("loadRuleset", () => {
       eventKind: "damage.status-tick",
       operation: { kind: "damage-vector.copy-resolved-status-tick" },
     });
+    expect(loaded.resolveRule("rule.beam.schedule-resolved-ticks")).toMatchObject({
+      phase: "attack.emit",
+      eventKind: "action.resolved-beam-ticks",
+      reads: ["action.beam-tick-count", "action.beam-tick-interval-ms"],
+      operation: { kind: "event.expand-resolved-beam-ticks", maximumTicks: 64 },
+    });
+    expect(loaded.resolveRule("rule.beam.construct-resolved-tick")).toMatchObject({
+      phase: "damage.construct",
+      eventKind: "damage.beam-tick",
+      operation: { kind: "damage-vector.copy" },
+    });
+    expect(loaded.resolveRule("rule.beam.scale-critical-tier")).toMatchObject({
+      phase: "critical.resolve",
+      eventKind: "damage.beam-tick",
+      operation: { kind: "damage-vector.scale-critical-tier" },
+    });
+    expect(loaded.resolveRule("rule.beam.standard-armor")).toMatchObject({
+      phase: "target.mitigate",
+      eventKind: "damage.beam-tick",
+      operation: { kind: "damage-vector.scale-standard-armor", constant: 300 },
+    });
+    expect(loaded.resolveRule("rule.beam.commit-resolved-tick-health")).toMatchObject({
+      phase: "damage.commit",
+      eventKind: "damage.beam-tick",
+      operation: { kind: "damage.commit-health" },
+    });
     expect(loaded.resolveRule("rule.critical.resolve-expected-branches")).toMatchObject({
       phase: "critical.expected",
       reads: ["attack.critical-chance"],
@@ -138,6 +170,12 @@ describe("loadRuleset", () => {
       phase: "result.aggregate",
       reads: ["tick.damage", "tick.health-before", "tick.health-after"],
       operation: { kind: "damage-vector.aggregate-sequential-status-ticks" },
+    });
+    expect(loaded.resolveRule("rule.beam.aggregate-resolved-ticks")).toMatchObject({
+      phase: "result.aggregate",
+      eventKind: "action.resolved-beam-ticks",
+      reads: ["tick.damage", "tick.health-before", "tick.health-after"],
+      operation: { kind: "damage-vector.aggregate-sequential-beam-ticks" },
     });
     expect(loaded.resolveRule("rule.defense.standard-armor").phase).toBe("target.mitigate");
   });
@@ -285,6 +323,53 @@ describe("loadRuleset", () => {
     });
   });
 
+  it("exposes resolved Beam scheduling and aggregation contexts", async () => {
+    const loaded = await loadRuleset();
+    const schedule = loaded.executeResolvedBeamTickScheduleRule(
+      "rule.beam.schedule-resolved-ticks",
+      {
+        tickCount: 2,
+        tickIntervalMs: 250,
+        initialHealth: 250,
+        zeroDamage: { "damage.synthetic": 0 },
+      },
+    );
+    const aggregate = loaded.executeSequentialBeamTickAggregateRule(
+      "rule.beam.aggregate-resolved-ticks",
+      {
+        initialHealth: 250,
+        hits: [
+          {
+            id: "tick.beam-0",
+            index: 0,
+            damage: { "damage.synthetic": 100 },
+            healthBefore: 250,
+            healthAfter: 150,
+          },
+          {
+            id: "tick.beam-1",
+            index: 1,
+            damage: { "damage.synthetic": 100 },
+            healthBefore: 150,
+            healthAfter: 50,
+          },
+        ],
+      },
+    );
+
+    expect(schedule.parameters).toEqual({
+      factor: 1,
+      maximumTicks: 64,
+      tickCount: 2,
+      tickIntervalMs: 250,
+    });
+    expect(aggregate.after).toEqual({
+      damage: { "damage.synthetic": 200 },
+      damageTotal: 200,
+      health: 50,
+    });
+  });
+
   it("exposes sequential-hit aggregation through its dedicated context", async () => {
     const loaded = await loadRuleset();
     const result = loaded.executeSequentialHitAggregateRule("rule.multishot.aggregate-fixed-hits", {
@@ -428,6 +513,38 @@ describe("loadRuleset", () => {
     });
 
     await expect(loadRuleset(aggregateDeclarationMismatch)).rejects.toThrowError(
+      expect.objectContaining({ code: "operation-declaration-invalid" }),
+    );
+
+    const beamScheduleDeclarationMismatch = await attachArtifactContentHash({
+      ...withoutHash,
+      rules: coreRuleset.rules.map((rule) =>
+        rule.id === "rule.beam.schedule-resolved-ticks"
+          ? {
+              ...rule,
+              reads: ["action.status-tick-count", "action.status-tick-interval-ms"],
+            }
+          : rule,
+      ),
+    });
+
+    await expect(loadRuleset(beamScheduleDeclarationMismatch)).rejects.toThrowError(
+      expect.objectContaining({ code: "operation-declaration-invalid" }),
+    );
+
+    const beamEventDeclarationMismatch = await attachArtifactContentHash({
+      ...withoutHash,
+      rules: coreRuleset.rules.map((rule) =>
+        rule.id === "rule.beam.construct-resolved-tick"
+          ? {
+              ...rule,
+              eventKind: "damage.status-tick",
+            }
+          : rule,
+      ),
+    });
+
+    await expect(loadRuleset(beamEventDeclarationMismatch)).rejects.toThrowError(
       expect.objectContaining({ code: "operation-declaration-invalid" }),
     );
   });
