@@ -56,6 +56,7 @@ export const CLAUSE_IDS = [
   "SCP-002",
   "SCP-003",
   "STS-001",
+  "SWP-001",
   "TRC-001",
   "TRC-002"
 ] as const;

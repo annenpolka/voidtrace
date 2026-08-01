@@ -116,9 +116,9 @@ async function makeExperiment(
       { id: "variant.radial-falloff", scenario: radialScenario },
     ] as const);
   const hashed = await attachArtifactContentHash({
-    $schema: "urn:voidtrace:schema:experiment:0.2.0",
+    $schema: "urn:voidtrace:schema:experiment:0.3.0",
     kind: "voidtrace.experiment",
-    schemaVersion: "0.2.0",
+    schemaVersion: "0.3.0",
     id: "experiment.synthetic-resolved-comparison",
     revision: 0,
     gameBuild: directScenario.gameBuild,

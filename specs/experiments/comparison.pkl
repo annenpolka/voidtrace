@@ -6,7 +6,7 @@ import "../patterns/base.pkl"
 resolvedMembership: base.ResolvedExperimentMembership = new {
   id = "EXP-001"
   desc =
-    "Experiment 0.2.0のresolved modeは一つのCatalogRefとRulesetRef、一つのbase ScenarioRef、宣言順を持つ1以上15以下の一様な{id, scenarioRef} variant、一つのprimary metricを保持する。評価前にExperiment、Catalog、Ruleset、供給された全Scenarioを一度だけsnapshot、Contract、content hash、完全参照で検査し、供給Scenario集合は宣言集合と過不足なく一致しなければならない。baseとvariantは同じgame build、Catalog revision、Ruleset revisionを参照し、variant IDとScenario id/revisionは一意、primary metricは各Scenario metricsに厳密に一度だけ存在し、Monte Carloではないことを要求する。検証済みsnapshotをbase、次にvariant宣言順で既存の単一Scenario evaluatorへ一度ずつ渡し、callerの入力Artifactを変更しない。Patch variantとの混在、Sweep、Breakpoint、ruleset branch、Monte Carloを暗黙に補完または実行しない"
+    "Experiment 0.3.0のresolved modeは一つのCatalogRefとRulesetRef、一つのbase ScenarioRef、宣言順を持つ1以上15以下の一様な{id, scenarioRef} variant、一つのprimary metricを保持する。評価前にExperiment、Catalog、Ruleset、供給された全Scenarioを一度だけsnapshot、Contract、content hash、完全参照で検査し、供給Scenario集合は宣言集合と過不足なく一致しなければならない。baseとvariantは同じgame build、Catalog revision、Ruleset revisionを参照し、variant IDとScenario id/revisionは一意、primary metricは各Scenario metricsに厳密に一度だけ存在し、Monte Carloではないことを要求する。検証済みsnapshotをbase、次にvariant宣言順で既存の単一Scenario evaluatorへ一度ずつ渡し、callerの入力Artifactを変更しない。Patch variantまたはfinite Sweep pointとの混在、Breakpoint、ruleset branch、Monte Carloを暗黙に補完または実行しない"
   maturity = "active"
 }
 

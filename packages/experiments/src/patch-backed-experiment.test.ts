@@ -161,9 +161,9 @@ async function makeExperiment(
   const base = options.base ?? baseScenario;
   return checkedExperiment(
     await attachArtifactContentHash({
-      $schema: "urn:voidtrace:schema:experiment:0.2.0",
+      $schema: "urn:voidtrace:schema:experiment:0.3.0",
       kind: "voidtrace.experiment",
-      schemaVersion: "0.2.0",
+      schemaVersion: "0.3.0",
       id: options.id ?? "experiment.patch-backed",
       revision: 0,
       gameBuild: base.gameBuild,
@@ -180,9 +180,9 @@ async function makeUncheckedExperiment(
   variants: ReadonlyArray<Readonly<Record<string, unknown>>>,
 ): Promise<unknown> {
   return attachArtifactContentHash({
-    $schema: "urn:voidtrace:schema:experiment:0.2.0",
+    $schema: "urn:voidtrace:schema:experiment:0.3.0",
     kind: "voidtrace.experiment",
-    schemaVersion: "0.2.0",
+    schemaVersion: "0.3.0",
     id: "experiment.patch-backed-mixed",
     revision: 0,
     gameBuild: baseScenario.gameBuild,

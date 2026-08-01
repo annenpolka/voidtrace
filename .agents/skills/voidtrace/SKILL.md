@@ -1,6 +1,6 @@
 ---
 name: voidtrace
-description: Use VoidTrace's repository-local operator interface to run or inspect synthetic Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, ordered punch-through, ricochet, or chain fixtures, resolved or Patch-backed Scenario comparison, and finite content-addressed Scenario Patch materialization. Use for checked-in Scenario execution, fixed-tier variation, comparison or Patch inspection, and explicit capability or unsupported-boundary reporting. The skill may report an unsupported request, but must not execute, approximate, or answer it as supported, including current Warframe claims or build advice, arbitrary JSON Patch, Patch chains, Sweep, Breakpoint, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
+description: Use VoidTrace's repository-local operator interface to run or inspect synthetic Direct Hit, Critical and Armor, fixed Multishot and pellets, resolved Pellet allocation, Radial, Direct-plus-Radial, Status or Beam ticks, ordered punch-through, ricochet, or chain fixtures, resolved or Patch-backed Scenario comparison, a checked-in fixed finite Critical-tier Sweep, and finite content-addressed Scenario Patch materialization. Use for checked-in Scenario execution, fixed-tier variation, comparison, Sweep, or Patch inspection, and explicit capability or unsupported-boundary reporting. The skill may report an unsupported request, but must not execute, approximate, or answer it as supported, including current Warframe claims or build advice, arbitrary JSON Patch, Patch chains, range/step or arbitrary/custom Sweep points, multi-axis Sweeps or products, sorting or deduplication, Breakpoint, generated randomness or Monte Carlo, projectile or geometry derivation, arbitrary attack-mode or target composition, probabilistic Multishot or pellets, Beam timing or ramp derivation, Status chance or type, or other unsupported mechanics.
 ---
 
 # VoidTrace repository-local skill interface
@@ -81,6 +81,10 @@ checked-in three-target Direct-plus-Radial impact Scenarios:
 - the checked-in Patch-backed Experiment comparison, which validates one exact base Scenario and
   one exact ScenarioPatch, materializes the declared tier-2 Scenario before evaluation, then
   reports base 100, variant 150, and signed delta +50 for `damage.health.total`;
+- the checked-in fixed finite Critical-tier Sweep, which validates one exact base Scenario and the
+  complete three-Patch set before evaluation, keeps the base tier 1 separate, evaluates declared
+  tier points 0, 2, and 3 in declaration order, and reports metric values 50, 150, and 200 with
+  signed `variant - base` deltas -50, +50, and +100 for `damage.health.total`;
 - the finite Scenario Patch materializer, including the checked-in Critical-tier 1→2 Patch, which
   verifies an exact content-addressed base Scenario, applies 1 to 64 unique ordered replace-only
   same-kind non-null scalar changes at the Contract allowlisted existing paths, assigns the declared new
@@ -92,12 +96,21 @@ revisions. The Patch-backed comparison helper accepts only its checked-in Experi
 Scenario, and exact ScenarioPatch. It materializes every declared Patch before the SDK evaluates
 the base and variants; it does not chain Patches or accept caller-selected members. Neither helper
 synthesizes a variant, sorts declaration order, changes Catalog or Ruleset, infers whether a larger
-metric is better, or runs Sweep, Breakpoint, ruleset branches, Monte Carlo, ratios, ranking, or
-statistical uncertainty. If a requested comparison needs any of those behaviors, state that it is
-unsupported and stop without replacing it with a checked-in comparison. After refusing, you may
-mention an exact checked-in comparison as a distinct available example, but do not run it or present
-it as satisfying the request. You may instead offer separately authorized Pkl-first implementation
-work.
+metric is better, or runs a Sweep, Breakpoint, ruleset branches, Monte Carlo, ratios, ranking, or
+statistical uncertainty.
+
+The finite Sweep helper accepts only its checked-in Experiment, exact tier-1 base Scenario, and
+complete exact Patch set for explicit Critical-tier points 0, 2, and 3. Before running it, verify
+that the Experiment, expected projection, base Scenario, Catalog, and all three ScenarioPatch files
+are tracked and their bytes match `HEAD`, following **Before running** above. It validates and
+materializes the full Patch set before the first evaluation, evaluates the base separately, and
+preserves point declaration order. It does not generate range/step points, accept arbitrary or
+custom points, add another axis, form a Cartesian product, sort or deduplicate points, chain
+Patches, or find a Breakpoint. If a requested comparison or Sweep needs an unsupported behavior,
+state that it is unsupported and stop without replacing it with a checked-in example. After
+refusing, you may mention an exact checked-in comparison or Sweep as a distinct available example,
+but do not run it or present it as satisfying the request. You may instead offer separately
+authorized Pkl-first implementation work.
 
 The Scenario Patch helper accepts a Contract-valid, content-addressed Patch and its exact
 content-addressed base Scenario. It never edits either input, silently repairs or rehashes stale
@@ -107,7 +120,8 @@ resolved Target Graph relation fields, initial state, action parameters, simulat
 or an existing metric entry. Duplicate normalized paths, no-ops, scalar-kind changes, stale base
 references, and reuse of the exact base identity fail atomically without a partial Scenario.
 `add`, `remove`, `test`, `move`, `copy`, root or structural replacement, null, object, or array values,
-Patch chaining, arbitrary Patch-backed Experiment inputs, Sweep, Breakpoint, ruleset branches,
+Patch chaining, arbitrary Patch-backed Experiment inputs, generated range/step or arbitrary/custom
+Sweep points, multi-axis Sweeps or products, sorting or deduplication, Breakpoint, ruleset branches,
 generated operations, and formal CLI Patch or Experiment commands remain unsupported.
 
 Before running a Direct-plus-Radial request, require checked-in resolved impact relations and one
@@ -281,6 +295,17 @@ node .agents/skills/voidtrace/scripts/run-patch-comparison.ts --pretty
 node .agents/skills/voidtrace/scripts/run-patch-comparison.ts --check-golden
 ```
 
+Run the checked-in fixed finite Critical-tier Sweep through the SDK Experiment facade. Before
+running it, apply the tracked and `HEAD`-identical fixture checks from **Before running** to
+`critical-tier-sweep.experiment.json`, `critical-tier-sweep.expected.json`, the tier-0, tier-2, and
+tier-3 ScenarioPatch files, `direct-critical-armor.scenario.json`, and `catalog.json`:
+
+```bash
+node .agents/skills/voidtrace/scripts/run-sweep.ts
+node .agents/skills/voidtrace/scripts/run-sweep.ts --pretty
+node .agents/skills/voidtrace/scripts/run-sweep.ts --check-golden
+```
+
 Materialize the checked-in Scenario Patch, optionally evaluate the resulting normal Scenario, or
 apply another already-valid Patch to its exact base:
 
@@ -331,6 +356,12 @@ for another agent or script. `--help` lists the finite adapter options.
   Scenarios were materialized before the first evaluation. Its
   `deltaFromBase` is signed `variant - base`; do not take an absolute value or interpret its sign
   as a winner without metric-direction semantics.
+- Finite Sweep helper exit `0` means the exact checked-in Patch set was validated and fully
+  materialized before the first evaluation. Read the tier-1 base as a separate row with metric 100
+  and delta 0, then preserve the declared tier-point order 0, 2, 3 with metric values 50, 150, 200
+  and signed `variant - base` deltas -50, +50, +100. These are explicit synthetic points, not a
+  generated range or a current-Warframe Critical model; do not sort, deduplicate, interpolate,
+  optimize, rank, or infer a Breakpoint from them.
 - Scenario Patch helper exit `0` means the exact base reference and both input hashes passed, all
   replacements completed atomically, and the emitted normal Scenario passed Contract and hash
   validation. With `--evaluate`, read metrics from `evaluation.result`; Patch materialization does

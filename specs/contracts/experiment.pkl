@@ -3,10 +3,11 @@ module voidtrace.contracts.experiment
 
 import "artifact.pkl"
 import "model.pkl"
+import "scenario-patch.pkl" as scenarioPatch
 
-local experimentSchemaIdentifier = "urn:voidtrace:schema:experiment:0.2.0"
+local experimentSchemaIdentifier = "urn:voidtrace:schema:experiment:0.3.0"
 local comparisonSchemaIdentifier = "urn:voidtrace:schema:comparison:0.1.0"
-local experimentContractVersion = "0.2.0"
+local experimentContractVersion = "0.3.0"
 local comparisonContractVersion = "0.1.0"
 local maximumVariants = 15
 
@@ -49,6 +50,48 @@ function patchExperimentVariant(): model.ObjectNode = new model.ObjectNode {
   }
 }
 
+function sweepPoint(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "path"
+      description =
+        "Single allowlisted Scenario scalar path shared by every explicitly declared Sweep point."
+      required = true
+      schema = scenarioPatch.allowedScenarioPath()
+    }
+    new model.Field {
+      name = "value"
+      description =
+        "Finite non-null scalar coordinate that must exactly match the referenced Patch operation."
+      required = true
+      schema = scenarioPatch.scalarValue()
+    }
+  }
+}
+
+function sweepExperimentVariant(): model.ObjectNode = new model.ObjectNode {
+  fields = new {
+    new model.Field {
+      name = "id"
+      description = "Experiment-local stable identity of this finite Sweep point."
+      required = true
+      schema = artifact.stableId()
+    }
+    new model.Field {
+      name = "patchRef"
+      description = "Exact immutable one-operation ScenarioPatch for this finite Sweep point."
+      required = true
+      schema = artifactReference("voidtrace.scenario-patch")
+    }
+    new model.Field {
+      name = "sweepPoint"
+      description = "Explicit one-axis coordinate implemented by the referenced ScenarioPatch."
+      required = true
+      schema = sweepPoint()
+    }
+  }
+}
+
 function experimentVariants(): model.UnionNode = new model.UnionNode {
   variants = new {
     new model.ArrayNode {
@@ -58,6 +101,11 @@ function experimentVariants(): model.UnionNode = new model.UnionNode {
     }
     new model.ArrayNode {
       items = patchExperimentVariant()
+      minItems = 1
+      maxItems = maximumVariants
+    }
+    new model.ArrayNode {
+      items = sweepExperimentVariant()
       minItems = 1
       maxItems = maximumVariants
     }
@@ -136,7 +184,7 @@ experiment: model.Contract = new {
   schemaId = experimentSchemaIdentifier
   version = experimentContractVersion
   description =
-    "Immutable bounded comparison using either already resolved Scenario revisions or exact ScenarioPatch revisions under one Catalog and Ruleset."
+    "Immutable bounded comparison using resolved Scenarios, exact ScenarioPatches, or explicit one-axis finite Sweep points under one Catalog and Ruleset."
   root = new model.ObjectNode {
     fields = (
       artifact.envelopeFields(
@@ -166,7 +214,7 @@ experiment: model.Contract = new {
       new model.Field {
         name = "variants"
         description =
-          "Ordered non-empty finite list whose members are all resolved Scenario variants or all ScenarioPatch-backed variants; mixed source modes are unsupported."
+          "Ordered non-empty finite list whose members are all resolved Scenario variants, all ordinary ScenarioPatch-backed variants, or all explicit one-axis Sweep points; mixed source modes are unsupported."
         required = true
         schema = experimentVariants()
       }

@@ -227,6 +227,45 @@ describe("renderGeneratedFiles", () => {
     });
   });
 
+  it("publishes finite Sweep as a separate planned or active capability", () => {
+    const sweepClause = {
+      id: "SWP-001",
+      pattern: "finite_parameter_sweep" as const,
+      desc: "bind ordered explicit values to exact one-operation ScenarioPatch revisions",
+      guarantee: "property-tested" as const,
+      maturity: "planned" as const,
+      area: "experiments" as const,
+    };
+    const planned = renderGeneratedFiles({
+      ...spec,
+      clauses: [sweepClause],
+    });
+    const active = renderGeneratedFiles({
+      ...spec,
+      clauses: [{ ...sweepClause, maturity: "active" }],
+    });
+
+    const readCapabilities = (generated: ReturnType<typeof renderGeneratedFiles>) => {
+      const capabilities = generated.find(
+        (file) => file.path === "packages/spec-artifacts/src/capabilities.generated.json",
+      );
+      return JSON.parse(capabilities?.contents ?? "{}").capabilities as unknown[];
+    };
+
+    expect(readCapabilities(planned)).toContainEqual({
+      id: "experiments.finite-sweep",
+      status: "unsupported",
+      activeClauseRefs: [],
+      plannedClauseRefs: ["SWP-001"],
+    });
+    expect(readCapabilities(active)).toContainEqual({
+      id: "experiments.finite-sweep",
+      status: "supported",
+      activeClauseRefs: ["SWP-001"],
+      plannedClauseRefs: [],
+    });
+  });
+
   it("publishes Scenario Patch separately from resolved Experiment comparison", () => {
     const generated = renderGeneratedFiles({
       ...spec,

@@ -1,0 +1,35 @@
+{
+  "experimentId": "experiment.golden-critical-tier-sweep",
+  "comparisonId": "comparison.experiment.golden-critical-tier-sweep",
+  "primaryMetric": "damage.health.total",
+  "sweepPath": "/actionPlan/0/parameters/criticalTier",
+  "base": {
+    "scenarioId": "scenario.golden-direct-critical-armor",
+    "value": 1,
+    "metricValue": 100,
+    "deltaFromBase": 0
+  },
+  "points": [
+    {
+      "id": "sweep-point.critical-tier-0",
+      "scenarioId": "scenario.golden-sweep-critical-tier-0",
+      "value": 0,
+      "metricValue": 50,
+      "deltaFromBase": -50
+    },
+    {
+      "id": "sweep-point.critical-tier-2",
+      "scenarioId": "scenario.golden-sweep-critical-tier-2",
+      "value": 2,
+      "metricValue": 150,
+      "deltaFromBase": 50
+    },
+    {
+      "id": "sweep-point.critical-tier-3",
+      "scenarioId": "scenario.golden-sweep-critical-tier-3",
+      "value": 3,
+      "metricValue": 200,
+      "deltaFromBase": 100
+    }
+  ]
+}

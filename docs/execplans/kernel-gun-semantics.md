@@ -124,6 +124,10 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 13:37:26Z) 機能`a85a038`と検証記録`e96f809`をpublic mainへpushし、GitHub Actions `Check` run `30702050521`がhead `e96f809`に対して1分15秒で成功した。
 - [x] (2026-08-01 13:51:46Z) 単一軸有限Sweepについてcodebase-investigatorの6段階静的調査を完了し、`docs/investigations/finite-sweep-slice.md`へ現行flow、security、矛盾、代替案、採用境界、受け入れ条件を記録した。
 - [x] (2026-08-01 13:51:46Z) 次の縦切りを、Experiment `0.3.0`の第三homogeneous modeとして、1〜15件のexact Patchと明示`{path,value}`点を一対一照合する単一軸有限Sweepへ固定した。baseは別行、順序は宣言順、重複値は拒否し、Comparison `0.1.0`を再利用する。
+- [x] (2026-08-01 14:12:08Z) `SWP-001`、Experiment Contract `0.3.0`、第三Sweep variant union、独立oracle登録をPklから27生成ファイルへ反映した。逆翻訳は58 active／0 planned、11 Contracts、`experiments.finite-sweep` supportedを示し、Ruleset `0.18.0` revision `1`は不変である。
+- [x] (2026-08-01 14:12:08Z) exact Patchとのpath／canonical value照合、単一path・1〜15点・値一意性、全件事前materialization、既存Comparison再利用をruntimeとSDKへ実装した。tier `0, 2, 3`の固定fixture、repository-local helper、契約／property／敵対／SDK／subprocessのtargeted 6ファイル81件が通過した。
+- [x] (2026-08-01 14:17:45Z) Node 26.0.0でformat、lint、typecheck、architecture boundary、27生成ファイルfreshness、58 Clauses、11 Contracts、30テストファイル528件を含む全`just check`を通した。
+- [ ] Node 24の全`just check`、最終独立review、feature commit、public push、GitHub Actions確認を完了する。
 
 ## Surprises & Discoveries
 

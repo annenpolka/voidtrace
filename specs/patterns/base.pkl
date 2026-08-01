@@ -195,6 +195,12 @@ class PatchBackedExperimentResolution extends Clause {
   area = "experiments"
 }
 
+class FiniteParameterSweep extends Clause {
+  pattern = "finite_parameter_sweep"
+  guarantee = "property-tested"
+  area = "experiments"
+}
+
 class ScenarioPatchIsolation extends Clause {
   pattern = "patch_isolation"
   guarantee = "property-tested"

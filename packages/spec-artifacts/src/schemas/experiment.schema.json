@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:voidtrace:schema:experiment:0.2.0",
+  "$id": "urn:voidtrace:schema:experiment:0.3.0",
   "title": "Experiment",
-  "description": "Immutable bounded comparison using either already resolved Scenario revisions or exact ScenarioPatch revisions under one Catalog and Ruleset.",
+  "description": "Immutable bounded comparison using resolved Scenarios, exact ScenarioPatches, or explicit one-axis finite Sweep points under one Catalog and Ruleset.",
   "type": "object",
   "properties": {
     "$schema": {
       "description": "Schema identifier used to validate this Artifact.",
       "type": "string",
-      "const": "urn:voidtrace:schema:experiment:0.2.0"
+      "const": "urn:voidtrace:schema:experiment:0.3.0"
     },
     "kind": {
       "description": "Stable discriminator for this Artifact kind.",
@@ -18,7 +18,7 @@
     "schemaVersion": {
       "description": "Version of this Artifact contract.",
       "type": "string",
-      "const": "0.2.0"
+      "const": "0.3.0"
     },
     "id": {
       "description": "Stable identity of this Artifact.",
@@ -119,7 +119,7 @@
       ]
     },
     "variants": {
-      "description": "Ordered non-empty finite list whose members are all resolved Scenario variants or all ScenarioPatch-backed variants; mixed source modes are unsupported.",
+      "description": "Ordered non-empty finite list whose members are all resolved Scenario variants, all ordinary ScenarioPatch-backed variants, or all explicit one-axis Sweep points; mixed source modes are unsupported.",
       "anyOf": [
         {
           "type": "array",
@@ -195,6 +195,78 @@
             "required": [
               "id",
               "patchRef"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 15
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "description": "Experiment-local stable identity of this finite Sweep point.",
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+              },
+              "patchRef": {
+                "description": "Exact immutable one-operation ScenarioPatch for this finite Sweep point.",
+                "allOf": [
+                  {
+                    "$ref": "urn:voidtrace:schema:artifact-ref:0.1.0"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "voidtrace.scenario-patch"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  }
+                ]
+              },
+              "sweepPoint": {
+                "description": "Explicit one-axis coordinate implemented by the referenced ScenarioPatch.",
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "description": "Single allowlisted Scenario scalar path shared by every explicitly declared Sweep point.",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^/(?:attacker/configuration/(?:[^~/]|~0|~1)+|targets/(?:0|[1-9][0-9]*)/configuration/(?:[^~/]|~0|~1)+|targetGraph/relations/(?:0|[1-9][0-9]*)/(?:resolvedDistanceMeters|lineOfSightClear|resolvedHitCount)|initialState/(?:[^~/]|~0|~1)+|actionPlan/(?:0|[1-9][0-9]*)/parameters/(?:[^~/]|~0|~1)+|simulation/timeLimitMs|metrics/(?:0|[1-9][0-9]*))$"
+                  },
+                  "value": {
+                    "description": "Finite non-null scalar coordinate that must exactly match the referenced Patch operation.",
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "path",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "patchRef",
+              "sweepPoint"
             ],
             "additionalProperties": false
           },

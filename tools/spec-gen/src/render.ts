@@ -273,6 +273,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
     clause.id.startsWith("EXP-"),
   );
   const scenarioPatchClauses = spec.clauses.filter((clause) => clause.id.startsWith("SCN-"));
+  const finiteSweepClauses = spec.clauses.filter((clause) => clause.id.startsWith("SWP-"));
   const rulesetContract = spec.contracts.find((contract) => contract.id === "ruleset");
   if (!rulesetContract) {
     throw new Error("Ruleset Contract is required when rendering Rule IR");
@@ -348,6 +349,7 @@ export function renderGeneratedFiles(spec: SpecDocument): GeneratedFile[] {
       capability("mechanics.resolved-chain", chainClauses),
       capability("experiments.resolved-comparison", resolvedExperimentComparisonClauses),
       capability("experiments.scenario-patch", scenarioPatchClauses),
+      capability("experiments.finite-sweep", finiteSweepClauses),
       capability("cli.core", cliClauses),
     ],
   };

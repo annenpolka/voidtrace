@@ -126,6 +126,22 @@ describe("validateSpecDocument", () => {
     ).toThrow("Clause ENG-001 cannot be active");
   });
 
+  it("accepts a planned finite parameter Sweep without an independent oracle", () => {
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            id: "SWP-001",
+            pattern: "finite_parameter_sweep",
+            area: "experiments",
+          },
+        ],
+      }).clauses[0]?.maturity,
+    ).toBe("planned");
+  });
+
   it("accepts active machine-verified Clauses with registered independent oracles", () => {
     expect(
       validateSpecDocument({
@@ -177,6 +193,21 @@ describe("validateSpecDocument", () => {
             ...validClause,
             id: "EXP-003",
             pattern: "patch_backed_experiment_resolution",
+            maturity: "active",
+            area: "experiments",
+          },
+        ],
+      }).clauses[0]?.maturity,
+    ).toBe("active");
+
+    expect(
+      validateSpecDocument({
+        ...validSpec,
+        clauses: [
+          {
+            ...validClause,
+            id: "SWP-001",
+            pattern: "finite_parameter_sweep",
             maturity: "active",
             area: "experiments",
           },

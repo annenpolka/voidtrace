@@ -25,6 +25,9 @@
 4. Implement the handwritten code or oracle.
 5. Run `just check`.
 
+The generated specification boundary currently contains 58 active Clauses and 11 versioned public
+Contracts. Its coverage is 32 property-tested, 25 example-tested, and one manual Clause.
+
 The current implemented boundary ends at the synthetic Direct Hit / generalized fixed, explicit
 roll, or analytic expected Critical / Armor vertical slices plus resolved fixed-count Multishot
 and pellets plus resolved target-specific Pellet allocation, standalone resolved Radial falloff,
@@ -82,17 +85,25 @@ geometry, collision, wall penetration, attenuation, reflection angles, chain can
 branching, distance, revisit behavior, target selection, or rolls. Every other non-empty Target
 Graph is rejected without partial Artifacts.
 
-Experiment Contract `0.2.0` separately accepts one exact Catalog and Ruleset reference, one base
-Scenario reference, one primary metric, and either 1 to 15 ordered resolved Scenario references or
-1 to 15 ordered ScenarioPatch references. The source modes cannot be mixed. Resolved mode requires
-the supplied Scenario set to match exactly. Patch-backed mode requires exactly the base Scenario
-and complete Patch set, validates and materializes every Patch before evaluation, then evaluates
-the base and each variant once through the existing single-Scenario Kernel. Both modes
-integrity-check every Result and Trace and return Comparison Contract `0.1.0` with finite metric
-values and signed `variant - base` deltas. A failure returns no partial Comparison, materialized
-Scenario rows, or evaluation rows. Patch chains, Sweep, Breakpoint, Ruleset branches, Monte Carlo,
-ratios, winner or ranking semantics, and statistical uncertainty remain unsupported. This slice is
-exposed through `@voidtrace/sdk` and the repository-local operator skill; the formal CLI has no
+Experiment Contract `0.3.0` separately accepts one exact Catalog and Ruleset reference, one base
+Scenario reference, one primary metric, and exactly one homogeneous list of 1 to 15 ordered
+resolved Scenario references, ordinary ScenarioPatch references, or explicit one-axis finite Sweep
+points shaped as `{id, patchRef, sweepPoint: {path, value}}`. The three source modes cannot be mixed.
+Resolved mode requires the supplied Scenario set to match exactly. Ordinary Patch-backed mode
+requires exactly the base Scenario and complete Patch set. Sweep mode additionally requires one
+shared allowlisted scalar path, canonically unique finite non-null scalar point values, and one
+replace operation in each exact Patch whose path and canonical value match its declaration. Patch
+and Sweep modes validate and materialize their complete Patch sets before evaluation, then evaluate
+the base and each variant once through the existing single-Scenario Kernel in declaration order.
+The base remains a separate Comparison row; an equal-value Sweep point is rejected by the existing
+no-op Patch rule. Every mode integrity-checks every Result and Trace and returns Comparison Contract
+`0.1.0` with finite metric values and signed `variant - base` deltas. A failure returns no partial
+Comparison, point list, materialized Scenario rows, or evaluation rows. Sweep never derives Patch
+operations, result Scenario identities, revisions, or hashes from values. Range or step generation,
+value sorting or deduplication, multiple axes or Cartesian products, mixed modes, Patch chains,
+Breakpoint, Ruleset branches, generated randomness, Monte Carlo, ratios, interpolation, parallel
+execution, winner or ranking semantics, and statistical uncertainty remain unsupported. This slice
+is exposed through `@voidtrace/sdk` and the repository-local operator skill; the formal CLI has no
 Experiment command.
 
 ScenarioPatch Contract `0.1.0` separately accepts one exact base Scenario reference, one explicit
@@ -103,15 +114,17 @@ non-scalar leaves, kind changes, no-ops, and reuse of the exact base identity, t
 Scenario with the declared identity, exact base `createdFrom`, and a new verified content hash.
 Failure is atomic and returns no partial Scenario. It does not add or remove fields, replace null,
 objects, or arrays, implement full RFC 6902, evaluate Damage, synthesize or rehash input, chain
-Patch outputs, or run Sweep, Breakpoint, or Ruleset branches. This slice is exposed standalone and
-through the bounded Patch-backed Experiment in `@voidtrace/sdk` and the repository-local operator
-skill; Kernel, runtime-node, and the formal CLI remain unchanged.
+Patch outputs, generate Sweep points, or run Breakpoint or Ruleset branches. This slice is exposed
+standalone and through the bounded ordinary Patch-backed and finite Sweep Experiment modes in
+`@voidtrace/sdk` and the repository-local operator skill; Kernel, runtime-node, and the formal CLI
+remain unchanged.
 
 The repository-local fixture-variation skill accepts non-negative safe-integer fixed tiers and the
-repository-local analytic expected preset plus exact resolved and Patch-backed Scenario comparisons
-and finite Scenario Patch materialization; it is not
-the formal CLI boundary and does not synthesize Critical chance, rolls, Multishot counts, pellet
-counts, comparison members, variant inputs, Patch operations, or Patch content hashes. The formal CLI can run the
+repository-local analytic expected preset plus exact resolved and ordinary Patch-backed Scenario
+comparisons, the checked-in one-axis Critical-tier Sweep points `0`, `2`, and `3`, and finite
+Scenario Patch materialization; it is not the formal CLI boundary and does not synthesize Critical
+chance, rolls, Multishot counts, pellet counts, comparison members, variant inputs, Sweep paths or
+values, Patch operations, or Patch content hashes. The formal CLI can run the
 repository-local resolved fixed-count Multishot, pellet, standalone Radial, multi-target Radial,
 resolved Pellet allocation, resolved Direct-plus-Radial impact, resolved Status tick, and resolved
 Beam tick fixtures.

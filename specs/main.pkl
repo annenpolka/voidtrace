@@ -13,6 +13,7 @@ import "contracts/scenario-patch.pkl" as scenarioPatchContract
 import "contracts/scenario.pkl"
 import "contracts/trace.pkl"
 import "experiments/comparison.pkl"
+import "experiments/finite-sweep.pkl" as finiteSweep
 import "experiments/patch-backed-comparison.pkl" as patchBackedComparison
 import "experiments/scenario-patch.pkl" as scenarioPatch
 import "golden/direct-critical-armor.pkl"
@@ -113,6 +114,7 @@ clauses: Listing<base.Clause> = new {
   comparison.resolvedMembership
   comparison.comparisonIntegrity
   patchBackedComparison.resolution
+  finiteSweep.resolution
   scenarioPatch.isolation
 }
 

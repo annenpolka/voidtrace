@@ -1,0 +1,11 @@
+/// Verification obligation for one-axis finite explicit-value Sweep resolution.
+module voidtrace.experiments.`finite-sweep`
+
+import "../patterns/base.pkl"
+
+resolution: base.FiniteParameterSweep = new {
+  id = "SWP-001"
+  desc =
+    "Experiment 0.3.0のfinite Sweep modeは、一つの完全なbase ScenarioRef、一つのprimary metric、宣言順を持つ1以上15以下の一様な{id, patchRef, sweepPoint:{path,value}}を保持する。全sweepPointは既存ScenarioPatch allowlist上の同一pathを使い、有限non-null scalar valueはcanonicalに一意でなければならない。各exact ScenarioPatchはExperimentのexact baseを参照する一つだけのreplace operationを持ち、そのpathとcanonical valueは宣言sweepPointに完全一致しなければならない。値からPatch、result Scenario identity、revision、hashを生成または補完せず、既存EXP-003とSCN-001の完全集合検査、全件事前materialization、派生Scenario integrityを通過した後だけ、base、次にpoint宣言順で既存単一Scenario evaluatorへ一度ずつ渡し、EXP-002のComparison 0.1.0を生成する。base値は別のbase行として評価し、同値pointはSCN-001のno-opとして拒否する。一件でもExperiment、point、Patch、materialization、Scenario、評価、metric、算術、Artifact integrityに失敗すればComparison、部分point列、部分materialized Scenario列、部分evaluation列を返さず、caller入力を変更しない。ordinary Patch variantとの混在、range／step展開、値sort／dedup、複数軸、直積、Patch chain、Breakpoint、ruleset branch、Monte Carlo、winner、tie、ranking、ratio、interpolation、並列実行を暗黙に行わない"
+  maturity = "active"
+}

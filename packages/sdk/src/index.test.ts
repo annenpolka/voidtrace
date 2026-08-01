@@ -1,6 +1,18 @@
 import generatedCapabilities from "@voidtrace/spec-artifacts/capabilities" with { type: "json" };
 import { describe, expect, it } from "vitest";
 import catalogFixture from "../../../data/fixtures/catalog-mini/catalog.json" with { type: "json" };
+import criticalTierSweep0PatchFixture from "../../../data/fixtures/experiments/critical-tier-sweep-0.scenario-patch.json" with {
+  type: "json",
+};
+import criticalTierSweep2PatchFixture from "../../../data/fixtures/experiments/critical-tier-sweep-2.scenario-patch.json" with {
+  type: "json",
+};
+import criticalTierSweep3PatchFixture from "../../../data/fixtures/experiments/critical-tier-sweep-3.scenario-patch.json" with {
+  type: "json",
+};
+import criticalTierSweepExperimentFixture from "../../../data/fixtures/experiments/critical-tier-sweep.experiment.json" with {
+  type: "json",
+};
 import scenarioPatchExpectedProjectionFixture from "../../../data/fixtures/experiments/direct-critical-tier-2.expected.json" with {
   type: "json",
 };
@@ -93,9 +105,9 @@ async function comparisonExperiment(
   catalogRef: ArtifactIdentity = scenarioFixture.catalogRef,
 ): Promise<object> {
   return withContentHash({
-    $schema: "urn:voidtrace:schema:experiment:0.2.0",
+    $schema: "urn:voidtrace:schema:experiment:0.3.0",
     kind: "voidtrace.experiment",
-    schemaVersion: "0.2.0",
+    schemaVersion: "0.3.0",
     id: "experiment.sdk-resolved-comparison",
     revision: 0,
     gameBuild: scenarioFixture.gameBuild,
@@ -118,9 +130,9 @@ async function comparisonExperiment(
 
 async function patchBackedExperiment(): Promise<object> {
   return withContentHash({
-    $schema: "urn:voidtrace:schema:experiment:0.2.0",
+    $schema: "urn:voidtrace:schema:experiment:0.3.0",
     kind: "voidtrace.experiment",
-    schemaVersion: "0.2.0",
+    schemaVersion: "0.3.0",
     id: "experiment.sdk-patch-backed-comparison",
     revision: 0,
     gameBuild: scenarioFixture.gameBuild,
@@ -331,6 +343,53 @@ describe("VoidTrace SDK", () => {
           metricValue: 150,
           deltaFromBase: 50,
         },
+      ],
+    });
+    expect(await contentHashIsValid(first.comparison)).toBe(true);
+  });
+
+  it("runs the checked-in finite Sweep through the public SDK boundary", async () => {
+    const request = {
+      experiment: criticalTierSweepExperimentFixture,
+      scenarios: [scenarioFixture],
+      patches: [
+        criticalTierSweep3PatchFixture,
+        criticalTierSweep0PatchFixture,
+        criticalTierSweep2PatchFixture,
+      ],
+      catalog: catalogFixture,
+    };
+
+    const first = await runExperiment(structuredClone(request));
+    const second = await runExperiment(structuredClone(request));
+
+    expect(first.ok).toBe(true);
+    expect(second).toEqual(first);
+    if (!first.ok) {
+      throw new Error(first.error.message);
+    }
+    expect(first.base.scenario.id).toBe(scenarioFixture.id);
+    expect(
+      first.variants.map(({ id, scenario }) => [
+        id,
+        scenario.actionPlan[0]?.parameters.criticalTier,
+      ]),
+    ).toEqual([
+      ["sweep-point.critical-tier-0", 0],
+      ["sweep-point.critical-tier-2", 2],
+      ["sweep-point.critical-tier-3", 3],
+    ]);
+    expect(first.comparison).toMatchObject({
+      id: "comparison.experiment.golden-critical-tier-sweep",
+      primaryMetric: "damage.health.total",
+      base: {
+        metricValue: 100,
+        deltaFromBase: 0,
+      },
+      variants: [
+        { id: "sweep-point.critical-tier-0", metricValue: 50, deltaFromBase: -50 },
+        { id: "sweep-point.critical-tier-2", metricValue: 150, deltaFromBase: 50 },
+        { id: "sweep-point.critical-tier-3", metricValue: 200, deltaFromBase: 100 },
       ],
     });
     expect(await contentHashIsValid(first.comparison)).toBe(true);

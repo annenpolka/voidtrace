@@ -1,0 +1,28 @@
+{
+  "$schema": "urn:voidtrace:schema:scenario-patch:0.1.0",
+  "kind": "voidtrace.scenario-patch",
+  "schemaVersion": "0.1.0",
+  "id": "scenario-patch.golden-critical-tier-sweep-0",
+  "revision": 0,
+  "gameBuild": "synthetic-fixture-0",
+  "baseScenarioRef": {
+    "kind": "voidtrace.scenario",
+    "schemaVersion": "0.3.0",
+    "id": "scenario.golden-direct-critical-armor",
+    "revision": 2,
+    "contentHash": "sha256:77214ec7c647cc6964075fe439693b5b9048f560aef3e65cb2a486de93cd5bfb",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "resultScenario": {
+    "id": "scenario.golden-sweep-critical-tier-0",
+    "revision": 0
+  },
+  "operations": [
+    {
+      "op": "replace",
+      "path": "/actionPlan/0/parameters/criticalTier",
+      "value": 0
+    }
+  ],
+  "contentHash": "sha256:f5032cf1073d563bc12db82ac4fc06bb6def435536699ce74daf1d119b677895"
+}

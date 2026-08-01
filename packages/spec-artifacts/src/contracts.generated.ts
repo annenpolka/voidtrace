@@ -144,14 +144,14 @@ export type Comparison = {
   }>;
 };
 
-/** Immutable bounded comparison using either already resolved Scenario revisions or exact ScenarioPatch revisions under one Catalog and Ruleset. */
+/** Immutable bounded comparison using resolved Scenarios, exact ScenarioPatches, or explicit one-axis finite Sweep points under one Catalog and Ruleset. */
 export type Experiment = {
   /** Schema identifier used to validate this Artifact. */
-  readonly "$schema": "urn:voidtrace:schema:experiment:0.2.0";
+  readonly "$schema": "urn:voidtrace:schema:experiment:0.3.0";
   /** Stable discriminator for this Artifact kind. */
   readonly "kind": "voidtrace.experiment";
   /** Version of this Artifact contract. */
-  readonly "schemaVersion": "0.2.0";
+  readonly "schemaVersion": "0.3.0";
   /** Stable identity of this Artifact. */
   readonly "id": string;
   /** Non-negative immutable revision of this Artifact. */
@@ -168,7 +168,7 @@ export type Experiment = {
   readonly "rulesetRef": ArtifactRef & { readonly "kind": "ruleset" };
   /** Exact immutable Scenario revision used as the comparison base. */
   readonly "baseScenarioRef": ArtifactRef & { readonly "kind": "voidtrace.scenario" };
-  /** Ordered non-empty finite list whose members are all resolved Scenario variants or all ScenarioPatch-backed variants; mixed source modes are unsupported. */
+  /** Ordered non-empty finite list whose members are all resolved Scenario variants, all ordinary ScenarioPatch-backed variants, or all explicit one-axis Sweep points; mixed source modes are unsupported. */
   readonly "variants": ReadonlyArray<{
     /** Experiment-local stable identity of this resolved variant. */
     readonly "id": string;
@@ -179,6 +179,18 @@ export type Experiment = {
     readonly "id": string;
     /** Exact immutable ScenarioPatch revision materialized for this variant. */
     readonly "patchRef": ArtifactRef & { readonly "kind": "voidtrace.scenario-patch" };
+  }> | ReadonlyArray<{
+    /** Experiment-local stable identity of this finite Sweep point. */
+    readonly "id": string;
+    /** Exact immutable one-operation ScenarioPatch for this finite Sweep point. */
+    readonly "patchRef": ArtifactRef & { readonly "kind": "voidtrace.scenario-patch" };
+    /** Explicit one-axis coordinate implemented by the referenced ScenarioPatch. */
+    readonly "sweepPoint": {
+      /** Single allowlisted Scenario scalar path shared by every explicitly declared Sweep point. */
+      readonly "path": string;
+      /** Finite non-null scalar coordinate that must exactly match the referenced Patch operation. */
+      readonly "value": string | number | boolean;
+    };
   }>;
   /** Metric identifier that must exist in every evaluated Result. */
   readonly "primaryMetric": string;

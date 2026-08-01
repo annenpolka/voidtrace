@@ -1,10 +1,10 @@
 {
-  "$schema": "urn:voidtrace:schema:experiment:0.2.0",
+  "$schema": "urn:voidtrace:schema:experiment:0.3.0",
   "kind": "voidtrace.experiment",
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.3.0",
   "id": "experiment.golden-patch-backed-comparison",
   "revision": 0,
-  "contentHash": "sha256:8a9043b2971c277c750927d17b70c232dae5d9fad457e5dce95b1c0dc9c71a3d",
+  "contentHash": "sha256:c11753dfee51aee6fcae013e9434c2ec13f611d17dda45149201463cee785418",
   "gameBuild": "synthetic-fixture-0",
   "catalogRef": {
     "kind": "catalog-snapshot",

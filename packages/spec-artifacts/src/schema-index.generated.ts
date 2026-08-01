@@ -30,7 +30,7 @@ export const CONTRACT_SCHEMA_IDS = {
   "artifact-ref": "urn:voidtrace:schema:artifact-ref:0.1.0",
   "catalog-snapshot": "urn:voidtrace:schema:catalog-snapshot:0.1.0",
   "comparison": "urn:voidtrace:schema:comparison:0.1.0",
-  "experiment": "urn:voidtrace:schema:experiment:0.2.0",
+  "experiment": "urn:voidtrace:schema:experiment:0.3.0",
   "fingerprint": "urn:voidtrace:schema:fingerprint:0.1.0",
   "problem": "urn:voidtrace:schema:problem:0.1.0",
   "result": "urn:voidtrace:schema:result:0.2.0",

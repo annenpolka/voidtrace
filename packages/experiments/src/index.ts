@@ -34,6 +34,7 @@ export type ExperimentErrorCode =
   | "patch-set-mismatch"
   | "patch-reference-mismatch"
   | "scenario-patch-materialization-failed"
+  | "sweep-invalid"
   | "unsupported-experiment-scenario"
   | "scenario-evaluation-failed"
   | "comparison-metric-missing"
@@ -122,10 +123,19 @@ type PatchExperimentVariant = Extract<
   { readonly patchRef: ArtifactRef }
 >;
 
+type SweepExperimentVariant = Extract<
+  Experiment["variants"][number],
+  { readonly sweepPoint: unknown }
+>;
+
+type OrdinaryPatchExperimentVariant = Exclude<PatchExperimentVariant, SweepExperimentVariant>;
+
 type DeclaredPatchMember = {
   readonly id: string;
   readonly pointer: string;
   readonly reference: ArtifactRef & { readonly kind: "voidtrace.scenario-patch" };
+  readonly sweepPoint?: SweepExperimentVariant["sweepPoint"];
+  readonly sweepPointPointer?: string;
 };
 
 type ResolvedPatchMember = DeclaredPatchMember & {
@@ -242,8 +252,14 @@ function isResolvedExperimentVariant(
 
 function isPatchExperimentVariant(
   variant: Experiment["variants"][number],
-): variant is PatchExperimentVariant {
-  return "patchRef" in variant;
+): variant is OrdinaryPatchExperimentVariant {
+  return "patchRef" in variant && !("sweepPoint" in variant);
+}
+
+function isSweepExperimentVariant(
+  variant: Experiment["variants"][number],
+): variant is SweepExperimentVariant {
+  return "patchRef" in variant && "sweepPoint" in variant;
 }
 
 async function bindDeclaredScenarioRef(
@@ -419,7 +435,8 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
 
   const resolvedMode = experiment.variants.every(isResolvedExperimentVariant);
   const patchMode = experiment.variants.every(isPatchExperimentVariant);
-  if (!resolvedMode && !patchMode) {
+  const sweepMode = experiment.variants.every(isSweepExperimentVariant);
+  if (!resolvedMode && !patchMode && !sweepMode) {
     return failure("experiment-invalid", "Experiment variant source modes cannot be mixed", {
       path: "/experiment/variants",
       causeCode: "mixed-variant-source",
@@ -434,6 +451,12 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
   }
   if (patchMode && !hasPatches) {
     return failure("patch-set-mismatch", "Patch-backed Experiment mode requires Patch inputs", {
+      path: "/patches",
+      causeCode: "missing-patch-set",
+    });
+  }
+  if (sweepMode && !hasPatches) {
+    return failure("patch-set-mismatch", "Finite Sweep Experiment mode requires Patch inputs", {
       path: "/patches",
       causeCode: "missing-patch-set",
     });
@@ -586,12 +609,22 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
       validatedPatches.push(scenarioPatch);
     }
 
-    const patchVariants = experiment.variants as ReadonlyArray<PatchExperimentVariant>;
-    const patchMembers: DeclaredPatchMember[] = patchVariants.map((variant, index) => ({
-      id: variant.id,
-      pointer: `/variants/${index}/patchRef`,
-      reference: variant.patchRef,
-    }));
+    const patchVariants = experiment.variants as ReadonlyArray<
+      OrdinaryPatchExperimentVariant | SweepExperimentVariant
+    >;
+    const patchMembers: DeclaredPatchMember[] = patchVariants.map((variant, index) =>
+      deepFreeze({
+        id: variant.id,
+        pointer: `/variants/${index}/patchRef`,
+        reference: variant.patchRef,
+        ...(isSweepExperimentVariant(variant)
+          ? {
+              sweepPoint: variant.sweepPoint,
+              sweepPointPointer: `/variants/${index}/sweepPoint`,
+            }
+          : {}),
+      }),
+    );
     const declaredPatchIdentities = new Set<string>();
     for (const member of patchMembers) {
       const identity = scenarioIdentity(member.reference);
@@ -623,6 +656,8 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
     }
 
     const resultScenarioIdentities = new Set<string>([scenarioIdentity(base.scenario)]);
+    const sweepValues = new Set<string>();
+    let sweepPath: string | undefined;
     const resolvedPatches: ResolvedPatchMember[] = [];
     for (const member of patchMembers) {
       const scenarioPatch = suppliedPatchesByIdentity.get(scenarioIdentity(member.reference));
@@ -653,6 +688,69 @@ async function preflight(request: unknown): Promise<Preflight | ExperimentFailur
             causeCode: "provenance-mismatch",
           },
         );
+      }
+      if (sweepMode) {
+        const point = member.sweepPoint;
+        const pointPointer = member.sweepPointPointer;
+        if (point === undefined || pointPointer === undefined) {
+          return failure("sweep-invalid", "Finite Sweep point metadata is missing", {
+            path: member.pointer,
+            memberId: member.id,
+            causeCode: "missing-sweep-point",
+          });
+        }
+        if (sweepPath === undefined) {
+          sweepPath = point.path;
+        } else if (point.path !== sweepPath) {
+          return failure("sweep-invalid", "Finite Sweep points must share one Scenario path", {
+            path: `${pointPointer}/path`,
+            memberId: member.id,
+            causeCode: "multiple-sweep-paths",
+          });
+        }
+        const canonicalPointValue = canonicalizeJson(point.value);
+        if (sweepValues.has(canonicalPointValue)) {
+          return failure("sweep-invalid", "Finite Sweep point values must be unique", {
+            path: `${pointPointer}/value`,
+            memberId: member.id,
+            causeCode: "duplicate-sweep-value",
+          });
+        }
+        sweepValues.add(canonicalPointValue);
+        if (scenarioPatch.operations.length !== 1) {
+          return failure(
+            "sweep-invalid",
+            "Finite Sweep ScenarioPatch must contain exactly one operation",
+            {
+              path: member.pointer,
+              memberId: member.id,
+              causeCode: "sweep-patch-operation-count",
+            },
+          );
+        }
+        const operation = scenarioPatch.operations[0];
+        if (operation === undefined || operation.path !== point.path) {
+          return failure(
+            "sweep-invalid",
+            "Finite Sweep point path does not match its ScenarioPatch operation",
+            {
+              path: `${pointPointer}/path`,
+              memberId: member.id,
+              causeCode: "sweep-path-mismatch",
+            },
+          );
+        }
+        if (canonicalizeJson(operation.value) !== canonicalPointValue) {
+          return failure(
+            "sweep-invalid",
+            "Finite Sweep point value does not match its ScenarioPatch operation",
+            {
+              path: `${pointPointer}/value`,
+              memberId: member.id,
+              causeCode: "sweep-value-mismatch",
+            },
+          );
+        }
       }
       const resultIdentity = scenarioIdentity(scenarioPatch.resultScenario);
       if (resultScenarioIdentities.has(resultIdentity)) {

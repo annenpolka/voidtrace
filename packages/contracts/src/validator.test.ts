@@ -181,9 +181,9 @@ const trace = {
 } as const;
 
 const experiment = {
-  $schema: "urn:voidtrace:schema:experiment:0.2.0",
+  $schema: "urn:voidtrace:schema:experiment:0.3.0",
   kind: "voidtrace.experiment",
-  schemaVersion: "0.2.0",
+  schemaVersion: "0.3.0",
   id: "experiment.example",
   revision: 0,
   contentHash: HASH,
@@ -362,6 +362,51 @@ describe("generated Contract validation", () => {
         ],
       }).ok,
     ).toBe(false);
+  });
+
+  it("accepts only homogeneous one-to-fifteen finite Sweep point shapes", () => {
+    const point = (index: number) => ({
+      id: `sweep-point.tier-${index}`,
+      patchRef: artifactRef("voidtrace.scenario-patch", `scenario-patch.sweep-tier-${index}`),
+      sweepPoint: {
+        path: "/actionPlan/0/parameters/criticalTier",
+        value: index,
+      },
+    });
+    const ordinaryPatchVariant = {
+      id: "variant.patch",
+      patchRef: artifactRef("voidtrace.scenario-patch", "scenario-patch.variant"),
+    } as const;
+
+    for (const count of [1, 15]) {
+      expect(
+        validateContract("experiment", {
+          ...experiment,
+          variants: Array.from({ length: count }, (_, index) => point(index)),
+        }).ok,
+      ).toBe(true);
+    }
+    for (const count of [0, 16]) {
+      expect(
+        validateContract("experiment", {
+          ...experiment,
+          variants: Array.from({ length: count }, (_, index) => point(index)),
+        }).ok,
+      ).toBe(false);
+    }
+
+    const invalidVariants = [
+      [point(0), ordinaryPatchVariant],
+      [{ ...point(0), sweepPoint: undefined }],
+      [{ ...point(0), extra: true }],
+      [{ ...point(0), sweepPoint: { ...point(0).sweepPoint, extra: true } }],
+      [{ ...point(0), sweepPoint: { ...point(0).sweepPoint, path: "/unsupported/path" } }],
+      [{ ...point(0), sweepPoint: { ...point(0).sweepPoint, value: null } }],
+      [{ ...point(0), sweepPoint: { ...point(0).sweepPoint, value: { tier: 0 } } }],
+    ];
+    for (const variants of invalidVariants) {
+      expect(validateContract("experiment", { ...experiment, variants }).ok).toBe(false);
+    }
   });
 
   it("requires an exact zero base delta and finite numeric metric values", () => {

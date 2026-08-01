@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:4dfd30f116b7cca5905e361a6c121124b2c82ea72e5d0a5f0669d948fca93ea8",
+  "sourceFingerprint": "sha256:53ee89d208ed4ce52d82c9f4c41146f6c91c5fb1fff949dd8bc790ccc5d3d822",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -179,6 +179,14 @@
       "status": "supported",
       "activeClauseRefs": [
         "SCN-001"
+      ],
+      "plannedClauseRefs": []
+    },
+    {
+      "id": "experiments.finite-sweep",
+      "status": "supported",
+      "activeClauseRefs": [
+        "SWP-001"
       ],
       "plannedClauseRefs": []
     },

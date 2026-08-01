@@ -72,10 +72,10 @@ Content-addressed primary-metric projections from one complete resolved Experime
 ## Experiment
 
 - Contract ID: `experiment`
-- Schema ID: `urn:voidtrace:schema:experiment:0.2.0`
-- Schema version: `0.2.0`
+- Schema ID: `urn:voidtrace:schema:experiment:0.3.0`
+- Schema version: `0.3.0`
 
-Immutable bounded comparison using either already resolved Scenario revisions or exact ScenarioPatch revisions under one Catalog and Ruleset.
+Immutable bounded comparison using resolved Scenarios, exact ScenarioPatches, or explicit one-axis finite Sweep points under one Catalog and Ruleset.
 
 | Field | Presence | Meaning |
 | --- | --- | --- |
@@ -90,7 +90,7 @@ Immutable bounded comparison using either already resolved Scenario revisions or
 | `catalogRef` | required | CatalogSnapshot revision shared by every declared Scenario. |
 | `rulesetRef` | required | Ruleset revision shared by every declared Scenario. |
 | `baseScenarioRef` | required | Exact immutable Scenario revision used as the comparison base. |
-| `variants` | required | Ordered non-empty finite list whose members are all resolved Scenario variants or all ScenarioPatch-backed variants; mixed source modes are unsupported. |
+| `variants` | required | Ordered non-empty finite list whose members are all resolved Scenario variants, all ordinary ScenarioPatch-backed variants, or all explicit one-axis Sweep points; mixed source modes are unsupported. |
 | `primaryMetric` | required | Metric identifier that must exist in every evaluated Result. |
 
 ## Fingerprint
