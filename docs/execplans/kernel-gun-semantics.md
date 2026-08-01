@@ -86,6 +86,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-07-31 00:04:17Z) Node 26.0.0とNode 24.18.0で51 Clauses、8 Contracts、生成24ファイル、21テストファイル382テストを含む全ゲートを通した。
 - [x] (2026-07-31 00:04:17Z) empirical-prompt-tuningは対応・非対応を2回ずつ、改変Trace hold-outを1回評価し、全critical checklistを連続達成した。対応側のtool-useは9回で一致したが、非対応側は4回と7回、hold-outは10回だったため、全体の定量的な速度収束は主張しない。
 - [x] (2026-07-31 00:06:37Z) Ruleset `0.17.0`マイルストーンをpublic mainへpushし、`7b79f91`に対するGitHub Actions `Check` run `30592492415`の成功を確認した。
+- [x] (2026-08-01 05:12:33Z) 元計画のCommit 7以降の順序と実装済み境界を照合し、次の縦切りを解決済み固定tick数／間隔を持つ合成Beamに固定した。
+- [ ] `BEM-001`と`GOL-018`でBeam tickの有限schedule、固定Critical／Armor／Health pipeline、逐次commit、集約を規定し、Ruleset `0.18.0`を生成する。
+- [ ] Domain／Rules／Kernel／Trace replay／CLI／skillを実装し、Node 26／24の全ゲート、empirical評価、public push、CIを完了する。
 
 ## Surprises & Discoveries
 
@@ -329,6 +332,18 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
   Rationale: Artifact wire typeは変わらず、既存の `[0, 1)` 明示roll契約を別actionへ適用するだけである。一方、同じactionが受理するresolution modeとRulesetのEvent DAGが増えるため、Ruleset versionで旧境界と区別する。
   Date/Author: 2026-07-30 23:48:00Z / Codex
 
+- Decision: Ruleset `0.18.0`の次マイルストーンは、単一targetへ明示された1以上64以下のtick数と正のsafe-integer間隔でDamageをcommitする `action.resolved-beam-ticks` とする。
+  Rationale: 元計画の銃器意味論拡張順でMultishot、Pellet、Radial、Status、複数targetは実装済みだがBeamが残る。解決済みtick列なら物理や現行ゲーム式を導入せず、既存Event QueueとDamage pipelineを時間付き銃器eventへ再利用できる。
+  Date/Author: 2026-08-01 05:12:33Z / Codex
+
+- Decision: 最初のBeamは合成Catalogの `delivery: beam`、固定Critical tier、resolved Armor／Healthだけを使い、各tickをbase Damage copy、Critical scale、Armor scale、Health commitの順で評価する。
+  Rationale: held durationからのtick数導出、ramp、Fire Rate、Magazine／Ammo／Reload、Chain Beam、tick別roll、Status、expected分岐を同時に入れると、時間scheduleとDamage pipeline再利用を独立に検証できない。
+  Date/Author: 2026-08-01 05:12:33Z / Codex
+
+- Decision: Beam Goldenはbase Damage 20、Critical tier 1、multiplier 2、Armor 300、Health 50、tick数3、間隔100msとする。
+  Rationale: 各tickは `20→40→20`となり、Healthを `50→30→10→0` へ更新する。Beam Damage合計60と14 decisionsをliteralに固定すれば、CriticalとArmorの再利用、時刻100／200／300ms、Health clamp、最終集約を一つの例で検査できる。
+  Date/Author: 2026-08-01 05:12:33Z / Codex
+
 ## Outcomes & Retrospective
 
 Critical／expectedマイルストーンは、固定の非負safe-integer tier、非負Critical chanceの隣接tier明示roll、終端Health commit後の解析的期待値を同じRule IRとKernel境界で評価できる基準線になった。ResultとTraceはcontent hashとfingerprintを持ち、Trace再生が最終Damage VectorとHealthを検査する。
@@ -385,6 +400,8 @@ Resolved Pellet allocationでは、Pklにtarget別解決済み命中数relation�
 
 Resolved Direct＋Radial impactでは、同じimpact IDを参照する一つのDirect targetと全target分のimpact-distance relationを入力とする。Kernelは親impact展開イベントの下でDirect Hitを先に評価し、その終端World StateをRadial siblingへ渡す。Radialはrelation順と既存の合成線形falloffを使い、Direct target自身も範囲内なら更新後Healthへ追加Damageをcommitする。最後にDirect、Radial、全target終端Healthを専用Ruleで集約する。
 
+Resolved Beam ticksでは、`action.resolved-beam-ticks` を明示されたtick数と間隔で安定IDを持つ `damage.beam-tick` childrenへscheduleする。各childは合成Beam attack modeのbase Damage、共通固定Critical tier、resolved Armor、直前tickの残Healthを読む。最後tickは `timeLimitMs` 以下とし、最終時刻にBeam Damageと残Healthを専用Ruleで集約する。
+
 最後にGolden Scenario、Rule oracle、Kernel property test、Runtime/CLI E2E、skillの操作例を更新する。生成物freshnessとNode 24/26の全ゲートを通した後、本ExecPlanのProgress、発見、結果を更新してコミットする。
 
 ## Concrete Steps
@@ -419,6 +436,13 @@ CLIで新しいGolden Scenarioを実行する。
     pnpm exec vt trace data/fixtures/golden/multishot-critical-armor.scenario.json \
       --catalog data/fixtures/catalog-mini/catalog.json
 
+Beamマイルストーンでは次も実行する。
+
+    pnpm exec vt run data/fixtures/golden/resolved-beam-ticks.scenario.json \
+      --catalog data/fixtures/catalog-mini/catalog-beam.json
+    pnpm exec vt trace data/fixtures/golden/resolved-beam-ticks.scenario.json \
+      --catalog data/fixtures/catalog-mini/catalog-beam.json
+
 期待する観察結果は、複数のDirect Hitが順番にHealthへcommitされ、Traceに安定した子イベントIDと親子関係があり、Resultの最終HealthとTrace replayが一致することである。
 
 ## Validation and Acceptance
@@ -438,6 +462,8 @@ Resolved Direct＋Radial impactは、targets配列順と異なるrelation順、D
 別固定tier Direct＋Radial impactは、`criticalTier: 1`をDirectへ、`radialCriticalTier: 2`をRadialへbindする合成Goldenで受け入れる。TraceはDirectの `event.critical-tier` 1とRadial二件の2を区別し、Direct Damage 100、Radial Damage 162、合計262、終端Health A=80／C=48／B=60、残Health合計188を再生する。負数、非整数、安全でないtierは部分Artifactなしで拒否する。`radialCriticalTier`を省略した共有mode／別mode既存Goldenは共有tier挙動のまま残す。roll、Critical chance、roll共有規則、expected分岐、Projectile物理は扱わない。
 
 共有explicit-roll Direct＋Radial impactは、`criticalRoll: 0.2`を親impactで一度だけ解決し、primary modeのCritical chance `0.25`から得たtier 1をDirectと全Radial childrenへ継承する合成Goldenで受け入れる。Traceは一つの親roll decisionと各childのtier 1読取を区別し、Direct Damage 100、Radial Damage 135、合計235、終端Health A=100／C=55／B=60、残Health合計215を17 decisionsで再生する。`criticalTier`との併記、範囲外roll、別Radial mode、別Radial tier、子別roll、生成乱数、expected分岐は部分Artifactなしで拒否する。固定tierの既存Goldenは回帰試験に残す。
+
+Resolved Beam ticksは、base Damage 20、Critical tier 1、Armor 300、Health 50、tick数3、間隔100msの合成Goldenで受け入れる。Traceはscheduleの後、100／200／300msで各tickのBeam construct、Critical、Armor、Health commitを順に記録し、Health `50→30→10→0`、Beam Damage合計60、14 decisionsを再生する。tick数0／65以上、非整数、間隔0以下、safe integer overflow、time horizon超過は部分Artifactなしで拒否する。held durationからの導出、ramp、Fire Rate、Magazine／Ammo／Reload、Chain Beam、tick別roll、Status、expected値、生成乱数、現行WarframeのBeam式は扱わない。
 
 ## Idempotence and Recovery
 
