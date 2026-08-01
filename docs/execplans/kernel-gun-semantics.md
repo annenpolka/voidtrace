@@ -122,6 +122,8 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 13:34:07Z) 機能を`a85a038`としてコミットし、Node 24.18.0でも28テストファイル504件の全`check`を通した。feature commit後のfresh executorは対応／非対応を2回とも6/6、holdoutの単体Patch routingも6/6で通し、新規不明点0だった。usage metadataは取得不能のため定量収束は主張しない。
 - [x] (2026-08-01 13:34:07Z) 最終独立静的reviewはPkl／generated union、complete-set検査、全materialization barrier、派生Scenario integrity、resolved互換、SDK snapshot、oracle discovery、operator fixtureを照合し、actionable findingなしで完了した。
 - [x] (2026-08-01 13:37:26Z) 機能`a85a038`と検証記録`e96f809`をpublic mainへpushし、GitHub Actions `Check` run `30702050521`がhead `e96f809`に対して1分15秒で成功した。
+- [x] (2026-08-01 13:51:46Z) 単一軸有限Sweepについてcodebase-investigatorの6段階静的調査を完了し、`docs/investigations/finite-sweep-slice.md`へ現行flow、security、矛盾、代替案、採用境界、受け入れ条件を記録した。
+- [x] (2026-08-01 13:51:46Z) 次の縦切りを、Experiment `0.3.0`の第三homogeneous modeとして、1〜15件のexact Patchと明示`{path,value}`点を一対一照合する単一軸有限Sweepへ固定した。baseは別行、順序は宣言順、重複値は拒否し、Comparison `0.1.0`を再利用する。
 
 ## Surprises & Discoveries
 
@@ -262,6 +264,12 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 
 - Observation: Sweepを先に実装すると、現在分離しているPatch materializationとComparisonの原子性、exact membership、派生Scenario identity、failure topologyをSweep固有に再定義する必要がある。
   Evidence: 現行runnerは完全Scenario集合を要求し、materializerはExperimentを開始しない。Patch-backed Experimentを先に合成すれば、次の単一軸Sweepは同じ有限orchestrationへordered Patch pointsを供給するだけに狭められる。
+
+- Observation: plain Patch-backed Experimentだけでは、単一path、明示point、値の一意性を証明できず、A/B variant集合とSweepを機械的に区別できない。
+  Evidence: `Experiment 0.2.0`のPatch variantは`{id, patchRef}`だけで、各Patchは最大64の異なるpath操作を持てる。第三のclosed variant shapeで`patchRef`と`sweepPoint {path,value}`を併記し、一操作Patchと完全照合する必要がある。
+
+- Observation: 元計画のSweep例は明示値とrange、単軸と複数軸、単数` sweep.parameters`と複数`sweeps`が併存し、順序、重複、base、失敗、上限を確定していない。
+  Evidence: `VoidTrace計画.md`のP0-Bは一条件だけの変更を要求する一方、別例は21×3×2の126 Scenario直積を示す。現行Experiment上限は15 variantsであり、Breakpointの等値／単調性／未交差意味も未定義である。
 
 ## Decision Log
 
@@ -468,6 +476,14 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - Decision: `Experiment`を`0.2.0`へ上げ、variant sourceは既存の全resolved `{ id, scenarioRef }` または全Patch-backed `{ id, patchRef }` のどちらか一方とする。Patch modeはexact base Scenarioとexact Patch集合を全件検査・materializeしてからbase、variant宣言順で評価し、既存`Comparison 0.1.0`へ通常Scenario／Result参照を残す。
   Rationale: wire shape変更を`0.1.0`へ黙って追加せず、既存resolved modeを維持できる。混在source、部分materialization、Sweep、Breakpointを除外すると、最大15 variantsと各Patch最大64 operationsの有限境界でPatch provenanceとComparison integrityを一つのExperiment参照から再現できる。
   Date/Author: 2026-08-01 13:01:02Z / Codex
+
+- Decision: 最初のSweepは`Experiment 0.3.0`の第三homogeneous variant mode `{id, patchRef, sweepPoint:{path,value}}`とし、1〜15点の全path一致、canonical値一意、各exact Patchの単一replace operationとのpath／value完全一致を要求する。
+  Rationale: plain Patch-backed modeをSweepと呼ばず、値からPatch identityをruntime生成せず、Experiment内の分析意図とScenarioPatch内の実行内容をcontent-addressedに相互検査できる。third closed shapeならgenerated Schemaも通常Patchとの混在を拒否できる。
+  Date/Author: 2026-08-01 13:51:46Z / Codex
+
+- Decision: Sweepのbaseは既存Comparison base行として一度評価し、point列は宣言順に評価する。Comparison `0.1.0`を再利用し、独立Sweep result、range／step、sort、dedup、複数軸、直積、Breakpoint、winner／rankingを追加しない。
+  Rationale: ScenarioPatchはbaseと同値のno-opを拒否するためbase pointをPatch化しない。既存Comparisonはexact Experiment／Scenario／Result参照、metric、signed delta、atomic failureをすでに表現でき、別resultは同じintegrity意味論を重複させる。
+  Date/Author: 2026-08-01 13:51:46Z / Codex
 
 ## Outcomes & Retrospective
 
