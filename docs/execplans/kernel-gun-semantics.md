@@ -127,7 +127,9 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 14:12:08Z) `SWP-001`、Experiment Contract `0.3.0`、第三Sweep variant union、独立oracle登録をPklから27生成ファイルへ反映した。逆翻訳は58 active／0 planned、11 Contracts、`experiments.finite-sweep` supportedを示し、Ruleset `0.18.0` revision `1`は不変である。
 - [x] (2026-08-01 14:12:08Z) exact Patchとのpath／canonical value照合、単一path・1〜15点・値一意性、全件事前materialization、既存Comparison再利用をruntimeとSDKへ実装した。tier `0, 2, 3`の固定fixture、repository-local helper、契約／property／敵対／SDK／subprocessのtargeted 6ファイル81件が通過した。
 - [x] (2026-08-01 14:17:45Z) Node 26.0.0でformat、lint、typecheck、architecture boundary、27生成ファイルfreshness、58 Clauses、11 Contracts、30テストファイル528件を含む全`just check`を通した。
-- [ ] Node 24の全`just check`、最終独立review、feature commit、public push、GitHub Actions確認を完了する。
+- [x] (2026-08-01 14:20:36Z) 独立runtime／security reviewはactionable findingなしで完了した。trackedかつHEAD同一のfixtureだけを使うfinite Sweep goldenと全operator smokeがexit 0になり、機能を`70f6c0e`としてコミットした。
+- [x] (2026-08-01 14:20:36Z) Node 24.18.0でもformat、lint、typecheck、architecture boundary、freshness、30テストファイル528件を含む全`check`を通した。
+- [ ] 検証記録をコミットし、public mainへpushしてGitHub Actions成功を確認する。
 
 ## Surprises & Discoveries
 
@@ -961,6 +963,34 @@ Patch-backed Experimentマイルストーンのローカル受け入れ結果は
     feature commit: a85a038
     validation record commit: e96f809
     public GitHub Check: run 30702050521 for e96f809 succeeded in 1m15s
+
+有限Sweepマイルストーンのローカル受け入れ結果は次のとおりである。
+
+    Experiment / Comparison: 0.3.0 / 0.1.0
+    ScenarioPatch / Scenario: 0.1.0 / 0.3.0
+    Kernel Engine / Ruleset: unchanged at 0.19.0 / 0.18.0 revision 1
+    Clauses / Contracts / generated files: 58 active / 11 / 27
+    source modes: homogeneous resolved Scenario refs, ordinary ScenarioPatch refs, or finite Sweep points
+    Sweep boundary: 1-15 explicit points; one shared allowlisted path; canonical values unique
+    Patch binding: one exact replace operation whose path and canonical value match each point
+    atomicity: exact Patch set fully validates and materializes before the first evaluation
+    evaluation order: separate base row, then point declaration order; no sorting or deduplication
+    checked-in path: /actionPlan/0/parameters/criticalTier
+    checked-in base / points: tier 1 / tiers 0, 2, 3
+    metric values: 100 / 50, 150, 200
+    signed deltas: 0 / -50, +50, +100
+    fixture Experiment hash: sha256:cdf40a98d89562143fc3a9bccdce1d4b6504d5de743820f77db07bb54e5c59cc
+    Comparison hash: sha256:0bd5cc4e7bb82972c52db23e9a84fd34919501eb05dffa409792a8bb9e69ef9c
+    property/adversarial coverage: 1-15 points, permutations, mixed modes, path/value/operation mismatch, 0/-0 duplicate, no-op, arbitrary failures, mutation/accessor/Proxy containment
+    SDK/operator: checked-in Sweep runs through runExperiment; helper golden and complete smoke exit 0
+    Node 26.0.0: 30 test files / 528 tests
+    Node 24.18.0: 30 test files / 528 tests
+    independent review: no actionable findings
+    residual risks: descriptor snapshot has no byte/depth budget; string/boolean Sweep success lacks a dedicated end-to-end regression
+    unsupported: range/step generation, arbitrary/custom points in the helper, sorting/deduplication, multi-axis/products, Patch chains, Breakpoint, ruleset branches, generated randomness, Monte Carlo, ranking/interpolation/concurrency
+    formal CLI: unchanged (`describe` / `run` / `trace`)
+    investigation commit: 70d409e
+    feature commit: 70f6c0e
 
 ## Interfaces and Dependencies
 
