@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.capability-manifest",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:516abefc15923b0ae287c5ad4c57b2f67c20d7d0cd23ef318526d62e6b57b09c",
+  "sourceFingerprint": "sha256:c7d5a44e32430cf80cc4425343c9d2f6e7f0d2239250efd081965a3593cc67d6",
   "capabilities": [
     {
       "id": "specification.pipeline",
@@ -27,7 +27,7 @@
     },
     {
       "id": "kernel.foundation",
-      "status": "partial",
+      "status": "supported",
       "activeClauseRefs": [
         "ENG-001",
         "ENG-002",
@@ -35,11 +35,10 @@
         "SCP-001",
         "SCP-002",
         "SCP-003",
-        "TRC-001"
-      ],
-      "plannedClauseRefs": [
+        "TRC-001",
         "TRC-002"
-      ]
+      ],
+      "plannedClauseRefs": []
     },
     {
       "id": "mechanics.direct-critical-armor",

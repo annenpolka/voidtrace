@@ -180,6 +180,58 @@ describe("loadRuleset", () => {
     expect(loaded.resolveRule("rule.defense.standard-armor").phase).toBe("target.mitigate");
   });
 
+  it("exposes event predicates in the declaration order retained by the snapshot", async () => {
+    const loaded = await loadRuleset();
+    const candidates = loaded.snapshot.rules.filter((rule) => rule.phase === "critical.roll");
+
+    expect(candidates.map((rule) => rule.id)).toEqual([
+      "rule.impact.resolve-shared-critical-roll",
+      "rule.critical.resolve-tier-roll",
+    ]);
+    expect(
+      candidates.map((rule) => [
+        rule.id,
+        loaded.evaluateRuleEventPredicate(rule.id, "damage.direct"),
+      ]),
+    ).toEqual([
+      [
+        "rule.impact.resolve-shared-critical-roll",
+        {
+          matched: false,
+          rejectionStage: "predicate",
+          rejectionReason: {
+            code: "predicate.event-kind-mismatch",
+            message: "Rule event kind does not match the current event kind",
+          },
+          actualEventKind: "damage.direct",
+          expectedEventKind: "action.resolved-direct-radial-impact",
+        },
+      ],
+      ["rule.critical.resolve-tier-roll", { matched: true }],
+    ]);
+    expect(
+      candidates.map((rule) => [
+        rule.id,
+        loaded.evaluateRuleEventPredicate(rule.id, "action.resolved-direct-radial-impact"),
+      ]),
+    ).toEqual([
+      ["rule.impact.resolve-shared-critical-roll", { matched: true }],
+      [
+        "rule.critical.resolve-tier-roll",
+        {
+          matched: false,
+          rejectionStage: "predicate",
+          rejectionReason: {
+            code: "predicate.event-kind-mismatch",
+            message: "Rule event kind does not match the current event kind",
+          },
+          actualEventKind: "action.resolved-direct-radial-impact",
+          expectedEventKind: "damage.direct",
+        },
+      ],
+    ]);
+  });
+
   it("exposes the separate expected aggregate executor without weakening executeRule context", async () => {
     const loaded = await loadRuleset();
     const result = loaded.executeExpectedAggregateRule(

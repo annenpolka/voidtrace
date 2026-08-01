@@ -55,7 +55,13 @@
     "rule.radial.commit-health",
     "rule.impact.aggregate-resolved-direct-radial"
   ],
-  "rejectedRules": [],
+  "rejectedRules": [
+    {
+      "ruleId": "rule.critical.resolve-tier-roll",
+      "stage": "predicate",
+      "code": "predicate.event-kind-mismatch"
+    }
+  ],
   "directTargetId": "actor.target-a",
   "radialTargetOrder": ["actor.target-a", "actor.target-c"],
   "sharedCriticalRoll": 0.2,

@@ -31,6 +31,12 @@
     "rule.defense.standard-armor",
     "rule.damage.commit-health"
   ],
-  "rejectedRules": [],
+  "rejectedRules": [
+    {
+      "ruleId": "rule.impact.resolve-shared-critical-roll",
+      "stage": "predicate",
+      "code": "predicate.event-kind-mismatch"
+    }
+  ],
   "tolerance": 0.000001
 }

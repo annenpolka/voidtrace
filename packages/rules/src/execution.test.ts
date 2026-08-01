@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   type ExpectedAggregateContext,
+  evaluateRuleEventPredicate,
   executeExpectedAggregateRule,
   executeFixedMultishotRule,
   executeFixedPelletRule,
@@ -27,6 +28,7 @@ import {
   executeSequentialPelletAggregateRule,
   executeSequentialStatusTickAggregateRule,
   type RuleContext,
+  type RuleDefinition,
   scaleDamageVector,
   sumDamageVector,
 } from "./execution.ts";
@@ -101,6 +103,95 @@ describe("DamageVector operations", () => {
     expect(() => sumDamageVector({ "damage.synthetic": Number.NaN })).toThrowError(
       expect.objectContaining({ code: "invalid-damage-vector" }),
     );
+  });
+});
+
+describe("Rule event predicate evaluation", async () => {
+  const loaded = await loadRuleset();
+  const directCriticalRoll = loaded.resolveRule("rule.critical.resolve-tier-roll");
+
+  it("matches the candidate event kind without producing execution state", () => {
+    const evaluation = evaluateRuleEventPredicate(directCriticalRoll, "damage.direct");
+
+    expect(evaluation).toEqual({ matched: true });
+    expect(Object.isFrozen(evaluation)).toBe(true);
+  });
+
+  it("returns a deeply frozen rejection with stable reason and event-kind reads", () => {
+    const evaluation = evaluateRuleEventPredicate(
+      directCriticalRoll,
+      "action.resolved-direct-radial-impact",
+    );
+
+    expect(evaluation).toEqual({
+      matched: false,
+      rejectionStage: "predicate",
+      rejectionReason: {
+        code: "predicate.event-kind-mismatch",
+        message: "Rule event kind does not match the current event kind",
+      },
+      actualEventKind: "action.resolved-direct-radial-impact",
+      expectedEventKind: "damage.direct",
+    });
+    expect(Object.isFrozen(evaluation)).toBe(true);
+    expect(evaluation.matched).toBe(false);
+    if (!evaluation.matched) {
+      expect(Object.isFrozen(evaluation.rejectionReason)).toBe(true);
+    }
+  });
+
+  it("keeps mismatch output stable for arbitrary distinct event kinds", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 1_000_000 }).map((id) => `event.synthetic-${id}`),
+        (eventKind) => {
+          const evaluation = evaluateRuleEventPredicate(directCriticalRoll, eventKind);
+
+          expect(evaluation.matched).toBe(false);
+          if (evaluation.matched) {
+            throw new Error("A distinct event kind unexpectedly matched the Rule candidate");
+          }
+          expect(evaluation).toEqual({
+            matched: false,
+            rejectionStage: "predicate",
+            rejectionReason: {
+              code: "predicate.event-kind-mismatch",
+              message: "Rule event kind does not match the current event kind",
+            },
+            actualEventKind: eventKind,
+            expectedEventKind: "damage.direct",
+          });
+          expect(Object.isFrozen(evaluation)).toBe(true);
+          expect(Object.isFrozen(evaluation.rejectionReason)).toBe(true);
+        },
+      ),
+    );
+  });
+
+  it("reads only eventKind for both matches and mismatches", () => {
+    const accessed: PropertyKey[] = [];
+    const candidate = new Proxy(directCriticalRoll, {
+      get(target, property, receiver) {
+        accessed.push(property);
+        if (property !== "eventKind") {
+          throw new Error(`Unexpected Rule property access: ${String(property)}`);
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    }) as RuleDefinition;
+
+    expect(evaluateRuleEventPredicate(candidate, "damage.direct")).toEqual({ matched: true });
+    expect(accessed).toEqual(["eventKind"]);
+
+    accessed.length = 0;
+    expect(
+      evaluateRuleEventPredicate(candidate, "action.resolved-direct-radial-impact"),
+    ).toMatchObject({
+      matched: false,
+      actualEventKind: "action.resolved-direct-radial-impact",
+      expectedEventKind: "damage.direct",
+    });
+    expect(accessed).toEqual(["eventKind"]);
   });
 });
 

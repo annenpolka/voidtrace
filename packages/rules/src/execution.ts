@@ -167,6 +167,48 @@ export type PredicateRejectedRuleExecution = RuleExecutionBase & {
 
 export type RuleExecution = AppliedRuleExecution | PredicateRejectedRuleExecution;
 
+export type RuleEventPredicateEvaluation =
+  | {
+      readonly matched: true;
+    }
+  | {
+      readonly matched: false;
+      readonly rejectionStage: "predicate";
+      readonly rejectionReason: {
+        readonly code: "predicate.event-kind-mismatch";
+        readonly message: "Rule event kind does not match the current event kind";
+      };
+      readonly actualEventKind: string;
+      readonly expectedEventKind: string;
+    };
+
+const MATCHED_RULE_EVENT_PREDICATE: RuleEventPredicateEvaluation = Object.freeze({
+  matched: true,
+});
+
+const EVENT_KIND_MISMATCH_REASON = Object.freeze({
+  code: "predicate.event-kind-mismatch" as const,
+  message: "Rule event kind does not match the current event kind" as const,
+});
+
+export function evaluateRuleEventPredicate(
+  rule: RuleDefinition,
+  eventKind: string,
+): RuleEventPredicateEvaluation {
+  const expectedEventKind = rule.eventKind;
+  if (expectedEventKind === eventKind) {
+    return MATCHED_RULE_EVENT_PREDICATE;
+  }
+
+  return Object.freeze({
+    matched: false,
+    rejectionStage: "predicate",
+    rejectionReason: EVENT_KIND_MISMATCH_REASON,
+    actualEventKind: eventKind,
+    expectedEventKind,
+  });
+}
+
 type ValidatedRuleContext = {
   readonly baseDamage: DamageVector;
   readonly currentDamage: DamageVector;

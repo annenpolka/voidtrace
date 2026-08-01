@@ -9,6 +9,7 @@ import coreRuleset from "@voidtrace/spec-artifacts/rulesets/core" with { type: "
 import { RulesError } from "./errors.ts";
 import {
   type ExpectedAggregateContext,
+  evaluateRuleEventPredicate,
   executeExpectedAggregateRule,
   executeFixedMultishotRule,
   executeFixedPelletRule,
@@ -53,6 +54,7 @@ import {
   type ResolvedStatusTickScheduleContext,
   type RuleContext,
   type RuleDefinition,
+  type RuleEventPredicateEvaluation,
   type RuleExecution,
   type RuleOperationKind,
   type RulePhase,
@@ -62,6 +64,7 @@ import {
 export type LoadedRuleset = {
   readonly snapshot: Ruleset;
   resolveRule(id: string): RuleDefinition;
+  evaluateRuleEventPredicate(id: string, eventKind: string): RuleEventPredicateEvaluation;
   executeRule(id: string, context: RuleContext): RuleExecution;
   executeExpectedAggregateRule(id: string, context: ExpectedAggregateContext): RuleExecution;
   executeFixedMultishotRule(id: string, context: FixedMultishotContext): RuleExecution;
@@ -578,6 +581,8 @@ export async function loadRuleset(value: unknown = coreRuleset): Promise<LoadedR
   return Object.freeze({
     snapshot,
     resolveRule,
+    evaluateRuleEventPredicate: (id: string, eventKind: string): RuleEventPredicateEvaluation =>
+      evaluateRuleEventPredicate(resolveRule(id), eventKind),
     executeRule: (id: string, context: RuleContext): RuleExecution =>
       executeRule(resolveRule(id), context),
     executeExpectedAggregateRule: (id: string, context: ExpectedAggregateContext): RuleExecution =>

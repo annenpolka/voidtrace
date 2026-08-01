@@ -21,6 +21,7 @@ import {
   type LoadedRuleset,
   loadRuleset,
   type RuleDefinition,
+  type RuleEventPredicateEvaluation,
   type RuleExecution,
   RulesError,
   type ResolvedPunchThroughTargetHit,
@@ -36,7 +37,7 @@ import {
 import { replayTraceState, replayTraceTargetStates, TraceReplayError } from "./trace-replay.ts";
 import { createWorldState, replaceEntityState, type WorldState } from "./world-state.ts";
 
-export const KERNEL_ENGINE_VERSION = "0.18.0";
+export const KERNEL_ENGINE_VERSION = "0.19.0";
 export const DEFAULT_PRODUCT_VERSION = "0.0.0";
 
 export type EvaluationErrorCode =
@@ -119,6 +120,10 @@ const FIXED_MULTISHOT_EMISSION_PHASES = ["attack.emit"] as const satisfies Reado
 const SHARED_IMPACT_ROLL_PHASES = ["critical.roll"] as const satisfies ReadonlyArray<
   RuleDefinition["phase"]
 >;
+const TRACED_CRITICAL_ROLL_RULE_IDS = Object.freeze([
+  "rule.impact.resolve-shared-critical-roll",
+  "rule.critical.resolve-tier-roll",
+]);
 const FIXED_MULTISHOT_AGGREGATION_PHASES = ["result.aggregate"] as const satisfies ReadonlyArray<
   RuleDefinition["phase"]
 >;
@@ -428,6 +433,50 @@ function decisionForExecution(
     before: traceState(execution.before.damage, execution.before.health),
     after: traceState(execution.after.damage, execution.after.health),
   });
+}
+
+function decisionForEventPredicateRejection(
+  sequence: number,
+  event: KernelEvent<PhasePayload>,
+  rule: RuleDefinition,
+  evaluation: Exclude<RuleEventPredicateEvaluation, { readonly matched: true }>,
+): Trace["decisions"][number] {
+  return Object.freeze({
+    sequence,
+    eventId: event.id,
+    ...(event.parentEventId === undefined ? {} : { parentEventId: event.parentEventId }),
+    eventTimeMs: event.timeMs,
+    phase: rule.phase,
+    ruleId: rule.id,
+    outcome: "rejected",
+    rejectionStage: evaluation.rejectionStage,
+    rejectionReason: evaluation.rejectionReason,
+    matched: false,
+    reads: Object.freeze({
+      "event.kind": evaluation.actualEventKind,
+      "rule.event-kind": evaluation.expectedEventKind,
+    }),
+    evidenceStatus: rule.evidenceStatus,
+    evidenceIds: rule.evidenceIds,
+  });
+}
+
+function criticalRollPredicateRejection(
+  ruleset: LoadedRuleset,
+  rule: RuleDefinition,
+  event: KernelEvent<PhasePayload>,
+  sequence: number,
+): Trace["decisions"][number] | null {
+  if (
+    event.payload.phase !== "critical.roll" ||
+    !TRACED_CRITICAL_ROLL_RULE_IDS.some((candidateId) => candidateId === rule.id)
+  ) {
+    return null;
+  }
+  const evaluation = ruleset.evaluateRuleEventPredicate(rule.id, event.kind);
+  return evaluation.matched
+    ? null
+    : decisionForEventPredicateRejection(sequence, event, rule, evaluation);
 }
 
 function createPhaseEvents(options: {
@@ -788,7 +837,21 @@ function evaluateDeterministicRuntime(
     phases,
   }).drain()) {
     for (const rule of ruleset.snapshot.rules) {
-      if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+      if (rule.phase !== event.payload.phase) {
+        continue;
+      }
+      const predicateRejection = criticalRollPredicateRejection(
+        ruleset,
+        rule,
+        event,
+        decisionSequence,
+      );
+      if (predicateRejection !== null) {
+        decisions.push(predicateRejection);
+        decisionSequence += 1;
+        continue;
+      }
+      if (rule.eventKind !== event.kind) {
         continue;
       }
       const execution = ruleset.executeRule(
@@ -1692,7 +1755,21 @@ function evaluateResolvedRadialTargetsRuntime(
     }).drain()) {
       childParentEventId = event.id;
       for (const rule of ruleset.snapshot.rules) {
-        if (rule.phase !== event.payload.phase || rule.eventKind !== event.kind) {
+        if (rule.phase !== event.payload.phase) {
+          continue;
+        }
+        const predicateRejection = criticalRollPredicateRejection(
+          ruleset,
+          rule,
+          event,
+          decisionSequence,
+        );
+        if (predicateRejection !== null) {
+          decisions.push(predicateRejection);
+          decisionSequence += 1;
+          continue;
+        }
+        if (rule.eventKind !== event.kind) {
           continue;
         }
         const execution = ruleset.executeRule(

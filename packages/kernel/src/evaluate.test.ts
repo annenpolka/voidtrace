@@ -415,8 +415,10 @@ describe("evaluateScenario", () => {
       }));
     expect(appliedRuleIds).toEqual(probabilityExpectedFixture.appliedRuleIds);
     expect(rejectedRules).toEqual(probabilityExpectedFixture.rejectedRules);
-    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual([0, 1, 2, 3, 4]);
-    expect(outcome.trace.decisions[1]).toMatchObject({
+    expect(outcome.trace.decisions.map((decision) => decision.sequence)).toEqual([
+      0, 1, 2, 3, 4, 5,
+    ]);
+    expect(outcome.trace.decisions[2]).toMatchObject({
       outcome: "applied",
       phase: "critical.roll",
       ruleId: "rule.critical.resolve-tier-roll",
@@ -496,7 +498,7 @@ describe("evaluateScenario", () => {
       unsupported: [],
       approximated: [],
     });
-    expect(outcome.trace.decisions[1]).toMatchObject({
+    expect(outcome.trace.decisions[2]).toMatchObject({
       outcome: "applied",
       phase: "critical.roll",
       ruleId: "rule.critical.resolve-tier-roll",
@@ -531,7 +533,7 @@ describe("evaluateScenario", () => {
         "target.health": 1000,
       },
     });
-    expect(outcome.trace.decisions[2]).toMatchObject({
+    expect(outcome.trace.decisions[3]).toMatchObject({
       outcome: "applied",
       phase: "critical.resolve",
       ruleId: "rule.critical.scale-tier",
@@ -1778,6 +1780,15 @@ describe("evaluateScenario", () => {
     expect(sharedRollDecision?.operations[0]?.parameters.resolvedTier).toBe(
       sharedRollImpactExpectedFixture.resolvedCriticalTier,
     );
+    expect(
+      outcome.trace.decisions
+        .filter((decision) => decision.outcome === "rejected")
+        .map((decision) => ({
+          ruleId: decision.ruleId,
+          stage: decision.rejectionStage,
+          code: decision.rejectionReason.code,
+        })),
+    ).toEqual(sharedRollImpactExpectedFixture.rejectedRules);
     const childCriticalDecisions = outcome.trace.decisions.filter(
       (decision) =>
         decision.ruleId === "rule.critical.scale-tier" ||
@@ -1796,7 +1807,7 @@ describe("evaluateScenario", () => {
       sharedRollDecision?.eventId,
       sharedRollDecision?.eventId,
     ]);
-    expect(outcome.trace.decisions).toHaveLength(17);
+    expect(outcome.trace.decisions).toHaveLength(18);
     expect(
       await replayTraceTargetStates(outcome.trace, {
         "actor.target-a": 300,

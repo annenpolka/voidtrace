@@ -4,7 +4,7 @@
 
 - Schema version: `0.1.0`
 - Source: `specs/main.pkl`
-- Source fingerprint: `sha256:516abefc15923b0ae287c5ad4c57b2f67c20d7d0cd23ef318526d62e6b57b09c`
+- Source fingerprint: `sha256:c7d5a44e32430cf80cc4425343c9d2f6e7f0d2239250efd081965a3593cc67d6`
 - Generated contracts: 10 (see [CONTRACTS.md](./CONTRACTS.md))
 
 ## Maturity semantics
@@ -72,4 +72,4 @@ Contract validation alone never activates a Kernel or mechanics Clause.
 | `SCP-003` | `scope` | `unsupported_mechanic_rejected` | `property-tested` | `active` | Scenario targetGraphは、Kernel外で解決済みのimpact距離・LoS、ordered path、またはtarget別Pellet配分だけを有限構造として保持する。Runtimeは空relations、resolved punch-through／ricochet／chain Direct Hit列が参照する一つのordered path、resolved multi-target Radialまたはresolved Direct＋Radial impactが参照する同一impactの1以上64以下のimpact-distance relations、またはresolved Pellet allocationが参照する全target分のallocation relationsだけを受理し、その他の非空Target Graphや複数targetを黙って無視せずunsupportedとして部分Artifactなしで拒否する |
 | `STS-001` | `mechanics` | `resolved_status_ticks` | `property-tested` | `active` | action.resolved-status-ticksはstatus.synthetic-resolved-dot、有限な非負resolvedHealthDamagePerTick、1以上のsafe-integer tickCount、正のsafe-integer tickIntervalMsを受理する。最大64 tickをintervalの倍数時刻で単一targetのHealthへ順次commitし、最後のtickはScenario timeLimitMs以下でなければならない。Status chance、type抽選、付与元Direct／Radial、Critical、Armor、stack、refresh、snapshot式、暗黙rollは生成しない |
 | `TRC-001` | `kernel` | `trace_reconstructs_result` | `property-tested` | `active` | Scenarioの初期HealthをアンカーとしてTraceの順序付きDamage Vector、Health commit、expected branch集約を再生すると、Resultの最終Damage Vectorとdeterministicまたはexpectedの残Healthに一致する |
-| `TRC-002` | `kernel` | `rejected_rule_has_reason` | `property-tested` | `planned` | 不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する |
+| `TRC-002` | `kernel` | `rejected_rule_has_reason` | `property-tested` | `active` | critical.roll phaseではRuleset宣言順のrule.impact.resolve-shared-critical-rollとrule.critical.resolve-tier-rollを候補として検査する。候補のevent kindが現在のevent kindと一致しない場合、mechanic contextを読まずoperationを実行せずWorld Stateとmetricを変更せず、Traceへoutcome rejected、matched false、rejectionStage predicate、rejectionReason code predicate.event-kind-mismatch、実際と期待のevent kind readを持つdecisionを記録する。一致する候補は通常どおり適用する。このsliceはguard／operation rejectionまたは他phaseの全候補記録を保証しない |

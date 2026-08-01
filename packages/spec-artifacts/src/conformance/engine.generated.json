@@ -1,7 +1,7 @@
 {
   "kind": "voidtrace.engine-conformance",
   "schemaVersion": "0.1.0",
-  "sourceFingerprint": "sha256:516abefc15923b0ae287c5ad4c57b2f67c20d7d0cd23ef318526d62e6b57b09c",
+  "sourceFingerprint": "sha256:c7d5a44e32430cf80cc4425343c9d2f6e7f0d2239250efd081965a3593cc67d6",
   "activeClauses": [
     {
       "id": "BEM-001",
@@ -434,16 +434,15 @@
       "guarantee": "property-tested",
       "maturity": "active",
       "area": "kernel"
-    }
-  ],
-  "plannedClauses": [
+    },
     {
       "id": "TRC-002",
       "pattern": "rejected_rule_has_reason",
-      "desc": "不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する",
+      "desc": "critical.roll phaseではRuleset宣言順のrule.impact.resolve-shared-critical-rollとrule.critical.resolve-tier-rollを候補として検査する。候補のevent kindが現在のevent kindと一致しない場合、mechanic contextを読まずoperationを実行せずWorld Stateとmetricを変更せず、Traceへoutcome rejected、matched false、rejectionStage predicate、rejectionReason code predicate.event-kind-mismatch、実際と期待のevent kind readを持つdecisionを記録する。一致する候補は通常どおり適用する。このsliceはguard／operation rejectionまたは他phaseの全候補記録を保証しない",
       "guarantee": "property-tested",
-      "maturity": "planned",
+      "maturity": "active",
       "area": "kernel"
     }
-  ]
+  ],
+  "plannedClauses": []
 }

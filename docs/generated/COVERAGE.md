@@ -5,11 +5,11 @@
 ## Current state
 
 - Total clauses: 55
-- Active clauses: 54
-- Planned clauses: 1
+- Active clauses: 55
+- Planned clauses: 0
 - Retired clauses: 0
 
-54 Clauses are active. Machine-verified Clauses have independent oracles exercised by `just check`; manual Clauses remain review obligations.
+55 Clauses are active. Machine-verified Clauses have independent oracles exercised by `just check`; manual Clauses remain review obligations.
 A planned property-test is a declared obligation, not a passing runtime guarantee.
 
 The 10 generated Contract schemas are independently compiled and

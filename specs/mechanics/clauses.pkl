@@ -155,6 +155,7 @@ traceReconstructsDamage: base.TraceReconstructsResult = new {
 
 rejectedRuleHasReason: base.RejectedRuleHasReason = new {
   id = "TRC-002"
-  desc = "不適用RuleのTrace decisionにはrejection stageと安定した構造化理由が存在する"
-  maturity = "planned"
+  desc =
+    "critical.roll phaseではRuleset宣言順のrule.impact.resolve-shared-critical-rollとrule.critical.resolve-tier-rollを候補として検査する。候補のevent kindが現在のevent kindと一致しない場合、mechanic contextを読まずoperationを実行せずWorld Stateとmetricを変更せず、Traceへoutcome rejected、matched false、rejectionStage predicate、rejectionReason code predicate.event-kind-mismatch、実際と期待のevent kind readを持つdecisionを記録する。一致する候補は通常どおり適用する。このsliceはguard／operation rejectionまたは他phaseの全候補記録を保証しない"
+  maturity = "active"
 }
