@@ -99,7 +99,7 @@ VoidTrace Kernelを、合成データによる単発Direct Hit計算から、銃
 - [x] (2026-08-01 07:36:10Z) empirical-prompt-tuningを比較対応／符号解釈／未対応Patch等で2回、custom Beam比較hold-outと修正後targeted rerunで実施した。最終2件は100%、critical全通過、retry 0、target-instruction不明点0。helper追跡状態、紹介と代替実行、unsupported routingの3点を修正した。tool-use／durationは取得不能のため定量収束を主張しない。
 - [x] (2026-08-01 07:57:57Z) 最終adversarial／contract reviewを反映し、SDKの最初のawait前snapshot、accessor非実行／秘密非漏洩、extra field拒否、1〜15 variantsのfast-check propertyを `9965e5b` としてコミットした。独立再レビューにactionable findingは残らなかった。
 - [x] (2026-08-01 07:57:57Z) Node 26.0.0とNode 24.18.0の双方で、26生成ファイルのfreshness、55 Clauses、10 Contracts、23テストファイル444件を含む `just check` を通した。
-- [ ] 最終文書コミット、public push、GitHub Actions確認を完了する。
+- [x] (2026-08-01 08:06:59Z) 最終skill／README／AGENTS／ExecPlanを `acf1616` としてpublic mainへpushし、GitHub Actions `Check` run `30691057997` がhead `acf1616` に対して1分11秒で成功した。
 
 ## Surprises & Discoveries
 
@@ -801,6 +801,7 @@ Experimentマイルストーンの受け入れ結果は次のとおりである�
     empirical targeted final: 2/2 at 100%, retries 0, target-instruction unclear 0
     empirical usage metadata: tool uses and duration unavailable; quantitative convergence not claimed
     implementation commits: 88a846f, 69e881a, e3192a3, 9965e5b
+    public GitHub Check: run 30691057997 for acf1616 succeeded in 1m11s
     formal CLI: unchanged
 
 ## Interfaces and Dependencies
