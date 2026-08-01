@@ -1,0 +1,24 @@
+{
+  "experimentId": "experiment.golden-resolved-comparison",
+  "comparisonId": "comparison.experiment.golden-resolved-comparison",
+  "primaryMetric": "damage.health.total",
+  "base": {
+    "scenarioId": "scenario.golden-direct-critical-armor",
+    "metricValue": 100,
+    "deltaFromBase": 0
+  },
+  "variants": [
+    {
+      "id": "variant.explicit-roll",
+      "scenarioId": "scenario.golden-probability-critical-armor",
+      "metricValue": 100,
+      "deltaFromBase": 0
+    },
+    {
+      "id": "variant.radial",
+      "scenarioId": "scenario.golden-radial-critical-armor",
+      "metricValue": 75,
+      "deltaFromBase": -25
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "urn:voidtrace:schema:experiment:0.1.0",
+  "kind": "voidtrace.experiment",
+  "schemaVersion": "0.1.0",
+  "id": "experiment.golden-resolved-comparison",
+  "revision": 0,
+  "contentHash": "sha256:ba518c6784a98aa2915b3da380f141ce5fe64726a6f556e9ef6fe30c090140b9",
+  "gameBuild": "synthetic-fixture-0",
+  "catalogRef": {
+    "kind": "catalog-snapshot",
+    "schemaVersion": "0.1.0",
+    "id": "catalog.synthetic-mini",
+    "revision": 0,
+    "contentHash": "sha256:006b3b5671b11df87c1b1a905ba99c0c925c468bf090197f9c2de6a1c4130437",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "rulesetRef": {
+    "kind": "ruleset",
+    "schemaVersion": "0.18.0",
+    "id": "ruleset.synthetic-core",
+    "revision": 1,
+    "contentHash": "sha256:30813f8a72f38145f911657da72f7117495b1000fdf5ea68e10975e79c26a00b",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "baseScenarioRef": {
+    "kind": "voidtrace.scenario",
+    "schemaVersion": "0.3.0",
+    "id": "scenario.golden-direct-critical-armor",
+    "revision": 2,
+    "contentHash": "sha256:77214ec7c647cc6964075fe439693b5b9048f560aef3e65cb2a486de93cd5bfb",
+    "gameBuild": "synthetic-fixture-0"
+  },
+  "variants": [
+    {
+      "id": "variant.explicit-roll",
+      "scenarioRef": {
+        "kind": "voidtrace.scenario",
+        "schemaVersion": "0.3.0",
+        "id": "scenario.golden-probability-critical-armor",
+        "revision": 1,
+        "contentHash": "sha256:7c7d3f9d0efbf2f9c0758dac810709795e05eb8b50ce89fb89efd8d7633191b0",
+        "gameBuild": "synthetic-fixture-0"
+      }
+    },
+    {
+      "id": "variant.radial",
+      "scenarioRef": {
+        "kind": "voidtrace.scenario",
+        "schemaVersion": "0.3.0",
+        "id": "scenario.golden-radial-critical-armor",
+        "revision": 0,
+        "contentHash": "sha256:322d71b66fc3272d4acbd90727850519c84e27b7e765312c177d039d3cad0da3",
+        "gameBuild": "synthetic-fixture-0"
+      }
+    }
+  ],
+  "primaryMetric": "damage.health.total"
+}

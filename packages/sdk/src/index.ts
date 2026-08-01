@@ -1,3 +1,4 @@
+import { type ExperimentOutcome, runResolvedComparison } from "@voidtrace/experiments";
 import {
   type EvaluationOutcome,
   evaluateScenario as evaluateKernelScenario,
@@ -13,6 +14,14 @@ export type SdkEvaluationRequest = {
 };
 
 export type SdkEvaluationOutcome = EvaluationOutcome;
+
+export type SdkExperimentRequest = {
+  readonly experiment: unknown;
+  readonly scenarios: ReadonlyArray<unknown>;
+  readonly catalog: unknown;
+};
+
+export type SdkExperimentOutcome = ExperimentOutcome;
 
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== "object") {
@@ -36,5 +45,15 @@ export async function evaluateScenario(
     scenario: request.scenario,
     catalog: request.catalog,
     ruleset,
+  });
+}
+
+export async function runExperiment(request: SdkExperimentRequest): Promise<SdkExperimentOutcome> {
+  const ruleset = await loadCoreRuleset();
+  return runResolvedComparison({
+    experiment: request.experiment,
+    scenarios: request.scenarios,
+    catalog: request.catalog,
+    ruleset: ruleset.snapshot,
   });
 }

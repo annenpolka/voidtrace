@@ -54,6 +54,15 @@ importers:
         specifier: 8.20.0
         version: 8.20.0
 
+  packages/experiments:
+    dependencies:
+      '@voidtrace/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@voidtrace/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+
   packages/kernel:
     dependencies:
       '@voidtrace/catalog':
@@ -86,6 +95,9 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@voidtrace/experiments':
+        specifier: workspace:*
+        version: link:../experiments
       '@voidtrace/kernel':
         specifier: workspace:*
         version: link:../kernel
